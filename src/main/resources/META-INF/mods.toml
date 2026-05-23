@@ -1,0 +1,38 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="ata"
+version="1.1.0"
+displayName="Air Tactical Arsenal"
+description='''
+Adds tactical drones, missiles, radar systems and alert sirens to Minecraft.
+'''
+logoFile="logo.png"
+credits="For KrutEvent"
+authors="synarsis"
+
+[[dependencies.ata]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.ata]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.ata]]
+modId="geckolib"
+mandatory=true
+versionRange="[4.4,)"
+ordering="AFTER"
+side="BOTH"
+
+[[mixins]]
+config="ata.mixins.json"

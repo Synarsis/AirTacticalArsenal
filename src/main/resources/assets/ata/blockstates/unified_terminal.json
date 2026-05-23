@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ata:block/unified_terminal" },
+    "facing=south": { "model": "ata:block/unified_terminal", "y": 180 },
+    "facing=west": { "model": "ata:block/unified_terminal", "y": 270 },
+    "facing=east": { "model": "ata:block/unified_terminal", "y": 90 }
+  }
+}

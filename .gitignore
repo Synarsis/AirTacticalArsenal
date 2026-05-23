@@ -1,0 +1,50 @@
+# Gradle
+.gradle/
+build/
+out/
+bin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Forge / MinecraftForge
+run/
+runs/
+logs/
+*.log
+*.log.gz
+crash-reports/
+forge-*-changelog.txt
+
+# IDE — IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# IDE — Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# IDE — VSCode
+.vscode/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / local config
+*.local
+*.env
+secrets.properties
+local.properties
+
+# Build artifacts
+*.jar.bak
+hs_err_pid*.log
+replay_pid*.log
+
+# Vendored third-party jars (TacZ etc) — see libs/README.txt
+libs/*.jar

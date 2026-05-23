@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "ata:block/unified_terminal_back",
+    "down": "ata:block/unified_terminal_back",
+    "up": "ata:block/unified_terminal_back",
+    "north": "ata:block/unified_terminal",
+    "south": "ata:block/unified_terminal_back",
+    "west": "ata:block/unified_terminal_back",
+    "east": "ata:block/unified_terminal_back"
+  }
+}

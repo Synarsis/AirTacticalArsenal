@@ -1,0 +1,20 @@
+{
+  "type": "ata:spray_can_crafting",
+  "pattern": [
+    " I ",
+    "IGI",
+    " I "
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    }
+  },
+  "result": {
+    "item": "ata:spray_can",
+    "count": 1
+  }
+}

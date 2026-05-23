@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,loaded=false": { "model": "ata:block/loading_hatch" },
+    "facing=south,loaded=false": { "model": "ata:block/loading_hatch", "y": 180 },
+    "facing=west,loaded=false": { "model": "ata:block/loading_hatch", "y": 270 },
+    "facing=east,loaded=false": { "model": "ata:block/loading_hatch", "y": 90 },
+    "facing=north,loaded=true": { "model": "ata:block/loading_hatch_loaded" },
+    "facing=south,loaded=true": { "model": "ata:block/loading_hatch_loaded", "y": 180 },
+    "facing=west,loaded=true": { "model": "ata:block/loading_hatch_loaded", "y": 270 },
+    "facing=east,loaded=true": { "model": "ata:block/loading_hatch_loaded", "y": 90 }
+  }
+}
