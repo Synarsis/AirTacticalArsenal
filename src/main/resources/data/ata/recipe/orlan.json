@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ISI",
+    "IRI",
+    "IGI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "S": {"item": "minecraft:spyglass"},
+    "R": {"item": "minecraft:redstone"},
+    "G": {"item": "minecraft:glass_pane"}
+  },
+  "result": {
+    "id": "ata:orlan",
+    "count": 1
+  }
+}

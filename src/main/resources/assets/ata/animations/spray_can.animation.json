@@ -1,0 +1,46 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"idle": {
+			"loop": true,
+			"animation_length": 1,
+			"bones": {}
+		},
+		"spray": {
+			"loop": true,
+			"animation_length": 0.5,
+			"bones": {
+				"nozzle": {
+					"rotation": {
+						"0.0": [0, 0, 0],
+						"0.125": [-5, 0, 0],
+						"0.25": [0, 0, 0],
+						"0.375": [-5, 0, 0],
+						"0.5": [0, 0, 0]
+					}
+				},
+				"cap": {
+					"position": {
+						"0.0": [0, 0, 0],
+						"0.125": [0, -0.2, 0],
+						"0.25": [0, 0, 0],
+						"0.375": [0, -0.2, 0],
+						"0.5": [0, 0, 0]
+					}
+				}
+			}
+		},
+		"spray_use": {
+			"loop": "hold_on_last_frame",
+			"animation_length": 0.75,
+			"bones": {
+				"group2": {
+					"position": {
+						"0.0": [0, 0, 0],
+						"0.75": [0, -0.575, 0]
+					}
+				}
+			}
+		}
+	}
+}

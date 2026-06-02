@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "INI",
+    "IRI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "minecraft:copper_ingot"},
+    "N": {"item": "minecraft:note_block"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "result": {
+    "id": "ata:siren",
+    "count": 1
+  }
+}

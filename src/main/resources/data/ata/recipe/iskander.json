@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " N ",
+    "BTB",
+    "BFB"
+  ],
+  "key": {
+    "N": {"item": "minecraft:netherite_ingot"},
+    "B": {"item": "minecraft:iron_block"},
+    "T": {"item": "minecraft:tnt"},
+    "F": {"item": "minecraft:blaze_powder"}
+  },
+  "result": {
+    "id": "ata:iskander",
+    "count": 1
+  }
+}

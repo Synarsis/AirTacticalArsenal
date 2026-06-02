@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "ata:launcher",
+    "ata:loading_hatch",
+    "ata:shahed_terminal",
+    "ata:shahed_radar",
+    "ata:siren",
+    "ata:unified_terminal"
+  ]
+}

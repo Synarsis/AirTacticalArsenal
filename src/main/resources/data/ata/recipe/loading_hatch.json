@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "IHI",
+    "IRI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "H": {"item": "minecraft:hopper"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "result": {
+    "id": "ata:loading_hatch",
+    "count": 1
+  }
+}

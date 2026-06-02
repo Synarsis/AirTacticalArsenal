@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BIB",
+    "IDI",
+    "BPB"
+  ],
+  "key": {
+    "B": {"item": "minecraft:iron_block"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "D": {"item": "minecraft:dispenser"},
+    "P": {"item": "minecraft:piston"}
+  },
+  "result": {
+    "id": "ata:orlan_launcher",
+    "count": 1
+  }
+}

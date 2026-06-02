@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RCR",
+    "CRC",
+    "RCR"
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "minecraft:copper_ingot"}
+  },
+  "result": {
+    "id": "ata:launch_interface_cable",
+    "count": 2
+  }
+}

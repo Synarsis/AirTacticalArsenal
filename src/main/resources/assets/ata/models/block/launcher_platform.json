@@ -1,0 +1,9 @@
+{
+  "credit": "Made with Blockbench - ATA Launcher Platform",
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "0": "ata:block/launcher_base",
+    "all": "ata:block/launcher_base",
+    "particle": "ata:block/launcher_base"
+  }
+}

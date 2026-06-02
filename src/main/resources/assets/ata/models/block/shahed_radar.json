@@ -1,0 +1,16 @@
+{
+  "credit": "Made with Blockbench",
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "0": "ata:block/radar_screen",
+    "1": "ata:block/radar_bottom",
+    "2": "ata:block/radar_side",
+    "up": "ata:block/radar_screen",
+    "down": "ata:block/radar_bottom",
+    "north": "ata:block/radar_side",
+    "south": "ata:block/radar_side",
+    "east": "ata:block/radar_side",
+    "west": "ata:block/radar_side",
+    "particle": "ata:block/radar_side"
+  }
+}

@@ -1,0 +1,24 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.shahed.fly": {
+			"animation_length": 1,
+			"bones": {
+				"bone": {
+					"rotation": {
+						"0.0": [0, 0, 0],
+						"1.0": {
+							"pre": [0, 0, -1980],
+							"post": [0, 0, -1980],
+							"lerp_mode": "catmullrom"
+						}
+					}
+				}
+			}
+		},
+		"animation.shahed.dive": {
+			"loop": true,
+			"animation_length": 1
+		}
+	}
+}

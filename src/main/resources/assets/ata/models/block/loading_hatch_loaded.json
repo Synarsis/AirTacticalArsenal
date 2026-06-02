@@ -1,0 +1,9 @@
+{
+  "credit": "Made with Blockbench",
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "0": "ata:block/loading_hatch_loaded",
+    "all": "ata:block/loading_hatch_loaded",
+    "particle": "ata:block/loading_hatch_loaded"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BIB",
+    "IDI",
+    "BRB"
+  ],
+  "key": {
+    "B": {"item": "minecraft:iron_block"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "D": {"item": "minecraft:dispenser"},
+    "R": {"item": "minecraft:redstone_block"}
+  },
+  "result": {
+    "id": "ata:shahed_launcher",
+    "count": 1
+  }
+}

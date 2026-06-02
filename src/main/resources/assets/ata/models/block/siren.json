@@ -1,0 +1,18 @@
+{
+  "credit": "Made with Blockbench",
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "0": "ata:block/siren_top",
+    "1": "ata:block/siren_bottom",
+    "2": "ata:block/siren_front",
+    "3": "ata:block/siren_back",
+    "4": "ata:block/siren_side",
+    "up": "ata:block/siren_top",
+    "down": "ata:block/siren_bottom",
+    "north": "ata:block/siren_front",
+    "south": "ata:block/siren_back",
+    "east": "ata:block/siren_side",
+    "west": "ata:block/siren_side",
+    "particle": "ata:block/siren_side"
+  }
+}

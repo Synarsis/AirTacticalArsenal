@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "ata:block/siren"
+    },
+    "powered=true": {
+      "model": "ata:block/siren_on"
+    }
+  }
+}
+
+
+

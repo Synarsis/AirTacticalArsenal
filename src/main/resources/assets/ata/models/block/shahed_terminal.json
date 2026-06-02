@@ -1,0 +1,18 @@
+{
+  "credit": "Made with Blockbench",
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "0": "ata:block/terminal_top",
+    "1": "ata:block/terminal_bottom",
+    "2": "ata:block/terminal_screen",
+    "3": "ata:block/terminal_back",
+    "4": "ata:block/terminal_side",
+    "up": "ata:block/terminal_top",
+    "down": "ata:block/terminal_bottom",
+    "north": "ata:block/terminal_screen",
+    "south": "ata:block/terminal_back",
+    "east": "ata:block/terminal_side",
+    "west": "ata:block/terminal_side",
+    "particle": "ata:block/terminal_side"
+  }
+}

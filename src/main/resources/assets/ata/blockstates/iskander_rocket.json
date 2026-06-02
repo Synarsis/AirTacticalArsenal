@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ata:block/iskander_rocket" },
+    "facing=south": { "model": "ata:block/iskander_rocket", "y": 180 },
+    "facing=west": { "model": "ata:block/iskander_rocket", "y": 270 },
+    "facing=east": { "model": "ata:block/iskander_rocket", "y": 90 }
+  }
+}

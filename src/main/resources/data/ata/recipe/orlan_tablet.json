@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GEG",
+    "RCR",
+    "III"
+  ],
+  "key": {
+    "G": {"item": "minecraft:glass_pane"},
+    "E": {"item": "minecraft:ender_eye"},
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "minecraft:comparator"},
+    "I": {"item": "minecraft:iron_ingot"}
+  },
+  "result": {
+    "id": "ata:orlan_tablet",
+    "count": 1
+  }
+}
