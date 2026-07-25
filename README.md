@@ -8,7 +8,7 @@
 </p>
 
 Forge 1.20.1 mod that adds tactical drones, ballistic missiles, an air-defense
-radar and alert sirens to Minecraft. Made for the **KrutEvent** server.
+radar and alert sirens to Minecraft.
 
 modId: `ata`
 
