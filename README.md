@@ -167,6 +167,5 @@ Short version:
 - non-commercial servers: allowed
 - redistribution and forks: must keep the same license and attribution
 - commercial use: needs written permission
-- KrutEvent has an extended grant (see section 5 of the license)
 - third-party libraries, fonts, sounds and textures stay under their
   upstream licenses
