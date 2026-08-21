@@ -20,7 +20,6 @@
   "subtitles.ata.iskander_explosion": "Massive explosion",
   "subtitles.ata.iskander_preparing": "Missile preparing",
   "subtitles.ata.iskander_terminal": "Missile diving",
-  
   "gui.ata.terminal.title": "SHAHED TERMINAL",
   "gui.ata.terminal.coord_x": "Coordinate X:",
   "gui.ata.terminal.coord_z": "Coordinate Z:",
@@ -29,7 +28,6 @@
   "gui.ata.terminal.error.forbidden": "Forbidden zone!",
   "gui.ata.terminal.error.format": "Invalid coordinate format!",
   "gui.ata.terminal.warning.forbidden": "FORBIDDEN ZONE!",
-  
   "gui.ata.radar.title": "TACTICAL RADAR",
   "gui.ata.radar.detected": "Detected: %s",
   "gui.ata.radar.range": "Range: %s blocks",
@@ -38,7 +36,6 @@
   "gui.ata.radar.zoom": "Zoom: %.1fx",
   "gui.ata.radar.center": "Center: %d, %d",
   "gui.ata.radar.controls": "Scroll: Zoom | Drag: Pan",
-
   "gui.ata.unified_terminal.title": "ISKANDER CONTROL TERMINAL",
   "gui.ata.unified_terminal.shahed": "SHAHED-136",
   "gui.ata.unified_terminal.iskander": "ISKANDER-M",
@@ -54,11 +51,9 @@
   "gui.ata.unified_terminal.error.min_distance": "Min. distance: %s blocks!",
   "gui.ata.unified_terminal.error.max_distance": "Max. distance: %s blocks!",
   "gui.ata.unified_terminal.error.all_busy": "All launchers busy!",
-
   "message.ata.launcher.no_space": "Not enough space for 5x5 launcher!",
   "message.ata.launcher.too_close": "Too close to another launcher! Minimum %s blocks.",
   "message.ata.launcher.blocked": "Launcher is blocked! Remove obstacles above.",
-  
   "message.ata.rocket.invalid_launcher": "Invalid launcher!",
   "message.ata.rocket.already_loaded": "Rocket already installed on this launcher!",
   "message.ata.rocket.no_rocket": "You don't have an Iskander rocket in your inventory!",
@@ -72,7 +67,6 @@
   "message.ata.rocket.launch_started": "Countdown started! 7 seconds to launch.",
   "message.ata.rocket.removed": "Rocket removed from launcher!",
   "message.ata.rocket.blocked_above": "Obstacle above rocket! Remove blocks above.",
-  
   "gui.ata.unified_terminal.install_rocket": "INSTALL ROCKET",
   "gui.ata.unified_terminal.launch_rocket": "LAUNCH",
   "gui.ata.unified_terminal.launcher_empty": "Empty",
@@ -80,7 +74,6 @@
   "gui.ata.unified_terminal.launcher_launching": "Launch: %ss",
   "gui.ata.unified_terminal.select_launcher": "Select launcher:",
   "gui.ata.unified_terminal.eta": "ETA: %s sec (incl. 7s prep)",
-
   "command.ata.shahed.low": "Shahed launched in low dive mode",
   "command.ata.shahed.high": "Shahed launched in high dive mode",
   "command.ata.config.title": "═══ ATA Settings ═══",
@@ -115,20 +108,30 @@
   "command.ata.config.whitelist.enabled": "Whitelist enabled",
   "command.ata.config.whitelist.disabled": "Whitelist disabled",
   "command.ata.config.reload": "Config reloaded",
-
   "item.ata.launch_interface_cable": "Launch Interface Cable",
   "item.ata.launch_interface_cable.tooltip.registered": "Registered Launcher:",
   "item.ata.launch_interface_cable.tooltip.usage": "Right-click Launcher to register",
   "item.ata.launch_interface_cable.tooltip.usage2": "Right-click Terminal to connect",
   "item.ata.launch_interface_cable.tooltip.range": "Max range: 60 blocks",
-  
   "item.ata.paint_stand": "Paint Stand",
   "item.ata.spray_can": "Paint Spray Can",
   "entity.ata.paint_stand": "Paint Stand",
-  
   "item.ata.orlan_launcher": "Orlan-10 Launch Platform",
   "item.ata.orlan": "Orlan-10 Recon Drone",
   "item.ata.orlan_tablet": "Orlan-10 Control Tablet",
   "entity.ata.orlan_launcher": "Orlan-10 Launch Platform",
-  "entity.ata.orlan": "Orlan-10 Recon UAV"
+  "entity.ata.orlan": "Orlan-10 Recon UAV",
+  "key.categories.ata": "Air Tactical Arsenal",
+  "key.ata.settings": "Mod settings",
+  "key.ata.camera_exit": "Exit drone camera",
+  "key.ata.camera_lock": "Lock on target",
+  "key.ata.night_vision": "Night vision",
+  "gui.ata.settings.title": "Air Tactical Arsenal",
+  "gui.ata.settings.hit_marker": "Hit marker",
+  "gui.ata.settings.hit_sound": "Hit sound",
+  "gui.ata.settings.part_labels": "Name the section hit",
+  "gui.ata.settings.marker_scale": "Marker size: %s",
+  "gui.ata.settings.hitbox_overlay": "Hitbox wireframe",
+  "gui.ata.settings.server_section": "Server settings",
+  "gui.ata.settings.server_hint": "Set on the server with /ata config"
 }

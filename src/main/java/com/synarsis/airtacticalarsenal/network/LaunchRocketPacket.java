@@ -61,13 +61,15 @@ public record LaunchRocketPacket(BlockPos launcherPos, BlockPos terminalPos, int
             int minDist = ShahedConfig.getIskanderMinDistance();
             int maxDist = ShahedConfig.getIskanderMaxRange();
 
-            if (dist < minDist) {
-                player.displayClientMessage(Component.translatable("message.ata.rocket.too_close", minDist), true);
-                return;
-            }
-            if (dist > maxDist) {
-                player.displayClientMessage(Component.translatable("message.ata.rocket.too_far", maxDist), true);
-                return;
+            if (!com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()) {
+                if (dist < minDist) {
+                    player.displayClientMessage(Component.translatable("message.ata.rocket.too_close", minDist), true);
+                    return;
+                }
+                if (dist > maxDist) {
+                    player.displayClientMessage(Component.translatable("message.ata.rocket.too_far", maxDist), true);
+                    return;
+                }
             }
 
             if (ShahedConfig.isInForbiddenZone(targetX, targetZ)) {

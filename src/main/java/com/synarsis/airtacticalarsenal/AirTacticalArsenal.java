@@ -52,6 +52,11 @@ public class AirTacticalArsenal {
         // As a COMMON config the client read its own local file while the server applied a
         // different one, so the terminal screen could enable a launch the server then refused.
         modContainer.registerConfig(ModConfig.Type.SERVER, ShahedConfig.SPEC, "ata-server.toml");
+        // Per-player preferences -- hit marker and the like -- live in their own CLIENT spec.
+        // They are not rules, so they have no business in a file that needs operator rights and
+        // applies to everyone on the server.
+        modContainer.registerConfig(ModConfig.Type.CLIENT,
+                com.synarsis.airtacticalarsenal.config.AtaClientConfig.SPEC, "ata-client.toml");
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

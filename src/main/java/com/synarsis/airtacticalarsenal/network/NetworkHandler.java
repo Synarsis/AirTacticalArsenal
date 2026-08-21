@@ -40,6 +40,9 @@ public class NetworkHandler {
         registrar.playToClient(ShahedSpawnPacket.TYPE, ShahedSpawnPacket.STREAM_CODEC, ShahedSpawnPacket::handle);
         registrar.playToClient(ShahedRemovePacket.TYPE, ShahedRemovePacket.STREAM_CODEC, ShahedRemovePacket::handle);
         registrar.playToClient(ShahedExplosionPacket.TYPE, ShahedExplosionPacket.STREAM_CODEC, ShahedExplosionPacket::handle);
+        registrar.playToClient(HitboxDebugPacket.TYPE, HitboxDebugPacket.STREAM_CODEC, HitboxDebugPacket::handle);
+        registrar.playToClient(DebugOverridesPacket.TYPE, DebugOverridesPacket.STREAM_CODEC, DebugOverridesPacket::handle);
+        registrar.playToClient(ShahedHitPacket.TYPE, ShahedHitPacket.STREAM_CODEC, ShahedHitPacket::handle);
         registrar.playToClient(LauncherStateUpdatePacket.TYPE, LauncherStateUpdatePacket.STREAM_CODEC, LauncherStateUpdatePacket::handle);
         registrar.playToClient(RocketLaunchStatePacket.TYPE, RocketLaunchStatePacket.STREAM_CODEC, RocketLaunchStatePacket::handle);
         registrar.playToClient(RadarUpdatePacket.TYPE, RadarUpdatePacket.STREAM_CODEC, RadarUpdatePacket::handle);

@@ -59,6 +59,11 @@ public class ShahedRouteScreen extends Screen {
     private final Screen parentScreen;
     private final Consumer<List<List<BlockPos>>> onSaveCallback;
 
+    /** All the route limits below are lifted by {@code /ata debug nolimits on}. */
+    private static boolean limitsOn() {
+        return com.synarsis.airtacticalarsenal.debug.DebugOverrides.limitsApply();
+    }
+
     private static final int MIN_FIRST_POINT_DISTANCE = 600;
     private static final int MAX_FIRST_POINT_DISTANCE = 700;
     private static final int MIN_BETWEEN_POINTS_DISTANCE = 250;
@@ -420,7 +425,7 @@ public class ShahedRouteScreen extends Screen {
         try {
             int wx = Integer.parseInt(coordXField.getValue().trim());
             int wz = Integer.parseInt(coordZField.getValue().trim());
-            if (currentRoute().size() >= MAX_WAYPOINTS) {
+            if (limitsOn() && currentRoute().size() >= MAX_WAYPOINTS) {
                 setStatus("§cМакс. " + MAX_WAYPOINTS + " точек!");
                 return;
             }
@@ -428,11 +433,11 @@ public class ShahedRouteScreen extends Screen {
             if (currentRoute().isEmpty()) {
                 double distToLauncher = Math.sqrt(
                         Math.pow(wx - lPos.getX(), 2) + Math.pow(wz - lPos.getZ(), 2));
-                if (distToLauncher < MIN_FIRST_POINT_DISTANCE) {
+                if (limitsOn() && distToLauncher < MIN_FIRST_POINT_DISTANCE) {
                     setStatus("§cМин. до первой точки: " + MIN_FIRST_POINT_DISTANCE + " бл!");
                     return;
                 }
-                if (distToLauncher > MAX_FIRST_POINT_DISTANCE) {
+                if (limitsOn() && distToLauncher > MAX_FIRST_POINT_DISTANCE) {
                     setStatus("§cМакс. до первой точки: " + MAX_FIRST_POINT_DISTANCE + " бл!");
                     return;
                 }
@@ -440,7 +445,7 @@ public class ShahedRouteScreen extends Screen {
                 BlockPos prevPoint = currentRoute().get(currentRoute().size() - 1);
                 double distToPrev = Math.sqrt(
                         Math.pow(wx - prevPoint.getX(), 2) + Math.pow(wz - prevPoint.getZ(), 2));
-                if (distToPrev < MIN_BETWEEN_POINTS_DISTANCE) {
+                if (limitsOn() && distToPrev < MIN_BETWEEN_POINTS_DISTANCE) {
                     setStatus("§cМин. между точками: " + MIN_BETWEEN_POINTS_DISTANCE + " бл!");
                     return;
                 }
@@ -450,7 +455,7 @@ public class ShahedRouteScreen extends Screen {
             int wpIdx = currentRoute().size() - 1;
             requestSegmentHeightForWaypoint(wpIdx);
             double totalDist = calculateTotalDistance();
-            if (totalDist > MAX_FLIGHT_DISTANCE) {
+            if (limitsOn() && totalDist > MAX_FLIGHT_DISTANCE) {
                 currentRoute().remove(currentRoute().size() - 1);
                 setStatus("§cМаршрут превышает макс. дистанцию " + MAX_FLIGHT_DISTANCE + " бл!");
                 return;
@@ -511,7 +516,7 @@ public class ShahedRouteScreen extends Screen {
         }
         if (isOnMap(mouseX, mouseY)) {
             if (button == 0) {
-                if (currentRoute().size() < MAX_WAYPOINTS) {
+                if (!limitsOn() || currentRoute().size() < MAX_WAYPOINTS) {
                     int wx = mapToWorldX(mouseX);
                     int wz = mapToWorldZ(mouseY);
                     BlockPos newPoint = new BlockPos(wx, DEFAULT_WAYPOINT_ALT, wz);
@@ -520,11 +525,11 @@ public class ShahedRouteScreen extends Screen {
                     if (currentRoute().isEmpty()) {
                         double distToLauncher = Math.sqrt(
                                 Math.pow(wx - lPos.getX(), 2) + Math.pow(wz - lPos.getZ(), 2));
-                        if (distToLauncher < MIN_FIRST_POINT_DISTANCE) {
+                        if (limitsOn() && distToLauncher < MIN_FIRST_POINT_DISTANCE) {
                             setStatus("§cМин. расстояние до первой точки: " + MIN_FIRST_POINT_DISTANCE + " бл!");
                             return true;
                         }
-                        if (distToLauncher > MAX_FIRST_POINT_DISTANCE) {
+                        if (limitsOn() && distToLauncher > MAX_FIRST_POINT_DISTANCE) {
                             setStatus("§cМакс. расстояние до первой точки: " + MAX_FIRST_POINT_DISTANCE + " бл!");
                             return true;
                         }
@@ -532,7 +537,7 @@ public class ShahedRouteScreen extends Screen {
                         BlockPos prevPoint = currentRoute().get(currentRoute().size() - 1);
                         double distToPrev = Math.sqrt(
                                 Math.pow(wx - prevPoint.getX(), 2) + Math.pow(wz - prevPoint.getZ(), 2));
-                        if (distToPrev < MIN_BETWEEN_POINTS_DISTANCE) {
+                        if (limitsOn() && distToPrev < MIN_BETWEEN_POINTS_DISTANCE) {
                             setStatus("§cМин. расстояние между точками: " + MIN_BETWEEN_POINTS_DISTANCE + " бл!");
                             return true;
                         }
@@ -543,7 +548,7 @@ public class ShahedRouteScreen extends Screen {
 
                     requestSegmentHeightForWaypoint(wpIdx);
                     double totalDist = calculateTotalDistance();
-                    if (totalDist > MAX_FLIGHT_DISTANCE) {
+                    if (limitsOn() && totalDist > MAX_FLIGHT_DISTANCE) {
                         currentRoute().remove(currentRoute().size() - 1);
                         setStatus("§cМаршрут превышает макс. дистанцию " + MAX_FLIGHT_DISTANCE + " бл!");
                     }
@@ -809,7 +814,7 @@ public class ShahedRouteScreen extends Screen {
             BlockPos target = route.get(route.size() - 1);
             double distToTarget = Math.sqrt(
                     Math.pow(target.getX() - lPos.getX(), 2) + Math.pow(target.getZ() - lPos.getZ(), 2));
-            if (distToTarget < MIN_TARGET_DISTANCE) {
+            if (limitsOn() && distToTarget < MIN_TARGET_DISTANCE) {
                 setStatus("§cЦель должна быть минимум " + MIN_TARGET_DISTANCE + " бл. от ПУ!");
                 return;
             }

@@ -186,14 +186,4 @@ public class TacZCompat {
         return WeaponCategory.RIFLE;
     }
 
-    public static float calculateDamage(float baseDamage, ResourceLocation gunId, double distance) {
-        WeaponCategory category = categorizeWeapon(gunId);
-        float damage = baseDamage * category.damageMultiplier;
-
-        if (category == WeaponCategory.EXPLOSIVE) {
-            damage = Math.max(damage, 50.0f);
-        }
-
-        return damage;
-    }
 }

@@ -20,7 +20,6 @@
   "subtitles.ata.iskander_explosion": "Мощный взрыв",
   "subtitles.ata.iskander_preparing": "Подготовка ракеты",
   "subtitles.ata.iskander_terminal": "Ракета пикирует",
-  
   "gui.ata.terminal.title": "ТЕРМИНАЛ SHAHED",
   "gui.ata.terminal.coord_x": "Координата X:",
   "gui.ata.terminal.coord_z": "Координата Z:",
@@ -29,7 +28,6 @@
   "gui.ata.terminal.error.forbidden": "Запретная зона!",
   "gui.ata.terminal.error.format": "Неверный формат координат!",
   "gui.ata.terminal.warning.forbidden": "ЗАПРЕТНАЯ ЗОНА!",
-  
   "gui.ata.radar.title": "ТАКТИЧЕСКИЙ РАДАР",
   "gui.ata.radar.detected": "Обнаружено: %s",
   "gui.ata.radar.range": "Радиус: %s блоков",
@@ -38,7 +36,6 @@
   "gui.ata.radar.zoom": "Масштаб: %.1fx",
   "gui.ata.radar.center": "Центр: %d, %d",
   "gui.ata.radar.controls": "Колёсико: Масштаб | Перетаскивание: Перемещение",
-
   "gui.ata.unified_terminal.title": "ТЕРМИНАЛ УПРАВЛЕНИЯ ИСКАНДЕР",
   "gui.ata.unified_terminal.shahed": "SHAHED-136",
   "gui.ata.unified_terminal.iskander": "ИСКАНДЕР-М",
@@ -54,11 +51,9 @@
   "gui.ata.unified_terminal.error.min_distance": "Мин. дистанция: %s блоков!",
   "gui.ata.unified_terminal.error.max_distance": "Макс. дистанция: %s блоков!",
   "gui.ata.unified_terminal.error.all_busy": "Все ПУ заняты!",
-
   "message.ata.launcher.no_space": "Недостаточно места для установки ПУ 5x5!",
   "message.ata.launcher.too_close": "Слишком близко к другой ПУ! Минимум %s блоков.",
   "message.ata.launcher.blocked": "Пусковая установка заблокирована! Уберите препятствия сверху.",
-  
   "message.ata.rocket.invalid_launcher": "Недействительная пусковая установка!",
   "message.ata.rocket.already_loaded": "Ракета уже установлена на эту ПУ!",
   "message.ata.rocket.no_rocket": "У вас нет ракеты Искандер в инвентаре!",
@@ -72,7 +67,6 @@
   "message.ata.rocket.launch_started": "Обратный отсчет запущен! 7 секунд до старта.",
   "message.ata.rocket.removed": "Ракета снята с пусковой установки!",
   "message.ata.rocket.blocked_above": "Над ракетой есть препятствие! Уберите блоки сверху.",
-  
   "gui.ata.unified_terminal.install_rocket": "УСТАНОВИТЬ РАКЕТУ",
   "gui.ata.unified_terminal.launch_rocket": "ПУСК",
   "gui.ata.unified_terminal.launcher_empty": "Пусто",
@@ -80,7 +74,6 @@
   "gui.ata.unified_terminal.launcher_launching": "Запуск: %sс",
   "gui.ata.unified_terminal.select_launcher": "Выберите ПУ:",
   "gui.ata.unified_terminal.eta": "ETA: %s сек (вкл. 7с подготовки)",
-
   "command.ata.shahed.low": "Shahed запущен в режиме низкого пикирования",
   "command.ata.shahed.high": "Shahed запущен в режиме высокого пикирования",
   "command.ata.config.title": "═══ Настройки ATA ═══",
@@ -115,13 +108,11 @@
   "command.ata.config.whitelist.enabled": "Whitelist включен",
   "command.ata.config.whitelist.disabled": "Whitelist отключен",
   "command.ata.config.reload": "Конфиг перезагружен",
-
   "item.ata.launch_interface_cable": "Интерфейсный Кабель",
   "item.ata.launch_interface_cable.tooltip.registered": "Зарегистрирована ПУ:",
   "item.ata.launch_interface_cable.tooltip.usage": "ПКМ по ПУ - зарегистрировать",
   "item.ata.launch_interface_cable.tooltip.usage2": "Shift + ПКМ по терминалу - подключить",
   "item.ata.launch_interface_cable.tooltip.range": "Макс. дистанция: 60 блоков",
-
   "block.ata.loading_hatch": "Загрузочный Люк",
   "gui.ata.terminal.configure_target": "ЦЕЛЬ",
   "gui.ata.terminal.target": "Цель",
@@ -138,14 +129,25 @@
   "message.ata.hatch_full": "ПУ уже загружена!",
   "message.ata.target_set": "Цель установлена",
   "message.ata.target_cleared": "Цель сброшена",
-  
   "item.ata.paint_stand": "Стойка для покраски",
   "item.ata.spray_can": "Балончик с краской",
   "entity.ata.paint_stand": "Стойка для покраски",
-  
   "item.ata.orlan_launcher": "ПУ Орлан-10",
   "item.ata.orlan": "Дрон-разведчик Орлан-10",
   "item.ata.orlan_tablet": "Планшет управления Орлан-10",
   "entity.ata.orlan_launcher": "ПУ Орлан-10",
-  "entity.ata.orlan": "БПЛА-разведчик Орлан-10"
+  "entity.ata.orlan": "БПЛА-разведчик Орлан-10",
+  "key.categories.ata": "Air Tactical Arsenal",
+  "key.ata.settings": "Настройки мода",
+  "key.ata.camera_exit": "Выйти из камеры дрона",
+  "key.ata.camera_lock": "Захват цели",
+  "key.ata.night_vision": "Ночное видение",
+  "gui.ata.settings.title": "Air Tactical Arsenal",
+  "gui.ata.settings.hit_marker": "Метка попадания",
+  "gui.ata.settings.hit_sound": "Звук попадания",
+  "gui.ata.settings.part_labels": "Подписывать узел",
+  "gui.ata.settings.marker_scale": "Размер метки: %s",
+  "gui.ata.settings.hitbox_overlay": "Каркас хитбоксов",
+  "gui.ata.settings.server_section": "Серверные настройки",
+  "gui.ata.settings.server_hint": "Меняются на сервере командой /ata config"
 }

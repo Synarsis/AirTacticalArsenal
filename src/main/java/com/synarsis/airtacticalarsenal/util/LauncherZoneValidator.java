@@ -8,6 +8,9 @@ public class LauncherZoneValidator {
     public static final float MAX_DEVIATION_ANGLE = 80.0f;
 
     public static boolean isTargetInValidZone(Vec3 launcherPos, float launcherYaw, Vec3 targetPos) {
+        if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()) {
+            return true;
+        }
         double angle = calculateDeviationAngle(launcherPos, launcherYaw, targetPos);
         return angle <= MAX_DEVIATION_ANGLE;
     }

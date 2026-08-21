@@ -2,7 +2,21 @@ package com.synarsis.airtacticalarsenal.entity;
 
 import com.synarsis.airtacticalarsenal.chunk.MissileChunkManager;
 import com.synarsis.airtacticalarsenal.compat.CreateCompat;
+import com.synarsis.airtacticalarsenal.compat.ExplosionOverhaulCompat;
 import com.synarsis.airtacticalarsenal.compat.TacZCompat;
+import com.synarsis.airtacticalarsenal.combat.damage.PartHealth;
+import com.synarsis.airtacticalarsenal.combat.hitbox.HitPart;
+import com.synarsis.airtacticalarsenal.combat.hitbox.HitScan;
+import com.synarsis.airtacticalarsenal.combat.hitbox.Obb;
+import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
+import com.synarsis.airtacticalarsenal.combat.hitbox.ShahedHitboxes;
+import com.synarsis.airtacticalarsenal.combat.effect.FallEffects;
+import com.synarsis.airtacticalarsenal.combat.outcome.FallController;
+import com.synarsis.airtacticalarsenal.combat.outcome.FuzeState;
+import com.synarsis.airtacticalarsenal.combat.outcome.ImpactOutcome;
+import com.synarsis.airtacticalarsenal.combat.outcome.FallMode;
+import com.synarsis.airtacticalarsenal.combat.outcome.OutcomeResolver;
+import com.synarsis.airtacticalarsenal.combat.sweep.BulletSweep;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.network.ShahedExplosionPacket;
 import com.synarsis.airtacticalarsenal.network.ShahedRemovePacket;
@@ -30,6 +44,7 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -48,14 +63,22 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ShahedEntity extends Projectile implements GeoEntity {
+public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
 
     public enum FlightPhase {
         WARMUP,
         LAUNCHING,
         CLIMBING,
         CRUISING,
-        DIVING
+        DIVING,
+        /** Terminal. Appended last: the ordinal goes on the wire and into save files. */
+        /** Terminal. Appended last: the ordinal is what goes on the wire and into save files. */
+        /**
+         * On the ground and finished. Appended last on purpose: {@code FLIGHT_PHASE_ID} is an ordinal on
+         * the wire and in save files, so inserting anywhere else would silently renumber every phase a
+         * loaded world already recorded.
+         */
+        WRECK
     }
 
     private static final int WARMUP_DURATION_TICKS = 100;
@@ -108,6 +131,17 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     private static final EntityDataAccessor<Float> DATA_STAND_YAW = SynchedEntityData.defineId(ShahedEntity.class,
             EntityDataSerializers.FLOAT);
 
+    /** Held in place for testing by {@code /ata debug spawn}. */
+    private static final EntityDataAccessor<Byte> FALL_MODE = SynchedEntityData.defineId(ShahedEntity.class,
+            EntityDataSerializers.BYTE);
+
+    /** Roll, synced. */
+    private static final EntityDataAccessor<Float> SYNC_Z_ROT = SynchedEntityData.defineId(ShahedEntity.class,
+            EntityDataSerializers.FLOAT);
+
+    private static final EntityDataAccessor<Boolean> DEBUG_HOLD = SynchedEntityData.defineId(ShahedEntity.class,
+            EntityDataSerializers.BOOLEAN);
+
     private static final EntityDataAccessor<Float> TARGET_CRUISE_ALT = SynchedEntityData.defineId(ShahedEntity.class,
             EntityDataSerializers.FLOAT);
 
@@ -155,17 +189,44 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     private boolean initialPacketSent = false;
     private boolean exploding = false;
 
-    private float maxHealth = 100.0f;
+    /** Durability this drone was spawned with. Snapshotted once, never re-read. */
+    private float maxHealth = (float) ShahedConfig.getShahedMaxHealth();
+
+    /** Roll, in degrees, and its value last tick. */
+    private float zRot;
+    private float zRotO;
+
+    private int fallTicks;
+    private int spiralSign = 1;
+    private int burningTicks;
+    private boolean engineCutLocally;
+    private int wreckTicks;
+    private boolean wreckArmed;
+
+    private static final int FIRE_SPREADS_AFTER = 120;
+
+    /** A wreck that has not reached the ground by now is written off where it is. */
+    private static final int FALL_TIMEOUT_TICKS = 900;
+
+    private static final float BANK_GAIN = 18.0f;
+    private static final float MAX_BANK_DEG = 30.0f;
+    private static final float BANK_SMOOTHING = 0.15f;
+
+    /**
+     * Durability, tracked per section. The synced {@code HEALTH} value stays the sum, so the damaged
+     * flags and every config multiplier keep working off one number as before.
+     */
+    private final PartHealth partHealth =
+            new PartHealth(ShahedHitboxes.TEMPLATE, (float) ShahedConfig.getShahedMaxHealth());
+
+    private final List<Obb> obbs = ShahedHitboxes.newBoxes();
+    private long obbTick = Long.MIN_VALUE;
+    private List<Obb> renderObbs;
     private Entity lastAttacker = null;
-    private int damageSmokeTicks = 0;
-    private int criticalSmokeTicks = 0;
 
     private double lerpX, lerpY, lerpZ;
     private float lerpYRot, lerpXRot;
     private int lerpSteps = 0;
-
-    private double previousY = 0;
-    private boolean wasDescending = false;
 
     public ShahedEntity(EntityType<? extends ShahedEntity> type, Level level) {
         super(type, level);
@@ -265,6 +326,9 @@ public class ShahedEntity extends Projectile implements GeoEntity {
         builder.define(DATA_STAND_YAW, 0.0f);
 
         builder.define(TARGET_CRUISE_ALT, 165.0f);
+        builder.define(DEBUG_HOLD, false);
+        builder.define(FALL_MODE, FallMode.NONE.toByte());
+        builder.define(SYNC_Z_ROT, 0.0f);
     }
 
     @Override
@@ -284,12 +348,50 @@ public class ShahedEntity extends Projectile implements GeoEntity {
             return;
         }
 
+        if (this.flightPhase == FlightPhase.WRECK) {
+            tickWreck();
+            return;
+        }
+
+        if (isDebugHold()) {
+            this.setDeltaMovement(Vec3.ZERO);
+            if (!this.level().isClientSide) {
+                if (this.level() instanceof ServerLevel heldLevel) {
+                    MissileChunkManager.updateChunksForMissile(this, heldLevel);
+                }
+                checkTacZBulletCollisions();
+                if (!this.initialPacketSent) {
+                    this.initialPacketSent = true;
+                    PacketDistributor.sendToAllPlayers(new ShahedSpawnPacket(this.getId(), this.position(),
+                            this.entityData.get(TARGET_POS), this.entityData.get(DIVE_MODE)));
+                }
+            }
+            return;
+        }
+
         if (this.level().isClientSide && this.lerpSteps > 0) {
             double dx = (this.lerpX - this.getX()) / this.lerpSteps;
             double dy = (this.lerpY - this.getY()) / this.lerpSteps;
             double dz = (this.lerpZ - this.getZ()) / this.lerpSteps;
             this.setPos(this.getX() + dx, this.getY() + dy, this.getZ() + dz);
             this.lerpSteps--;
+        }
+
+        if (this.level().isClientSide && getFallMode() != FallMode.NONE) {
+            if (!this.engineCutLocally && !getFallMode().isPowered()) {
+                this.engineCutLocally = true;
+                com.synarsis.airtacticalarsenal.network.ClientPacketHandler.fadeEngine(this.getId());
+            }
+            this.yRotO = this.getYRot();
+            this.xRotO = this.getXRot();
+            this.zRotO = this.zRot;
+            float syncedYaw = this.entityData.get(SYNC_Y_ROT);
+            this.setYRot(syncedYaw);
+            this.setXRot(this.entityData.get(SYNC_X_ROT));
+            this.setYBodyRot(syncedYaw);
+            this.setYHeadRot(syncedYaw);
+            this.zRot = this.entityData.get(SYNC_Z_ROT);
+            return;
         }
 
         BlockPos target = this.entityData.get(TARGET_POS);
@@ -339,6 +441,11 @@ public class ShahedEntity extends Projectile implements GeoEntity {
                 motion = this.lastDirection.scale(getCruiseSpeed());
         }
 
+        if (!this.level().isClientSide && getFallMode() != FallMode.NONE) {
+            tickFalling();
+            return;
+        }
+
         this.phaseTicks++;
         this.setDeltaMovement(motion);
 
@@ -352,11 +459,15 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
             this.yRotO = this.getYRot();
             this.xRotO = this.getXRot();
+            this.zRotO = this.zRot;
 
             this.setYRot(syncedYRot);
             this.setXRot(syncedXRot);
             this.setYBodyRot(syncedYRot);
             this.setYHeadRot(syncedYRot);
+            // Roll comes off the wire rather than being recomputed here: the server owns it in every
+            // mode, so there is one source of truth and nothing to drift out of step.
+            this.zRot = this.entityData.get(SYNC_Z_ROT);
 
             this.setPos(this.getX() + motion.x, this.getY() + motion.y, this.getZ() + motion.z);
             return;
@@ -375,6 +486,7 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
             this.yRotO = this.getYRot();
             this.xRotO = this.getXRot();
+            updateBank(this.yRotO, newYRot);
 
             this.setYRot(newYRot);
             this.setXRot(newXRot);
@@ -691,7 +803,8 @@ public class ShahedEntity extends Projectile implements GeoEntity {
             Vec3 pos = this.position();
             PacketDistributor.sendToAllPlayers(new ShahedExplosionPacket(pos));
 
-            if (this.level() instanceof ServerLevel serverLevel && ShahedConfig.areExplosionParticlesEnabled()) {
+            if (this.level() instanceof ServerLevel serverLevel && ShahedConfig.areExplosionParticlesEnabled()
+                    && !ExplosionOverhaulCompat.leadsVisuals()) {
                 float mult = ShahedConfig.getParticleMultiplier() / 100.0f;
 
                 sendParticlesForced(serverLevel, ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y, pos.z, 1, 0, 0, 0, 0);
@@ -844,25 +957,9 @@ public class ShahedEntity extends Projectile implements GeoEntity {
             }
 
             LivingEntity explosionOwner = (owner instanceof LivingEntity) ? (LivingEntity) owner : null;
-            if (ShahedConfig.doExplosionsBreakBlocks()) {
-
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x, pos.y, pos.z, EXPLOSION_POWER, false, Level.ExplosionInteraction.TNT);
-
-                float smoothPower = EXPLOSION_POWER * 0.35f;
-                double off = 2.0;
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x + off, pos.y, pos.z + off, smoothPower, false, Level.ExplosionInteraction.TNT);
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x - off, pos.y, pos.z + off, smoothPower, false, Level.ExplosionInteraction.TNT);
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x + off, pos.y, pos.z - off, smoothPower, false, Level.ExplosionInteraction.TNT);
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x - off, pos.y, pos.z - off, smoothPower, false, Level.ExplosionInteraction.TNT);
-            } else {
-                this.level().explode(this, this.damageSources().explosion(this, explosionOwner), null,
-                        pos.x, pos.y, pos.z, EXPLOSION_POWER, false, Level.ExplosionInteraction.NONE);
-            }
+            ExplosionOverhaulCompat.blast(this.level(), this,
+                    this.damageSources().explosion(this, explosionOwner), pos,
+                    EXPLOSION_POWER, ShahedConfig.doExplosionsBreakBlocks());
 
             if (this.level() instanceof ServerLevel sl) {
                 com.synarsis.airtacticalarsenal.event.OrlanCameraExplosionHelper.sendExplosionChunkUpdates(sl, pos);
@@ -875,9 +972,12 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     public void remove(RemovalReason reason) {
         if (!this.level().isClientSide) {
 
+            // A wreck being cleaned up is not a kill: without this, every wreck that timed out
+            // would let off the full shootdown effect for everyone in the dimension.
             if (!this.exploding
                     && (reason == RemovalReason.DISCARDED || reason == RemovalReason.KILLED)
-                    && this.flightPhase != FlightPhase.WARMUP) {
+                    && this.flightPhase != FlightPhase.WARMUP
+                    && this.flightPhase != FlightPhase.WRECK) {
                 this.exploding = true;
                 spawnShootdownEffects(this.position());
             }
@@ -917,9 +1017,6 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        // tick() discards the entity when this is false. Without persisting it, every drone
-        // reloaded from disk deleted itself on its first tick -- and because a discard outside
-        // WARMUP counts as a shoot-down, it also broadcast a phantom explosion to every player.
         tag.putBoolean("LegitSpawn", this.isLegitSpawn);
         BlockPos target = this.entityData.get(TARGET_POS);
         tag.putInt("TargetX", target.getX());
@@ -947,6 +1044,15 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
         tag.putFloat("Health", this.getHealth());
         tag.putFloat("MaxHealth", this.maxHealth);
+        tag.putBoolean("DebugHold", isDebugHold());
+        tag.putString("FallMode", getFallMode().id());
+        tag.putInt("FallTicks", this.fallTicks);
+        tag.putInt("SpiralSign", this.spiralSign);
+        tag.putInt("BurningTicks", this.burningTicks);
+        tag.putFloat("Roll", this.zRot);
+        tag.putInt("WreckTicks", this.wreckTicks);
+        tag.putBoolean("WreckArmed", this.wreckArmed);
+        this.partHealth.save(tag);
 
         if (!this.waypoints.isEmpty()) {
             ListTag waypointList = new ListTag();
@@ -1027,11 +1133,38 @@ public class ShahedEntity extends Projectile implements GeoEntity {
             this.targetAltitude = tag.getDouble("TargetAltitude");
         }
 
-        if (tag.contains("Health")) {
-            this.setHealth(tag.getFloat("Health"));
-        }
+        // Ceiling first: setHealth clamps against maxHealth, so restoring it afterwards left the
+        // drone clamped to whatever the config happened to say at load time.
         if (tag.contains("MaxHealth")) {
             this.maxHealth = tag.getFloat("MaxHealth");
+        }
+        if (tag.contains("FallMode")) {
+            String id = tag.getString("FallMode");
+            for (FallMode saved : FallMode.values()) {
+                if (saved.id().equals(id)) {
+                    this.entityData.set(FALL_MODE, saved.toByte());
+                    break;
+                }
+            }
+            this.fallTicks = tag.getInt("FallTicks");
+            this.spiralSign = tag.getInt("SpiralSign") < 0 ? -1 : 1;
+            this.burningTicks = tag.getInt("BurningTicks");
+            this.zRot = tag.getFloat("Roll");
+            this.wreckTicks = tag.getInt("WreckTicks");
+            this.wreckArmed = tag.getBoolean("WreckArmed");
+            this.zRotO = this.zRot;
+            this.entityData.set(SYNC_Z_ROT, this.zRot);
+        }
+        if (tag.contains("DebugHold")) {
+            setDebugHold(tag.getBoolean("DebugHold"));
+        }
+        if (tag.contains("PartHealth")) {
+            this.partHealth.load(tag);
+            this.setHealth(this.partHealth.total());
+        } else if (tag.contains("Health")) {
+            // A world saved before sections existed: spread the single value back across them.
+            this.partHealth.setTotal(tag.getFloat("Health"));
+            this.setHealth(this.partHealth.total());
         }
 
         if (tag.contains("Waypoints")) {
@@ -1098,7 +1231,6 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     }
 
     public void setHealth(float health) {
-        this.maxHealth = (float) ShahedConfig.getShahedMaxHealth();
         float clampedHealth = Math.max(0, Math.min(health, this.maxHealth));
         this.entityData.set(HEALTH, clampedHealth);
 
@@ -1117,84 +1249,113 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     }
 
     public float getHealthPercent() {
-        this.maxHealth = (float) ShahedConfig.getShahedMaxHealth();
         return this.getHealth() / this.maxHealth;
     }
 
-    public HitZone determineHitZone(Vec3 hitPos) {
-        Vec3 entityPos = this.position();
-        Vec3 localHit = hitPos.subtract(entityPos);
-
-        Vec3 flightDir = this.lastDirection.normalize();
-
-        double projection = localHit.dot(flightDir);
-
-        if (projection > 0.5) {
-            return HitZone.WARHEAD;
-        } else if (projection < -0.5) {
-            return HitZone.ENGINE;
-        } else {
-            return HitZone.BODY;
-        }
+    /** The section a point falls in, or {@code null} if it is not on the airframe. */
+    public HitPart partAt(Vec3 point) {
+        return HitScan.at(getObbs(), point);
     }
 
-    public enum HitZone {
-        WARHEAD(2.0f, "warhead"),
-        ENGINE(1.5f, "engine"),
-        BODY(1.0f, "body");
-
-        public final float damageMultiplier;
-        public final String name;
-
-        HitZone(float multiplier, String name) {
-            this.damageMultiplier = multiplier;
-            this.name = name;
-        }
+    private static float partMultiplier(HitPart part) {
+        return switch (part) {
+            case WARHEAD -> (float) ShahedConfig.getShahedWarheadDamageMultiplier();
+            case ENGINE, PROP -> (float) ShahedConfig.getShahedEngineDamageMultiplier();
+            default -> 1.0f;
+        };
     }
 
+    /** Damage that arrived with a position but no section resolved yet. */
     public void takeDamage(float damage, Entity attacker, Vec3 hitPos, String source) {
+        HitPart part = hitPos != null ? partAt(hitPos) : null;
+        applyDamage(damage, attacker, part, hitPos, source);
+    }
+
+    public void takeDamage(float damage, Entity attacker, HitPart part, Vec3 hitPos, String source) {
+        applyDamage(damage, attacker, part, hitPos, source);
+    }
+
+    private void applyDamage(float damage, Entity attacker, HitPart part, Vec3 hitPos, String source) {
+        applyDamage(damage, attacker, part, hitPos, source, false);
+    }
+
+    /**
+     * @param raw skip the calibre threshold and the damage multipliers and apply the number as given.
+     * Only the debug commands do this: a tool for setting up a specific failure is no use
+     * if the amount you asked for is not the amount that lands.
+     */
+    private void applyDamage(float damage, Entity attacker, HitPart part, Vec3 hitPos, String source,
+                             boolean raw) {
         if (!ShahedConfig.isShahedShootdownEnabled())
             return;
         if (this.level().isClientSide)
             return;
 
-        if (damage < ShahedConfig.getShahedMinCaliberDamage())
+        if (isWreck()) {
+            onWreckHit(attacker);
             return;
+        }
 
-        damage *= ShahedConfig.getShahedDamageMultiplier();
-
-        HitZone hitZone = HitZone.BODY;
-        if (hitPos != null) {
-            hitZone = determineHitZone(hitPos);
-            switch (hitZone) {
-                case ENGINE:
-                    damage *= ShahedConfig.getShahedEngineDamageMultiplier();
-                    break;
-                case WARHEAD:
-                    damage *= ShahedConfig.getShahedWarheadDamageMultiplier();
-                    break;
-                default:
-                    break;
+        if (!raw) {
+            if (damage < ShahedConfig.getShahedMinCaliberDamage()) {
+                notifyShooter(attacker, part, false, false);
+                return;
+            }
+            damage *= ShahedConfig.getShahedDamageMultiplier();
+            if (part != null) {
+                damage *= partMultiplier(part);
             }
         }
 
         float oldHealth = this.getHealth();
-        float newHealth = oldHealth - damage;
-        this.setHealth(newHealth);
+        boolean knockedOut;
+        if (part != null) {
+            knockedOut = this.partHealth.hurt(part, damage);
+        } else {
+            this.partHealth.hurtEverywhere(damage);
+            knockedOut = false;
+        }
+        this.setHealth(this.partHealth.total());
         this.lastAttacker = attacker;
 
+        float newHealth = this.getHealth();
         if (ShahedConfig.isLoggingEnabled()) {
             String attackerName = attacker != null ? attacker.getName().getString() : "Unknown";
-            System.out.println("[ATA] Shahed hit by " + attackerName + " (" + source + ") for " +
-                    String.format("%.1f", damage) + " damage (zone: " + hitZone.name + "). HP: " +
-                    String.format("%.1f", oldHealth) + " -> " + String.format("%.1f", newHealth));
+            System.out.println("[ATA] Shahed hit by " + attackerName + " (" + source + ") for "
+                    + String.format("%.1f", damage) + " damage (part: "
+                    + (part != null ? part.id() : "spread") + (knockedOut ? ", knocked out" : "")
+                    + "). HP: " + String.format("%.1f", oldHealth) + " -> "
+                    + String.format("%.1f", newHealth));
         }
 
-        spawnHitEffects(hitPos != null ? hitPos : this.position(), hitZone);
+        if (knockedOut) {
+            if (this.level() instanceof ServerLevel lostLevel) {
+                Vec3 where = hitPos;
+                if (where == null) {
+                    for (Obb box : getObbs()) {
+                        if (box.part() == part) {
+                            where = new Vec3(box.center().x, box.center().y, box.center().z);
+                            break;
+                        }
+                    }
+                }
+                if (where != null) {
+                    FallEffects.sectionLost(lostLevel, part, where, this.getDeltaMovement(), this.random);
+                }
+            }
+            if (part == HitPart.WING_LEFT || part == HitPart.WING_RIGHT) {
+                // Rolls into the side it lost.
+                this.spiralSign = part == HitPart.WING_LEFT ? 1 : -1;
+            }
+            setFallMode(OutcomeResolver.onKnockedOut(part, getFallMode()));
+        }
 
-        if (hitZone == HitZone.WARHEAD && ShahedConfig.isShahedCriticalDetonationEnabled()) {
+        notifyShooter(attacker, part, knockedOut, true);
+        reportHit(attacker, part, damage, knockedOut, newHealth);
+        spawnHitEffects(hitPos != null ? hitPos : this.position(), part);
+
+        if (part == HitPart.WARHEAD && ShahedConfig.isShahedCriticalDetonationEnabled()) {
             if (newHealth < this.maxHealth * 0.3f && this.random.nextFloat() < 0.3f) {
-
                 if (ShahedConfig.isLoggingEnabled()) {
                     System.out.println("[ATA] Shahed warhead detonated prematurely!");
                 }
@@ -1204,26 +1365,39 @@ public class ShahedEntity extends Projectile implements GeoEntity {
         }
 
         if (newHealth <= 0) {
-            destroyByProjectile(attacker);
+            // No longer deleted mid-air. It comes down, and the ground finishes it -- which is the
+            // whole point of the outcome model.
+            setFallMode(OutcomeResolver.onDurabilityExhausted(getFallMode()));
         }
     }
 
-    public void onTacZProjectileHit(Entity projectile, Vec3 hitPos, DamageSource source, float damage) {
-        if (!TacZCompat.isTacZLoaded())
+    private void notifyShooter(Entity attacker, HitPart part, boolean knockedOut, boolean penetrated) {
+        if (!(attacker instanceof ServerPlayer player)) {
             return;
-
-        var gunId = TacZCompat.getGunId(projectile);
-        var shooter = TacZCompat.getShooter(projectile);
-
-        float finalDamage = TacZCompat.calculateDamage(damage, gunId, 0);
-
-        String sourceName = gunId != null ? gunId.toString() : "tacz_bullet";
-        takeDamage(finalDamage, shooter, hitPos, sourceName);
+        }
+        float pct = this.maxHealth > 0 ? Math.max(0.0f, this.getHealth() / this.maxHealth) : 0.0f;
+        PacketDistributor.sendToPlayer(player, new com.synarsis.airtacticalarsenal.network.ShahedHitPacket(
+                part != null ? part.ordinal() : -1, pct, knockedOut, penetrated));
     }
 
-    private void spawnHitEffects(Vec3 hitPos, HitZone zone) {
+    /** Puts the section, the damage and the remaining durability on the shooter's action bar. */
+    private void reportHit(Entity attacker, HitPart part, float damage, boolean knockedOut, float health) {
+        if (!ShahedConfig.isLoggingEnabled() || !(attacker instanceof ServerPlayer player)) {
+            return;
+        }
+        String label = part != null ? part.id() : "spread";
+        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                String.format("%s%s  -%.1f  |  %.0f/%.0f",
+                        label, knockedOut ? " KNOCKED OUT" : "", damage, health, this.maxHealth)), true);
+    }
+
+    private void spawnHitEffects(Vec3 hitPos, HitPart part) {
         if (!(this.level() instanceof ServerLevel serverLevel))
             return;
+
+        // Explosion Overhaul's sparks read far better than a firework particle, and they cost one
+        // registry lookup to borrow. Does nothing when that mod is not installed.
+        ExplosionOverhaulCompat.sparks(serverLevel, hitPos, 4, 0.08);
 
         for (ServerPlayer player : serverLevel.players()) {
 
@@ -1236,14 +1410,13 @@ public class ShahedEntity extends Projectile implements GeoEntity {
                     3, 0.1, 0.1, 0.1, 0.05);
         }
 
-        if (zone == HitZone.ENGINE) {
-            this.damageSmokeTicks = 100;
+        if (part == HitPart.ENGINE || part == HitPart.PROP) {
             for (ServerPlayer player : serverLevel.players()) {
                 serverLevel.sendParticles(player, ParticleTypes.FLAME, true,
                         hitPos.x, hitPos.y, hitPos.z,
                         2, 0.05, 0.05, 0.05, 0.02);
             }
-        } else if (zone == HitZone.WARHEAD) {
+        } else if (part == HitPart.WARHEAD) {
             for (ServerPlayer player : serverLevel.players()) {
                 serverLevel.sendParticles(player, ParticleTypes.LAVA, true,
                         hitPos.x, hitPos.y, hitPos.z,
@@ -1252,94 +1425,162 @@ public class ShahedEntity extends Projectile implements GeoEntity {
         }
     }
 
+    /** Looks for TacZ rounds crossing the airframe. */
     private void checkTacZBulletCollisions() {
-        if (this.level().isClientSide)
+        if (this.level().isClientSide || !ShahedConfig.isShahedShootdownEnabled()) {
             return;
-        if (!ShahedConfig.isShahedShootdownEnabled())
-            return;
-        if (!TacZCompat.isTacZLoaded())
-            return;
+        }
+        BulletSweep.run(this.level(), this, this.getBoundingBox(), getObbs(),
+                (part, point, damage, shooter, weaponId) ->
+                        takeDamage(damage, shooter, part, point,
+                                weaponId != null ? weaponId : "tacz_bullet"));
+    }
 
-        double bulletSpeed = 15.0;
-        AABB searchBox = this.getBoundingBox().inflate(bulletSpeed);
+    /** Flies a crippled airframe and lands it. */
+    private void tickFalling() {
+        FallMode mode = getFallMode();
+        this.fallTicks++;
 
-        List<Entity> nearbyBullets = this.level().getEntities(this, searchBox, TacZCompat::isTacZBullet);
+        if (mode == FallMode.BURNING && ++this.burningTicks >= FIRE_SPREADS_AFTER) {
+            setFallMode(OutcomeResolver.onFireSpread(mode));
+            mode = getFallMode();
+        }
 
-        if (nearbyBullets.isEmpty())
-            return;
+        FallController.State next = FallController.step(mode, this.fallTicks, this.spiralSign,
+                new FallController.State(this.getDeltaMovement(), this.getYRot(), this.getXRot(), this.zRot),
+                FallController.Tuning.DEFAULT);
 
-        AABB myBox = this.getBoundingBox().inflate(0.5);
-        Vec3 myCenter = this.position();
+        this.setDeltaMovement(next.velocity());
+        this.yRotO = this.getYRot();
+        this.xRotO = this.getXRot();
+        this.zRotO = this.zRot;
+        this.setYRot(next.yaw());
+        this.setXRot(next.pitch());
+        this.setYBodyRot(next.yaw());
+        this.setYHeadRot(next.yaw());
+        this.zRot = next.roll();
+        this.entityData.set(SYNC_Y_ROT, next.yaw());
+        this.entityData.set(SYNC_X_ROT, next.pitch());
+        this.entityData.set(SYNC_Z_ROT, next.roll());
 
-        for (Entity bullet : nearbyBullets) {
-            Vec3 bulletPos = bullet.position();
-            Vec3 bulletMotion = bullet.getDeltaMovement();
-            double speed = bulletMotion.length();
-
-            Vec3 prevBulletPos = bulletPos.subtract(bulletMotion);
-
-            Vec3 futurePos = bulletPos.add(bulletMotion.scale(0.5));
-
-            boolean hit = myBox.contains(bulletPos) ||
-                    rayIntersectsAABB(prevBulletPos, bulletPos, myBox) ||
-                    rayIntersectsAABB(bulletPos, futurePos, myBox);
-
-            if (!hit) {
-                double distToCenter = bulletPos.distanceTo(myCenter);
-                if (distToCenter < 2.5) {
-                    hit = true;
-                }
+        if (this.level() instanceof ServerLevel serverLevel) {
+            MissileChunkManager.updateChunksForMissile(this, serverLevel);
+            if (this.fallTicks % 2 == 0) {
+                FallEffects.fallTrail(serverLevel, getObbs(), mode, next.velocity(),
+                        this.fallTicks, this.random);
             }
+        }
+        checkTacZBulletCollisions();
 
-            if (hit) {
+        Vec3 motion = next.velocity();
+        this.setPos(this.getX() + motion.x, this.getY() + motion.y, this.getZ() + motion.z);
 
-                float damage = TacZCompat.getBulletDamage(bullet, bulletPos);
-
-                String gunId = TacZCompat.getGunIdString(bullet);
-                if (gunId != null) {
-                    TacZCompat.WeaponCategory category = TacZCompat.classifyWeapon(gunId);
-                    damage *= category.getDamageMultiplier();
-                }
-
-                Entity shooter = TacZCompat.getShooter(bullet);
-
-                takeDamage(damage, shooter, bulletPos, "tacz_bullet");
-
-                bullet.discard();
-
-                if (ShahedConfig.isLoggingEnabled()) {
-                    System.out.println("[ATA] TacZ bullet hit Shahed! Damage: " + damage +
-                            ", Gun: " + (gunId != null ? gunId : "unknown") +
-                            ", Health: " + this.getHealth() + "/" + this.maxHealth +
-                            ", Speed: " + String.format("%.1f", speed));
-                }
-
-                break;
-            }
+        if (mode.isFalling() && hasReachedGround()) {
+            onGroundImpact(Math.abs(motion.y));
+            return;
+        }
+        if (this.fallTicks > FALL_TIMEOUT_TICKS) {
+            onGroundImpact(Math.abs(motion.y));
         }
     }
 
-    private boolean rayIntersectsAABB(Vec3 start, Vec3 end, AABB box) {
-        Vec3 dir = end.subtract(start);
-        double length = dir.length();
-        if (length < 0.001)
-            return box.contains(start);
+    /** Settles what a downed airframe does on arrival. */
+    private void onGroundImpact(double impactSpeed) {
+        FuzeState fuze = getFuzeState();
+        ImpactOutcome outcome = ImpactOutcome.resolve(fuze, impactSpeed,
+                ShahedConfig.doesFallenWarheadDetonate(), ShahedConfig.getShahedDudChance(),
+                this.random.nextDouble());
 
-        double invDirX = Math.abs(dir.x) > 0.0001 ? 1.0 / dir.x : Double.MAX_VALUE;
-        double invDirY = Math.abs(dir.y) > 0.0001 ? 1.0 / dir.y : Double.MAX_VALUE;
-        double invDirZ = Math.abs(dir.z) > 0.0001 ? 1.0 / dir.z : Double.MAX_VALUE;
+        if (ShahedConfig.isLoggingEnabled()) {
+            System.out.println("[ATA] Shahed " + this.getId() + " down: fuze " + fuze.id()
+                    + ", impact " + String.format("%.2f", impactSpeed) + " -> " + outcome.id());
+        }
 
-        double t1 = (box.minX - start.x) * invDirX;
-        double t2 = (box.maxX - start.x) * invDirX;
-        double t3 = (box.minY - start.y) * invDirY;
-        double t4 = (box.maxY - start.y) * invDirY;
-        double t5 = (box.minZ - start.z) * invDirZ;
-        double t6 = (box.maxZ - start.z) * invDirZ;
+        switch (outcome) {
+            case FULL -> this.explode();
+            case LOW_ORDER -> lowOrderDetonation();
+            case DUD -> becomeWreck();
+        }
+    }
 
-        double tMin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-        double tMax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+    /** Part of the charge fires: a smaller blast that does not break blocks. */
+    private void lowOrderDetonation() {
+        if (this.exploding) {
+            return;
+        }
+        this.exploding = true;
+        Vec3 pos = this.position();
 
-        return tMax >= 0 && tMin <= tMax && tMin <= length;
+        if (this.level() instanceof ServerLevel serverLevel) {
+            float power = (float) (EXPLOSION_POWER * ShahedConfig.getLowOrderPowerFactor());
+            LivingEntity blame = this.getOwner() instanceof LivingEntity living ? living : null;
+            serverLevel.explode(this, this.damageSources().explosion(this, blame),
+                    null, pos.x, pos.y, pos.z, power, false, Level.ExplosionInteraction.NONE);
+            spawnShootdownEffects(pos);
+        }
+        this.discard();
+    }
+
+    private void becomeWreck() {
+        Vec3 pos = this.position();
+        // Captured before the airframe is stopped: the debris should carry on the way it was going.
+        Vec3 arriving = this.getDeltaMovement();
+        this.setDeltaMovement(Vec3.ZERO);
+        this.wreckTicks = 0;
+        this.wreckArmed = getFuzeState() != FuzeState.DEAD;
+
+        float restPitch = -8.0f + this.random.nextFloat() * 12.0f;
+        float restRoll = (this.random.nextFloat() - 0.5f) * 34.0f;
+        this.setXRot(restPitch);
+        this.xRotO = restPitch;
+        this.zRot = restRoll;
+        this.zRotO = restRoll;
+        this.entityData.set(SYNC_X_ROT, restPitch);
+        this.entityData.set(SYNC_Z_ROT, restRoll);
+        this.setPos(this.getX(), this.getY() - 0.05, this.getZ());
+
+        if (this.level() instanceof ServerLevel serverLevel) {
+            FallEffects.groundScatter(serverLevel, pos, arriving, this.random);
+        }
+
+        transitionToPhase(FlightPhase.WRECK);
+
+        if (ShahedConfig.isLoggingEnabled()) {
+            System.out.println("[ATA] Shahed " + this.getId() + " came down intact"
+                    + (this.wreckArmed ? " with a live warhead" : ", warhead inert"));
+        }
+    }
+
+    /** Something hit the wreck. */
+    private void onWreckHit(Entity attacker) {
+        if (!this.wreckArmed || !ShahedConfig.isWreckCookOffEnabled()) {
+            return;
+        }
+        if (ShahedConfig.isLoggingEnabled()) {
+            System.out.println("[ATA] Wreck " + this.getId() + " cooked off"
+                    + (attacker != null ? " (" + attacker.getName().getString() + ")" : ""));
+        }
+        this.lastAttacker = attacker;
+        this.explode();
+    }
+
+    private void tickWreck() {
+        this.setDeltaMovement(Vec3.ZERO);
+        if (this.level().isClientSide) {
+            return;
+        }
+        checkTacZBulletCollisions();
+
+        if (++this.wreckTicks > ShahedConfig.getWreckLifetimeTicks()) {
+            // Cleaned up quietly. remove() knows not to make a bang out of this.
+            this.discard();
+        }
+    }
+
+    private boolean hasReachedGround() {
+        BlockPos here = this.blockPosition();
+        return !this.level().getBlockState(here).isAir()
+                || !this.level().getBlockState(here.below()).isAir();
     }
 
     private void spawnDamageEffects() {
@@ -1403,7 +1644,8 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
         PacketDistributor.sendToAllPlayers(new ShahedExplosionPacket(pos));
 
-        if (this.level() instanceof ServerLevel serverLevel && ShahedConfig.areExplosionParticlesEnabled()) {
+        if (this.level() instanceof ServerLevel serverLevel && ShahedConfig.areExplosionParticlesEnabled()
+                && !ExplosionOverhaulCompat.leadsVisuals()) {
             float mult = ShahedConfig.getParticleMultiplier() / 100.0f;
 
             sendParticlesForced(serverLevel, ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y, pos.z, 1, 0, 0, 0, 0);
@@ -1521,17 +1763,26 @@ public class ShahedEntity extends Projectile implements GeoEntity {
         }
 
         if (directEntity instanceof net.minecraft.world.entity.projectile.Projectile) {
-            takeDamage(amount, source.getEntity(), directEntity.position(), "projectile");
+            Vec3 to = directEntity.position();
+            Vec3 from = to.subtract(directEntity.getDeltaMovement());
+            HitScan.Hit hit = HitScan.nearest(getObbs(), from, to);
+            if (hit == null) {
+                // Inside the bounding box but through a gap in the airframe -- between the wing and
+                // the fuselage, say. A clean miss, which is the entire point of the precise geometry.
+                return false;
+            }
+            takeDamage(amount, source.getEntity(), hit.part(), hit.point(), "projectile");
             return true;
         }
 
         if (source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
-            takeDamage(amount * 2.0f, source.getEntity(), this.position(), "explosion");
+            // No direction to resolve: spread it.
+            takeDamage(amount * 2.0f, source.getEntity(), (HitPart) null, this.position(), "explosion");
             return true;
         }
 
-        takeDamage(amount, source.getEntity() != null ? source.getEntity() : directEntity, this.position(),
-                source.getMsgId());
+        takeDamage(amount, source.getEntity() != null ? source.getEntity() : directEntity,
+                (HitPart) null, this.position(), source.getMsgId());
         return true;
     }
 
@@ -1545,13 +1796,34 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllerRegistrar) {
-        controllerRegistrar.add(new AnimationController<>(this, "controller", 0, this::predicate));
+        // 5-tick blend: the propeller now changes speed between cruise and dive, and at 0 the
+        // change snapped instead of spinning up.
+        controllerRegistrar.add(new AnimationController<>(this, "controller", 5, this::predicate));
     }
 
     private PlayState predicate(AnimationState<ShahedEntity> animationState) {
 
         if (isOnPaintStand()) {
             return PlayState.STOP;
+        }
+        if (isWreck()) {
+            // Nothing turns on a wreck.
+            animationState.getController()
+                    .setAnimation(RawAnimation.begin().thenLoop("animation.shahed.prop_stopped"));
+            return PlayState.CONTINUE;
+        }
+
+        FallMode mode = getFallMode();
+        if (mode == FallMode.GLIDE || mode == FallMode.DEAD_STICK) {
+            animationState.getController()
+                    .setAnimation(RawAnimation.begin().thenLoop("animation.shahed.windmill"));
+            return PlayState.CONTINUE;
+        }
+        if (mode == FallMode.SPIRAL || mode == FallMode.TUMBLE) {
+            // Airframe gone: nothing is turning any more.
+            animationState.getController()
+                    .setAnimation(RawAnimation.begin().thenLoop("animation.shahed.prop_stopped"));
+            return PlayState.CONTINUE;
         }
         if (this.isDiving) {
             animationState.getController().setAnimation(RawAnimation.begin().thenLoop("animation.shahed.dive"));
@@ -1568,7 +1840,189 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
     @Override
     public AABB getBoundingBoxForCulling() {
-        return super.getBoundingBoxForCulling().inflate(2.0, 0.3, 2.0);
+        // The bounding box now follows the airframe exactly, so the old fudge that padded a
+        // 3x1.5 block box out to something the model actually fitted in is no longer needed.
+        return super.getBoundingBoxForCulling().inflate(1.0);
+    }
+
+    /** Applies damage to one section as if a shot had landed there. */
+    public void debugDamagePart(HitPart part, float amount) {
+        applyDamage(amount, null, part, null, "debug", true);
+    }
+
+    public float partRemaining(HitPart part) {
+        return this.partHealth.remaining(part);
+    }
+
+    public float partCapacity(HitPart part) {
+        return this.partHealth.capacity(part);
+    }
+
+    /**
+     * Sets up a short, watchable flight: cruise straight ahead and come down on a point.
+     *
+     * @param target where it comes down
+     * @param diveAt horizontal distance from the target at which it noses over
+     */
+    public void debugCruiseTo(BlockPos target, double diveAt) {
+        this.entityData.set(TARGET_POS, target);
+        this.waypoints.clear();
+        this.currentWaypointIndex = 0;
+
+        this.targetAltitude = this.getY();
+        this.entityData.set(TARGET_CRUISE_ALT, (float) this.targetAltitude);
+
+        this.diveTransitionDistance = diveAt;
+        this.diveDistance = diveAt;
+        this.currentSpeed = getCruiseSpeed();
+
+        // Point it at the target so it does not spend the first seconds of a short flight turning.
+        Vec3 toTarget = Vec3.atCenterOf(target).subtract(this.position());
+        Vec3 heading = new Vec3(toTarget.x, 0, toTarget.z);
+        if (heading.lengthSqr() > 1.0E-4) {
+            this.lastDirection = heading.normalize();
+            this.launchDirection = this.lastDirection;
+        }
+
+        transitionToPhase(FlightPhase.CRUISING);
+    }
+
+    public void debugRestore() {
+        this.partHealth.restore();
+        this.setHealth(this.partHealth.total());
+        this.entityData.set(FALL_MODE, FallMode.NONE.toByte());
+        this.fallTicks = 0;
+        this.burningTicks = 0;
+        this.zRot = 0.0f;
+        this.zRotO = 0.0f;
+        this.entityData.set(SYNC_Z_ROT, 0.0f);
+    }
+
+    /** Condition of the warhead, read off what is left of that section. */
+    public FuzeState getFuzeState() {
+        return FuzeState.fromWarhead(this.partHealth.remaining(HitPart.WARHEAD),
+                this.partHealth.capacity(HitPart.WARHEAD));
+    }
+
+    /**
+     * Puts the warhead into a chosen condition, for testing the three arrival outcomes without having
+     * to shoot the nose until the dice land the right way.
+     */
+    public void debugSetFuze(FuzeState wanted) {
+        float capacity = this.partHealth.capacity(HitPart.WARHEAD);
+        this.partHealth.restorePart(HitPart.WARHEAD);
+        float target = switch (wanted) {
+            case ARMED -> capacity;
+            case DEGRADED -> capacity * 0.25f;
+            case DEAD -> 0.0f;
+        };
+        this.partHealth.hurt(HitPart.WARHEAD, capacity - target);
+        this.setHealth(this.partHealth.total());
+    }
+
+    public boolean isWreckArmed() {
+        return this.wreckArmed;
+    }
+
+    public boolean isWreck() {
+        return this.flightPhase == FlightPhase.WRECK;
+    }
+
+    public FallMode getFallMode() {
+        return FallMode.fromByte(this.entityData.get(FALL_MODE));
+    }
+
+    /** Puts the airframe into a failure mode, if it is worse than the one it is already in. */
+    private void setFallMode(FallMode mode) {
+        FallMode current = getFallMode();
+        if (mode == current) {
+            return;
+        }
+        this.entityData.set(FALL_MODE, mode.toByte());
+        if (current == FallMode.NONE) {
+            this.fallTicks = 0;
+            if (!this.level().isClientSide) {
+                PacketDistributor.sendToAllPlayers(new ShahedSpawnPacket(this.getId(), this.position(),
+                        this.entityData.get(TARGET_POS), this.entityData.get(DIVE_MODE)));
+            }
+        }
+        if (ShahedConfig.isLoggingEnabled()) {
+            System.out.println("[ATA] Shahed " + this.getId() + " -> " + mode.id());
+        }
+    }
+
+    public boolean isDebugHold() {
+        return this.entityData.get(DEBUG_HOLD);
+    }
+
+    public void setDebugHold(boolean value) {
+        this.entityData.set(DEBUG_HOLD, value);
+    }
+
+    public float getRoll() {
+        return this.zRot;
+    }
+
+    public float getRollO() {
+        return this.zRotO;
+    }
+
+    /** Banks into the turn, proportionally to how fast the nose is swinging. */
+    private void updateBank(float previousYaw, float newYaw) {
+        this.zRotO = this.zRot;
+        float yawRate = Mth.degreesDifference(previousYaw, newYaw);
+        // Negated: with the renderer's Z axis, a positive roll lifts the wing on the inside of
+        // the turn, so the airframe leaned out of its own turns.
+        float target = Mth.clamp(-yawRate * BANK_GAIN, -MAX_BANK_DEG, MAX_BANK_DEG);
+        this.zRot += (target - this.zRot) * BANK_SMOOTHING;
+        this.entityData.set(SYNC_Z_ROT, this.zRot);
+    }
+
+    @Override
+    public List<Obb> getObbs() {
+        long now = this.tickCount;
+        if (this.obbTick != now) {
+            this.obbTick = now;
+            if (isOnPaintStand()) {
+                ShahedHitboxes.place(this.obbs, this.getX(), this.getY(), this.getZ(),
+                        standPoseYaw(), 0.0f, 0.0f);
+            } else {
+                ShahedHitboxes.place(this.obbs, this.getX(), this.getY(), this.getZ(),
+                        this.getYRot(), this.getXRot(), this.getRoll());
+            }
+        }
+        return this.obbs;
+    }
+
+    @Override
+    public List<Obb> getRenderObbs(float partialTick) {
+        if (this.renderObbs == null) {
+            this.renderObbs = ShahedHitboxes.newBoxes();
+        }
+        if (isOnPaintStand()) {
+            ShahedHitboxes.place(this.renderObbs, this.getX(), this.getY(), this.getZ(),
+                    standPoseYaw(), 0.0f, 0.0f);
+            return this.renderObbs;
+        }
+
+        Vec3 pos = this.getPosition(partialTick);
+        float yaw = Mth.rotLerp(partialTick, this.yRotO, this.getYRot());
+        float pitch = Mth.lerp(partialTick, this.xRotO, this.getXRot());
+        float roll = Mth.rotLerp(partialTick, this.zRotO, this.zRot);
+        ShahedHitboxes.place(this.renderObbs, pos.x, pos.y, pos.z, yaw, pitch, roll);
+        return this.renderObbs;
+    }
+
+    /** Yaw the model is actually drawn at while parked on a paint stand. */
+    private float standPoseYaw() {
+        return -getStandYaw();
+    }
+
+    /** Bounding box that turns with the airframe. */
+    @Override
+    protected AABB makeBoundingBox() {
+        return ShahedHitboxes.hullBox(this.getX(), this.getY(), this.getZ(),
+                this.getYRot(), this.getXRot(), this.getRoll());
     }
 
     private <T extends ParticleOptions> void sendParticlesForced(ServerLevel level, T particle, double x, double y,
@@ -1579,148 +2033,6 @@ public class ShahedEntity extends Projectile implements GeoEntity {
 
         com.synarsis.airtacticalarsenal.event.OrlanCameraExplosionHelper.sendParticleToFarCameraPlayers(
                 level, particle, x, y, z, count, xOffset, yOffset, zOffset, speed);
-    }
-
-    private void spawnFlightParticles() {
-        if (!(this.level() instanceof ServerLevel serverLevel))
-            return;
-
-        Vec3 pos = this.position();
-        Vec3 motion = this.getDeltaMovement();
-
-        boolean hasNearbyPlayer = false;
-        for (ServerPlayer player : serverLevel.players()) {
-            if (player.position().distanceTo(pos) < 256.0) {
-                hasNearbyPlayer = true;
-                break;
-            }
-        }
-
-        if (!hasNearbyPlayer) {
-            this.previousY = this.getY();
-            return;
-        }
-
-        switch (this.flightPhase) {
-            case LAUNCHING:
-
-                spawnLaunchParticles(serverLevel, pos, motion);
-                break;
-            case CLIMBING:
-
-                spawnClimbParticles(serverLevel, pos, motion, this.getY());
-                break;
-            case CRUISING:
-
-                spawnContrailParticles(serverLevel, pos, motion);
-                break;
-            case DIVING:
-
-                spawnDiveParticles(serverLevel, pos, motion);
-                break;
-        }
-
-        this.previousY = this.getY();
-    }
-
-    private void spawnLaunchParticles(ServerLevel level, Vec3 pos, Vec3 motion) {
-
-        Vec3 enginePos = pos.subtract(motion.normalize().scale(1.5));
-
-        for (ServerPlayer player : level.players()) {
-
-            level.sendParticles(player, ParticleTypes.FLAME, true,
-                    enginePos.x, enginePos.y, enginePos.z,
-                    5, 0.2, 0.2, 0.2, 0.08);
-
-            level.sendParticles(player, ParticleTypes.LAVA, true,
-                    enginePos.x, enginePos.y, enginePos.z,
-                    2, 0.15, 0.15, 0.15, 0.05);
-
-            level.sendParticles(player, ParticleTypes.LARGE_SMOKE, true,
-                    enginePos.x - motion.x * 0.5, enginePos.y - motion.y * 0.5, enginePos.z - motion.z * 0.5,
-                    3, 0.3, 0.3, 0.3, 0.02);
-
-            if (this.tickCount % 3 == 0) {
-                level.sendParticles(player, ParticleTypes.FIREWORK, true,
-                        enginePos.x, enginePos.y, enginePos.z,
-                        2, 0.1, 0.1, 0.1, 0.15);
-            }
-        }
-    }
-
-    private void spawnClimbParticles(ServerLevel level, Vec3 pos, Vec3 motion, double currentY) {
-        Vec3 enginePos = pos.subtract(motion.normalize().scale(1.2));
-
-        double climbStart = this.launchStartY + 30.0;
-        double transitionProgress = (currentY - climbStart) / (this.targetAltitude - climbStart);
-        transitionProgress = Math.max(0, Math.min(1, transitionProgress));
-
-        for (ServerPlayer player : level.players()) {
-
-            if (transitionProgress < 0.7) {
-                int flameCount = (int) (3 * (1 - transitionProgress));
-                if (flameCount > 0) {
-                    level.sendParticles(player, ParticleTypes.FLAME, true,
-                            enginePos.x, enginePos.y, enginePos.z,
-                            flameCount, 0.15, 0.15, 0.15, 0.05);
-                }
-            }
-
-            int cloudCount = (int) (3 * transitionProgress) + 1;
-            level.sendParticles(player, ParticleTypes.CLOUD, true,
-                    enginePos.x, enginePos.y, enginePos.z,
-                    cloudCount, 0.2, 0.2, 0.2, 0.01);
-
-            level.sendParticles(player, ParticleTypes.SMOKE, true,
-                    enginePos.x - motion.x * 0.3, enginePos.y - motion.y * 0.3, enginePos.z - motion.z * 0.3,
-                    2, 0.25, 0.25, 0.25, 0.01);
-        }
-    }
-
-    private void spawnContrailParticles(ServerLevel level, Vec3 pos, Vec3 motion) {
-
-        Vec3 trailPos = pos.subtract(motion.normalize().scale(1.0));
-
-        for (ServerPlayer player : level.players()) {
-
-            level.sendParticles(player, ParticleTypes.CLOUD, true,
-                    trailPos.x, trailPos.y, trailPos.z,
-                    3, 0.15, 0.15, 0.15, 0.001);
-
-            level.sendParticles(player, ParticleTypes.CLOUD, true,
-                    trailPos.x + (this.random.nextDouble() - 0.5) * 0.3,
-                    trailPos.y + (this.random.nextDouble() - 0.5) * 0.3,
-                    trailPos.z + (this.random.nextDouble() - 0.5) * 0.3,
-                    2, 0.1, 0.1, 0.1, 0.001);
-
-            if (this.tickCount % 2 == 0) {
-                level.sendParticles(player, ParticleTypes.SNOWFLAKE, true,
-                        trailPos.x, trailPos.y, trailPos.z,
-                        1, 0.2, 0.2, 0.2, 0.001);
-            }
-        }
-    }
-
-    private void spawnDiveParticles(ServerLevel level, Vec3 pos, Vec3 motion) {
-        Vec3 enginePos = pos.subtract(motion.normalize().scale(0.8));
-
-        for (ServerPlayer player : level.players()) {
-
-            level.sendParticles(player, ParticleTypes.SMOKE, true,
-                    enginePos.x, enginePos.y, enginePos.z,
-                    3, 0.2, 0.2, 0.2, 0.03);
-
-            level.sendParticles(player, ParticleTypes.FIREWORK, true,
-                    pos.x, pos.y, pos.z,
-                    2, 0.3, 0.3, 0.3, 0.1);
-
-            if (this.tickCount % 5 == 0) {
-                level.sendParticles(player, ParticleTypes.FLAME, true,
-                        enginePos.x, enginePos.y, enginePos.z,
-                        1, 0.1, 0.1, 0.1, 0.02);
-            }
-        }
     }
 
     public String getShahedColor() {

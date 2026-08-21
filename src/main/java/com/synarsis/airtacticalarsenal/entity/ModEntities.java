@@ -14,7 +14,10 @@ public class ModEntities {
 
     public static final DeferredHolder<EntityType<?>, EntityType<ShahedEntity>> SHAHED = ENTITY_TYPES.register("shahed",
             () -> EntityType.Builder.<ShahedEntity>of(ShahedEntity::new, MobCategory.MISC)
-                    .sized(3.0f, 1.5f)
+                    // Declared size only: ShahedEntity overrides makeBoundingBox() with geometry that
+                    // turns with the airframe. 4.8 is the widest the 3.19 x 3.62 plate gets as it
+                    // yaws; the old 3.0 was narrower than the model, so nose and tail hung outside it.
+                    .sized(4.8f, 1.0f)
                     .clientTrackingRange(600)
                     .updateInterval(1)
                     .setShouldReceiveVelocityUpdates(true)

@@ -41,6 +41,17 @@ public class ServerForgeEvents {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         MissileChunkManager.cleanup();
+        com.synarsis.airtacticalarsenal.debug.DebugOverrides.reset();
+    }
+
+    /** A joining player has to be told the testing switches, or their terminal disagrees. */
+    @SubscribeEvent
+    public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+            PacketDistributor.sendToPlayer(serverPlayer,
+                    new com.synarsis.airtacticalarsenal.network.DebugOverridesPacket(
+                            com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()));
+        }
     }
 
     @SubscribeEvent

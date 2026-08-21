@@ -90,13 +90,25 @@ public class ClientGameEvents {
 
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
-        if (event.getKey() == GLFW.GLFW_KEY_LEFT_ALT && event.getAction() == GLFW.GLFW_PRESS) {
+        // Reads the bindings rather than hard-coded scancodes, so these can be rebound and so a
+        // clash with another mod shows up in the controls screen instead of silently double-firing.
+        if (event.getAction() == GLFW.GLFW_PRESS
+                && ModKeys.SETTINGS.matches(event.getKey(), event.getScanCode())) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen == null) {
+                mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.AtaSettingsScreen(null));
+            }
+            return;
+        }
+        if (event.getAction() == GLFW.GLFW_PRESS
+                && ModKeys.CAMERA_EXIT.matches(event.getKey(), event.getScanCode())) {
             OrlanCameraHandler.handleExitKey();
         }
-        if (event.getKey() == GLFW.GLFW_KEY_R) {
+        if (ModKeys.CAMERA_LOCK.matches(event.getKey(), event.getScanCode())) {
             OrlanCameraHandler.handleLockKey(event.getAction());
         }
-        if (event.getKey() == GLFW.GLFW_KEY_N && event.getAction() == GLFW.GLFW_PRESS) {
+        if (event.getAction() == GLFW.GLFW_PRESS
+                && ModKeys.NIGHT_VISION.matches(event.getKey(), event.getScanCode())) {
             OrlanCameraHandler.toggleNvg();
         }
     }
@@ -105,6 +117,7 @@ public class ClientGameEvents {
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         NvgShaderHandler.processShader();
+        com.synarsis.airtacticalarsenal.client.debug.HitboxDebugRenderer.render(event);
     }
 
     @SubscribeEvent
@@ -129,6 +142,9 @@ public class ClientGameEvents {
 
     @SubscribeEvent
     public static void onPostGuiLayer(RenderGuiLayerEvent.Post event) {
+        if (event.getName().equals(VanillaGuiLayers.CROSSHAIR)) {
+            com.synarsis.airtacticalarsenal.client.hud.HitFeedback.render(event.getGuiGraphics());
+        }
         if (!event.getName().equals(VanillaGuiLayers.CROSSHAIR)) return;
 
         Minecraft mc = Minecraft.getInstance();

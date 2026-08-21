@@ -56,7 +56,7 @@ public record SaveOrlanRoutePacket(BlockPos launcherPos, List<BlockPos> waypoint
             }
 
             double playerDistance = player.position().distanceTo(launcher.position());
-            if (playerDistance > 30.0) {
+            if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.limitsApply() && playerDistance > 30.0) {
                 player.displayClientMessage(Component.literal("§cПУ слишком далеко! Макс. 30 блоков"), true);
                 return;
             }

@@ -72,7 +72,7 @@ public record LaunchShahedByRoutePacket(List<BlockPos> launcherPositions, int al
                 }
 
                 double playerDistance = player.position().distanceTo(launcher.position());
-                if (playerDistance > 30.0) { failed++; continue; }
+                if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.limitsApply() && playerDistance > 30.0) { failed++; continue; }
 
                 BlockPos firstTarget = route.get(0);
                 float launcherYaw = launcher.getYRot();

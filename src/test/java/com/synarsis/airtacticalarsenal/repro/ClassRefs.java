@@ -54,6 +54,23 @@ public final class ClassRefs {
         return utf8Constants.contains(name);
     }
 
+    /**
+     * True if any constant <em>contains</em> {@code fragment}.
+     *
+     * <p>{@link #references} matches a whole constant, which is what you want for a method or
+     * field name. A package shows up as part of a longer string instead -- bare as
+     * {@code net/minecraft/client/Minecraft}, and inside descriptors as
+     * {@code (Lnet/minecraft/client/Minecraft;)V} -- so it needs a substring search.
+     */
+    public boolean referencesAnythingIn(String fragment) {
+        for (String constant : utf8Constants) {
+            if (constant.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static Set<String> readUtf8Constants(DataInputStream in) throws IOException {
         if (in.readInt() != 0xCAFEBABE) {
             throw new IllegalStateException("not a class file");

@@ -18,6 +18,38 @@
 		},
 		"animation.shahed.dive": {
 			"loop": true,
+			"animation_length": 1,
+			"bones": {
+				"bone": {
+					"rotation": {
+						"0.0": [0, 0, 0],
+						"1.0": {
+							"pre": [0, 0, -3960],
+							"post": [0, 0, -3960],
+							"lerp_mode": "catmullrom"
+						}
+					}
+				}
+			}
+		},
+		"animation.shahed.windmill": {
+			"loop": true,
+			"animation_length": 2,
+			"bones": {
+				"bone": {
+					"rotation": {
+						"0.0": [0, 0, 0],
+						"2.0": {
+							"pre": [0, 0, -360],
+							"post": [0, 0, -360],
+							"lerp_mode": "linear"
+						}
+					}
+				}
+			}
+		},
+		"animation.shahed.prop_stopped": {
+			"loop": true,
 			"animation_length": 1
 		}
 	}

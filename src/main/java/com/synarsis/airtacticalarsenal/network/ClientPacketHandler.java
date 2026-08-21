@@ -71,6 +71,19 @@ public class ClientPacketHandler {
         mc.execute(sound::start);
     }
 
+    /**
+     * Fades the engine note out because the engine has actually stopped.
+     *
+     * <p>The sound used to end only when the drone exploded or the entity went away, so a drone
+     * gliding down with its engine shot off kept humming the whole way to the ground.
+     */
+    public static void fadeEngine(int entityId) {
+        ShahedEngineSoundClient sound = activeSounds.get(entityId);
+        if (sound != null && !sound.isExploded()) {
+            sound.stopSound();
+        }
+    }
+
     public static void handleShahedRemove(int entityId) {
         ShahedEngineSoundClient sound = activeSounds.get(entityId);
         if (sound != null) {

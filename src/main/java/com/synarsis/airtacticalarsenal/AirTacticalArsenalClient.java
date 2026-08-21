@@ -31,10 +31,19 @@ import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 @Mod(value = AirTacticalArsenal.MODID, dist = Dist.CLIENT)
 public class AirTacticalArsenalClient {
     public AirTacticalArsenalClient(ModContainer container) {
+        // Puts a Config button next to this mod in the mod list. Native to NeoForge, so no
+        // dependency on a config-screen library is needed.
+        container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+                (mc, parent) -> new com.synarsis.airtacticalarsenal.client.gui.AtaSettingsScreen(parent));
     }
 
     @EventBusSubscriber(modid = AirTacticalArsenal.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
+
+        @SubscribeEvent
+        public static void onRegisterKeys(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent event) {
+            com.synarsis.airtacticalarsenal.client.ModKeys.register(event);
+        }
 
         @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {

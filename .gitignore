@@ -41,3 +41,6 @@ repo/
 
 ### Runtime logs ###
 logs/
+
+### Dev run output ###
+run-server*.log

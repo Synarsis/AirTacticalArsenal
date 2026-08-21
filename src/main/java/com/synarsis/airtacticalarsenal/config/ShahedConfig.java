@@ -41,6 +41,12 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue ISKANDER_CRUISE_SPEED;
     public static final ModConfigSpec.DoubleValue ISKANDER_TERMINAL_SPEED;
     public static final ModConfigSpec.IntValue ISKANDER_PREPARE_TICKS;
+    public static final ModConfigSpec.BooleanValue SHAHED_FALLEN_WARHEAD_DETONATES;
+    public static final ModConfigSpec.DoubleValue SHAHED_DUD_CHANCE;
+    public static final ModConfigSpec.DoubleValue SHAHED_LOW_ORDER_POWER;
+    public static final ModConfigSpec.IntValue SHAHED_WRECK_LIFETIME_TICKS;
+    public static final ModConfigSpec.BooleanValue SHAHED_WRECK_COOKOFF;
+
     public static final ModConfigSpec.IntValue ISKANDER_LAUNCH_TICKS;
     public static final ModConfigSpec.DoubleValue ISKANDER_KVO_DEVIATION;
     public static final ModConfigSpec.IntValue ISKANDER_MIN_DISTANCE;
@@ -58,6 +64,11 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue SHAHED_EXPLOSION_VEHICLE_MULTIPLIER;
 
     public static boolean isInForbiddenZone(int x, int z) {
+        // Gated here rather than at each call site so the terminal screens, which run this
+        // check themselves to grey out the launch button, agree with the server.
+        if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()) {
+            return false;
+        }
         boolean inWhitelist = false;
         boolean inBlacklist = false;
 
@@ -119,6 +130,11 @@ public class ShahedConfig {
     public static double getShahedMinCaliberDamage() { return SHAHED_MIN_CALIBER_DAMAGE.get(); }
     public static boolean isShahedSmokeOnDamageEnabled() { return SHAHED_SMOKE_ON_DAMAGE.get(); }
     public static boolean isShahedCriticalDetonationEnabled() { return SHAHED_CRITICAL_DETONATION.get(); }
+    public static boolean doesFallenWarheadDetonate() { return SHAHED_FALLEN_WARHEAD_DETONATES.get(); }
+    public static double getShahedDudChance() { return SHAHED_DUD_CHANCE.get(); }
+    public static double getLowOrderPowerFactor() { return SHAHED_LOW_ORDER_POWER.get(); }
+    public static int getWreckLifetimeTicks() { return SHAHED_WRECK_LIFETIME_TICKS.get(); }
+    public static boolean isWreckCookOffEnabled() { return SHAHED_WRECK_COOKOFF.get(); }
 
     public static double getIskanderApexHeight() { return ISKANDER_APEX_HEIGHT.get(); }
     public static double getIskanderLaunchSpeed() { return ISKANDER_LAUNCH_SPEED.get(); }
@@ -149,7 +165,7 @@ public class ShahedConfig {
 
     public static void reload() {
         // NeoForge auto-reloads the config when the file changes on disk.
-        // TODO: verify /shahed config command flow works without explicit reload
+        // Reached from /ata config reload (or its /shahed alias).
     }
 
     static {
@@ -203,6 +219,28 @@ public class ShahedConfig {
         SHAHED_MIN_CALIBER_DAMAGE = BUILDER.comment("Minimum damage threshold - shots below this are ignored (filters weak weapons)").defineInRange("shahedMinCaliberDamage", 2.0, 0.0, 20.0);
         SHAHED_SMOKE_ON_DAMAGE = BUILDER.comment("Show smoke effects when Shahed is damaged").define("shahedSmokeOnDamage", true);
         SHAHED_CRITICAL_DETONATION = BUILDER.comment("Warhead hits at low HP can cause premature detonation").define("shahedCriticalDetonation", true);
+        BUILDER.pop();
+
+        BUILDER.push("Shootdown Outcomes");
+        BUILDER.comment("What happens to a Shahed that was brought down rather than destroyed outright.",
+                "A downed drone now falls and is finished by the ground, so these decide whether it",
+                "goes off, fizzles, or lies there still loaded.");
+        SHAHED_FALLEN_WARHEAD_DETONATES = BUILDER
+                .comment("An intact warhead still detonates where a downed drone lands.",
+                        "Turn off if a shot-down drone should never be able to hurt anything.")
+                .define("shahedFallenWarheadDetonates", true);
+        SHAHED_DUD_CHANCE = BUILDER
+                .comment("Chance a damaged warhead simply fails on impact, leaving a live wreck")
+                .defineInRange("shahedDudChance", 0.35, 0.0, 1.0);
+        SHAHED_LOW_ORDER_POWER = BUILDER
+                .comment("Share of full power when a damaged warhead only partly fires")
+                .defineInRange("shahedLowOrderPowerFactor", 0.35, 0.05, 1.0);
+        SHAHED_WRECK_LIFETIME_TICKS = BUILDER
+                .comment("How long a wreck lies on the ground before it is cleaned up (6000 = 5 min)")
+                .defineInRange("shahedWreckLifetimeTicks", 6000, 200, 24000);
+        SHAHED_WRECK_COOKOFF = BUILDER
+                .comment("A wreck with a live warhead detonates if it is shot or blasted")
+                .define("shahedWreckCookOff", true);
         BUILDER.pop();
 
         BUILDER.push("Iskander Settings");
