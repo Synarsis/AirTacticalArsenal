@@ -105,11 +105,14 @@ public record OpenOrlanTabletPacket(
     }
 
     public static void handle(OpenOrlanTabletPacket payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            mc.execute(() -> mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.OrlanTabletScreen(
-                    payload.launcherPositions(), payload.hasDroneList(), payload.launcherYawList(),
-                    payload.savedCoords(), payload.activeOrlans(), payload.savedRoutes())));
-        });
+        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
+        // server that loads a class referencing client types aborts mod loading entirely -- the
+        // server does not start at all. Guard before touching anything client-side.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
+        context.enqueueWork(() -> com.synarsis.airtacticalarsenal.client.ClientScreens.openOrlanTablet(
+                payload.launcherPositions(), payload.hasDroneList(), payload.launcherYawList(),
+                payload.savedCoords(), payload.activeOrlans(), payload.savedRoutes()));
     }
 }

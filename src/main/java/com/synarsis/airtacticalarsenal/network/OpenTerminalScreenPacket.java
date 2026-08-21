@@ -64,12 +64,15 @@ public record OpenTerminalScreenPacket(
     }
 
     public static void handle(OpenTerminalScreenPacket payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            mc.execute(() -> mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.ShahedTerminalScreen(
-                    payload.terminalPos(), payload.targetY(),
-                    payload.blacklistEnabled(), payload.whitelistEnabled(),
-                    payload.blacklistZones(), payload.whitelistZones())));
-        });
+        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
+        // server that loads a class referencing client types aborts mod loading entirely -- the
+        // server does not start at all. Guard before touching anything client-side.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
+        context.enqueueWork(() -> com.synarsis.airtacticalarsenal.client.ClientScreens.openShahedTerminal(
+                payload.terminalPos(), payload.targetY(),
+                payload.blacklistEnabled(), payload.whitelistEnabled(),
+                payload.blacklistZones(), payload.whitelistZones()));
     }
 }

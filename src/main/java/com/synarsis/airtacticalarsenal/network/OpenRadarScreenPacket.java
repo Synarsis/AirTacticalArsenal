@@ -23,6 +23,12 @@ public record OpenRadarScreenPacket(BlockPos pos) implements CustomPacketPayload
     }
 
     public static void handle(OpenRadarScreenPacket payload, IPayloadContext context) {
-        context.enqueueWork(() -> com.synarsis.airtacticalarsenal.client.gui.ShahedRadarScreen.open(payload.pos()));
+        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
+        // server that loads a class referencing client types aborts mod loading entirely -- the
+        // server does not start at all. Guard before touching anything client-side.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
+        context.enqueueWork(() -> com.synarsis.airtacticalarsenal.client.ClientScreens.openRadar(payload.pos()));
     }
 }

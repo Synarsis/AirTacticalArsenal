@@ -42,6 +42,10 @@ public record ShahedSpawnPacket(int entityId, Vec3 startPos, BlockPos targetPos,
     public String getDiveMode() { return diveMode; }
 
     public static void handle(ShahedSpawnPacket payload, IPayloadContext context) {
+        // Client-only handler; see the note in ClientScreens.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
         context.enqueueWork(() -> {
             // Client-side: forwarded to client packet handler
             ClientPacketHandler.handleShahedSpawn(

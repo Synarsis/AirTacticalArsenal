@@ -25,6 +25,10 @@ public record ShahedRemovePacket(int entityId) implements CustomPacketPayload {
     public int getEntityId() { return entityId; }
 
     public static void handle(ShahedRemovePacket payload, IPayloadContext context) {
+        // Client-only handler; see the note in ClientScreens.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
         context.enqueueWork(() -> {
             ClientPacketHandler.handleShahedRemove(payload.entityId());
         });

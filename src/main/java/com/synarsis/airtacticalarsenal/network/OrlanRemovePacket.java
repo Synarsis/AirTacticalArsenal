@@ -23,6 +23,10 @@ public record OrlanRemovePacket(int entityId) implements CustomPacketPayload {
     }
 
     public static void handle(OrlanRemovePacket payload, IPayloadContext context) {
+        // Client-only handler; see the note in ClientScreens.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
         context.enqueueWork(() -> {
             ClientPacketHandler.handleOrlanRemove(payload.entityId());
         });

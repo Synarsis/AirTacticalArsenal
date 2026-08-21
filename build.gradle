@@ -27,6 +27,7 @@ sourceSets.main.resources {
 }
 
 repositories {
+    mavenCentral()
     maven {
         name = 'GeckoLib'
         url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
@@ -122,6 +123,26 @@ configurations {
 
 dependencies {
     implementation "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.4"
+
+    // --- Regression tests -------------------------------------------------------
+    // Test-only; does not enter the shipped jar and does not affect mod behaviour.
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// The test source set needs Minecraft/NeoForge on its classpath. ModDevGradle keeps the modding
+// artifacts in its own internal configurations, so plain extendsFrom is not enough.
+neoForge {
+    addModdingDependenciesTo sourceSets.test
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

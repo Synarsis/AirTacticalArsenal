@@ -31,7 +31,7 @@ public record SaveShahedRoutePacket(BlockPos launcherPos, List<BlockPos> waypoin
             },
             (buf) -> {
                 BlockPos pos = buf.readBlockPos();
-                int n = buf.readInt();
+                int n = PacketLimits.readCount(buf, PacketLimits.MAX_WAYPOINTS, "waypoint");
                 List<BlockPos> wps = new ArrayList<>(n);
                 for (int i = 0; i < n; i++) wps.add(buf.readBlockPos());
                 return new SaveShahedRoutePacket(pos, wps);

@@ -56,6 +56,10 @@ public record LauncherStateUpdatePacket(
     public int getFlightTicks() { return flightTicks; }
 
     public static void handle(LauncherStateUpdatePacket payload, IPayloadContext context) {
+        // Client-only handler; see the note in ClientScreens.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
         context.enqueueWork(() -> {
             ClientPacketHandler.handleLauncherStateUpdate(
                     payload.launcherPos(), payload.state(),

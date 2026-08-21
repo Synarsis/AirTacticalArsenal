@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import com.synarsis.airtacticalarsenal.block.ModBlocks;
+import com.synarsis.airtacticalarsenal.chunk.MissileChunkManager;
 import com.synarsis.airtacticalarsenal.block.entity.ModBlockEntities;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.ModEntities;
@@ -42,9 +43,15 @@ public class AirTacticalArsenal {
 
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(NetworkHandler::register);
+        // Chunk tickets owned per missile, instead of the level-wide forced-chunk set.
+        modEventBus.addListener(MissileChunkManager::registerTicketController);
         NeoForge.EVENT_BUS.register(this);
 
-        modContainer.registerConfig(ModConfig.Type.COMMON, ShahedConfig.SPEC, "ata-common.toml");
+        // SERVER, not COMMON. NeoForge only synchronises SERVER-type configs to clients, and every
+        // value here drives shared behaviour: launch ranges, damage multipliers, protected zones.
+        // As a COMMON config the client read its own local file while the server applied a
+        // different one, so the terminal screen could enable a launch the server then refused.
+        modContainer.registerConfig(ModConfig.Type.SERVER, ShahedConfig.SPEC, "ata-server.toml");
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

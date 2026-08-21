@@ -31,11 +31,11 @@ public record SaveTabletCoordsPacket(Map<Integer, int[]> savedCoords) implements
                 }
             },
             (buf) -> {
-                int n = buf.readInt();
+                int n = PacketLimits.readCount(buf, PacketLimits.MAX_SAVED_COORD_SLOTS, "saved coord slot");
                 Map<Integer, int[]> map = new HashMap<>();
                 for (int i = 0; i < n; i++) {
                     int key = buf.readInt();
-                    int len = buf.readInt();
+                    int len = PacketLimits.readCount(buf, PacketLimits.MAX_SAVED_COORD_VALUES, "saved coord value");
                     int[] arr = new int[len];
                     for (int j = 0; j < len; j++) arr[j] = buf.readInt();
                     map.put(key, arr);

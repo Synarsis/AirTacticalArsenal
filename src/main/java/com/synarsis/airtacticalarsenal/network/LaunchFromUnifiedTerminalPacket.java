@@ -20,6 +20,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.synarsis.airtacticalarsenal.block.entity.IskanderRocketBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
 public record LaunchFromUnifiedTerminalPacket(
         int targetX,
@@ -47,7 +49,7 @@ public record LaunchFromUnifiedTerminalPacket(
                 int targetX = buf.readInt();
                 int targetZ = buf.readInt();
                 BlockPos terminalPos = buf.readBlockPos();
-                int listSize = buf.readInt();
+                int listSize = PacketLimits.readCount(buf, PacketLimits.MAX_LAUNCHERS, "launcher");
                 List<BlockPos> launcherPositions = new ArrayList<>();
                 for (int i = 0; i < listSize; i++) {
                     launcherPositions.add(buf.readBlockPos());
@@ -82,7 +84,10 @@ public record LaunchFromUnifiedTerminalPacket(
                 for (BlockPos launcherPos : launcherPositions) {
                     BlockState launcherState = level.getBlockState(launcherPos);
                     if (launcherState.getBlock() instanceof LauncherBlock launcherBlock) {
-                        if (!launcherState.getValue(LauncherBlock.LOADED)) {
+                        // This condition used to be inverted: it looked for a launcher that was
+                        // NOT loaded and then set LOADED on it, firing a full missile without
+                        // consuming any ammunition at all.
+                        if (launcherState.getValue(LauncherBlock.LOADED)) {
                             if (!launcherBlock.isBlocked(level, launcherPos)) {
                                 selectedLauncher = launcherPos;
                                 break;
@@ -92,12 +97,11 @@ public record LaunchFromUnifiedTerminalPacket(
                 }
 
                 if (selectedLauncher == null) {
-                    player.displayClientMessage(Component.translatable("message.ata.launcher.blocked"), true);
+                    player.displayClientMessage(Component.translatable("message.ata.rocket.not_loaded"), true);
                     return;
                 }
 
                 LauncherBlock launcher = (LauncherBlock) level.getBlockState(selectedLauncher).getBlock();
-                launcher.setLoaded(level, selectedLauncher, true);
                 launchPos = Vec3.atCenterOf(launcher.getLaunchPosition(level, selectedLauncher));
             } else if (!launcherPositions.isEmpty()) {
                 BlockPos launcherPos = launcherPositions.get(0);
@@ -126,13 +130,20 @@ public record LaunchFromUnifiedTerminalPacket(
                 shahed.isLegitSpawn = true;
                 level.addFreshEntity(shahed);
             } else {
-                IskanderEntity iskander = new IskanderEntity(level, launchPos, targetPos);
-                iskander.setOwner(player);
-                if (selectedLauncher != null) {
-                    iskander.setLauncherPos(selectedLauncher);
+                // Hand off to the rocket block entity instead of spawning the missile directly.
+                // Spawning it here left the rocket block standing on the pad and the hatch still
+                // holding its item, so the same missile both flew and stayed behind.
+                BlockEntity rocketBE = level.getBlockEntity(selectedLauncher.above());
+                if (!(rocketBE instanceof IskanderRocketBlockEntity rocketEntity)) {
+                    player.displayClientMessage(Component.translatable("message.ata.rocket.not_found"), true);
+                    return;
                 }
-                iskander.isLegitSpawn = true;
-                level.addFreshEntity(iskander);
+                if (rocketEntity.isLaunching()) {
+                    player.displayClientMessage(Component.translatable("message.ata.rocket.already_launching"), true);
+                    return;
+                }
+                rocketEntity.startLaunch(targetPos, selectedLauncher, player);
+                player.displayClientMessage(Component.translatable("message.ata.rocket.launch_started"), true);
             }
         });
     }

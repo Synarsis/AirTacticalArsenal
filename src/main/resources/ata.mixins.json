@@ -3,11 +3,12 @@
   "minVersion": "0.8",
   "package": "com.synarsis.airtacticalarsenal.mixins",
   "compatibilityLevel": "JAVA_21",
+  "plugin": "com.synarsis.airtacticalarsenal.mixins.AtaMixinPlugin",
   "client": [
     "ClientChunkCacheMixin",
     "LevelRendererMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }

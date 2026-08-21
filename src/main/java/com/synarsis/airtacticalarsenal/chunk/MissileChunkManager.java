@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import net.neoforged.neoforge.common.world.chunk.TicketController;
+import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
 
 /**
  * Tracks which chunks are force-loaded by each in-flight missile and drops them as
@@ -38,6 +40,23 @@ public class MissileChunkManager {
     private static final ResourceLocation TICKET_ID =
             ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "missile_chunk");
 
+    /**
+     * Per-entity chunk tickets -- the NeoForge equivalent of the Forge ForgeChunkManager this mod
+     * was originally written against.
+     *
+     * <p>Replaces {@link ServerLevel#setChunkForced}, which was the wrong tool twice over. It keeps
+     * one flat set of forced chunks per level with no notion of who asked, so when two missiles'
+     * areas overlapped, the first to finish released chunks the second was still flying through.
+     * And it writes into the level's persistent forced-chunk data, so a missile airborne at
+     * shutdown left its chunks forced inside the save file permanently.
+     */
+    private static final TicketController TICKETS = new TicketController(TICKET_ID);
+
+    /** Registers the controller. Called from the mod constructor on the mod event bus. */
+    public static void registerTicketController(RegisterTicketControllersEvent event) {
+        event.register(TICKETS);
+    }
+
     private static final int CHUNK_LOAD_RADIUS = 1;
 
     private static final int PRELOAD_CHUNKS_AHEAD = 3;
@@ -46,6 +65,9 @@ public class MissileChunkManager {
 
     private static final Map<Integer, ServerLevel> missileLevels = new ConcurrentHashMap<>();
 
+    /** Ticket owners. Tickets are keyed by UUID, which outlives the numeric entity id. */
+    private static final Map<Integer, java.util.UUID> missileOwners = new ConcurrentHashMap<>();
+
     private static final Map<Integer, ChunkPos> lastChunkPosCache = new ConcurrentHashMap<>();
     private static final Map<Integer, Integer> lastRadiusCache = new ConcurrentHashMap<>();
 
@@ -53,6 +75,7 @@ public class MissileChunkManager {
         int entityId = missile.getId();
         loadedChunksPerMissile.put(entityId, ConcurrentHashMap.newKeySet());
         missileLevels.put(entityId, level);
+        missileOwners.put(entityId, missile.getUUID());
 
         updateChunksForMissile(missile, level);
     }
@@ -116,8 +139,7 @@ public class MissileChunkManager {
         chunksToUnload.removeAll(chunksToLoad);
 
         for (ChunkPos chunk : chunksToUnload) {
-            // Forge: ForgeChunkManager.forceChunk(level, MOD_ID, uuid, x, z, false, true);
-            level.setChunkForced(chunk.x, chunk.z, false);
+            TICKETS.forceChunk(level, missile, chunk.x, chunk.z, false, true);
             currentLoaded.remove(chunk);
         }
 
@@ -125,9 +147,7 @@ public class MissileChunkManager {
         chunksToLoadNew.removeAll(currentLoaded);
 
         for (ChunkPos chunk : chunksToLoadNew) {
-            // Forge: ForgeChunkManager.forceChunk(level, MOD_ID, uuid, x, z, true, true);
-            // setChunkForced returns true if the state changed (i.e. it wasn't already forced).
-            level.setChunkForced(chunk.x, chunk.z, true);
+            TICKETS.forceChunk(level, missile, chunk.x, chunk.z, true, true);
             currentLoaded.add(chunk);
         }
     }
@@ -138,13 +158,15 @@ public class MissileChunkManager {
         int entityId = missile.getId();
         Set<ChunkPos> loadedChunks = loadedChunksPerMissile.remove(entityId);
         ServerLevel level = missileLevels.remove(entityId);
+        java.util.UUID owner = missileOwners.remove(entityId);
         lastChunkPosCache.remove(entityId);
         lastRadiusCache.remove(entityId);
 
-        if (loadedChunks != null && level != null && !loadedChunks.isEmpty()) {
-            for (ChunkPos chunk : loadedChunks) {
-                level.setChunkForced(chunk.x, chunk.z, false);
-            }
+        if (level == null || owner == null || loadedChunks == null) return;
+        for (ChunkPos chunk : loadedChunks) {
+            try {
+                TICKETS.forceChunk(level, owner, chunk.x, chunk.z, false, true);
+            } catch (Exception ignored) {}
         }
     }
 
@@ -154,15 +176,17 @@ public class MissileChunkManager {
         //       for now we just iterate the bookkeeping map.
         for (Map.Entry<Integer, Set<ChunkPos>> entry : loadedChunksPerMissile.entrySet()) {
             ServerLevel level = missileLevels.get(entry.getKey());
-            if (level != null) {
+            java.util.UUID owner = missileOwners.get(entry.getKey());
+            if (level != null && owner != null) {
                 for (ChunkPos chunk : entry.getValue()) {
                     try {
-                        level.setChunkForced(chunk.x, chunk.z, false);
+                        TICKETS.forceChunk(level, owner, chunk.x, chunk.z, false, true);
                     } catch (Exception ignored) {}
                 }
             }
         }
         loadedChunksPerMissile.clear();
+        missileOwners.clear();
         missileLevels.clear();
         lastChunkPosCache.clear();
         lastRadiusCache.clear();
@@ -186,7 +210,7 @@ public class MissileChunkManager {
             for (int dz = -radius; dz <= radius; dz++) {
                 ChunkPos chunk = new ChunkPos(center.x + dx, center.z + dz);
                 if (!currentLoaded.contains(chunk)) {
-                    level.setChunkForced(chunk.x, chunk.z, true);
+                    TICKETS.forceChunk(level, missile, chunk.x, chunk.z, true, true);
                     currentLoaded.add(chunk);
                 }
             }

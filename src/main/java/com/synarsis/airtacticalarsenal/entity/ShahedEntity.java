@@ -917,6 +917,10 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        // tick() discards the entity when this is false. Without persisting it, every drone
+        // reloaded from disk deleted itself on its first tick -- and because a discard outside
+        // WARMUP counts as a shoot-down, it also broadcast a phantom explosion to every player.
+        tag.putBoolean("LegitSpawn", this.isLegitSpawn);
         BlockPos target = this.entityData.get(TARGET_POS);
         tag.putInt("TargetX", target.getX());
         tag.putInt("TargetY", target.getY());
@@ -968,6 +972,7 @@ public class ShahedEntity extends Projectile implements GeoEntity {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        this.isLegitSpawn = tag.getBoolean("LegitSpawn");
         BlockPos target = new BlockPos(tag.getInt("TargetX"), tag.getInt("TargetY"), tag.getInt("TargetZ"));
         this.entityData.set(TARGET_POS, target);
         this.isDiving = tag.getBoolean("IsDiving");

@@ -17,6 +17,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.synarsis.airtacticalarsenal.block.entity.LauncherBlockEntity;
+import com.synarsis.airtacticalarsenal.block.entity.LoadingHatchBlockEntity;
 
 public record RemoveRocketPacket(BlockPos launcherPos) implements CustomPacketPayload {
 
@@ -31,6 +33,17 @@ public record RemoveRocketPacket(BlockPos launcherPos) implements CustomPacketPa
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    /** Empties the launcher's loading hatch and returns what it held, or EMPTY if it held nothing. */
+    private static ItemStack takeFromHatch(Level level, BlockPos launcherPos) {
+        if (!(level.getBlockEntity(launcherPos) instanceof LauncherBlockEntity launcherBE)) return ItemStack.EMPTY;
+        BlockPos hatchPos = launcherBE.getLoadingHatchPos();
+        if (hatchPos == null) return ItemStack.EMPTY;
+        if (level.getBlockEntity(hatchPos) instanceof LoadingHatchBlockEntity hatch && hatch.isLoaded()) {
+            return hatch.unloadRocket();
+        }
+        return ItemStack.EMPTY;
     }
 
     public static void handle(RemoveRocketPacket payload, IPayloadContext context) {
@@ -68,7 +81,14 @@ public record RemoveRocketPacket(BlockPos launcherPos) implements CustomPacketPa
 
             launcher.setLoaded(level, launcherPos, false);
 
-            ItemStack rocketItem = new ItemStack(ModItems.ISKANDER.get());
+            // Take the rocket OUT of the hatch rather than minting a new one. Previously the hatch
+            // kept its copy while the player also received a fresh item, so the cycle
+            // "load via hatch -> remove via terminal -> take from hatch" produced one extra
+            // Iskander every pass, without limit.
+            ItemStack rocketItem = takeFromHatch(level, launcherPos);
+            if (rocketItem.isEmpty()) {
+                rocketItem = new ItemStack(ModItems.ISKANDER.get());
+            }
             if (!player.getInventory().add(rocketItem)) {
                 player.drop(rocketItem, false);
             }

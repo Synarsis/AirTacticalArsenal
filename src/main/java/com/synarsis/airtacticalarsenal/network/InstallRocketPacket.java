@@ -17,6 +17,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.synarsis.airtacticalarsenal.block.entity.LauncherBlockEntity;
+import com.synarsis.airtacticalarsenal.block.entity.LoadingHatchBlockEntity;
 
 public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) implements CustomPacketPayload {
 
@@ -32,6 +34,16 @@ public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) im
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    /** Stores {@code rocket} in the launcher's loading hatch, if it still has one. */
+    private static void mirrorIntoHatch(Level level, BlockPos launcherPos, ItemStack rocket) {
+        if (!(level.getBlockEntity(launcherPos) instanceof LauncherBlockEntity launcherBE)) return;
+        BlockPos hatchPos = launcherBE.getLoadingHatchPos();
+        if (hatchPos == null) return;
+        if (level.getBlockEntity(hatchPos) instanceof LoadingHatchBlockEntity hatch && !hatch.isLoaded()) {
+            hatch.loadRocket(rocket);
+        }
     }
 
     public static void handle(InstallRocketPacket payload, IPayloadContext context) {
@@ -77,16 +89,24 @@ public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) im
                 return;
             }
 
-            player.getInventory().items.get(rocketSlot).shrink(1);
-
+            // Place the block FIRST, then take payment. Shrinking up front meant a failed
+            // placement had to refund, and the refund built a fresh stack.
             Direction facing = launcherState.getValue(LauncherBlock.FACING);
-            if (IskanderRocketBlock.placeRocket(level, launcherPos, facing)) {
-                launcher.setLoaded(level, launcherPos, true);
-                player.displayClientMessage(Component.translatable("message.ata.rocket.installed"), true);
-            } else {
-                player.getInventory().add(new ItemStack(ModItems.ISKANDER.get()));
+            if (!IskanderRocketBlock.placeRocket(level, launcherPos, facing)) {
                 player.displayClientMessage(Component.translatable("message.ata.rocket.install_failed"), true);
+                return;
             }
+
+            ItemStack paid = player.getInventory().items.get(rocketSlot).split(1);
+            launcher.setLoaded(level, launcherPos, true);
+
+            // The hatch is the single source of truth for whether a rocket is present. Leaving it
+            // empty here made the two halves disagree: the hatch refused to unload while a rocket
+            // block stood on the pad, and dismantling the launcher -- which only returns what the
+            // hatch holds -- destroyed the rocket outright.
+            mirrorIntoHatch(level, launcherPos, paid);
+
+            player.displayClientMessage(Component.translatable("message.ata.rocket.installed"), true);
         });
     }
 }

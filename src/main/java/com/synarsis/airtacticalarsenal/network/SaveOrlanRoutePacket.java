@@ -31,7 +31,7 @@ public record SaveOrlanRoutePacket(BlockPos launcherPos, List<BlockPos> waypoint
             },
             (buf) -> {
                 BlockPos pos = buf.readBlockPos();
-                int n = buf.readInt();
+                int n = PacketLimits.readCount(buf, PacketLimits.MAX_WAYPOINTS, "waypoint");
                 List<BlockPos> wps = new ArrayList<>(n);
                 for (int i = 0; i < n; i++) wps.add(buf.readBlockPos());
                 return new SaveOrlanRoutePacket(pos, wps);

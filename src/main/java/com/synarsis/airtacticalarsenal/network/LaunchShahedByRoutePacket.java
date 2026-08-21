@@ -35,7 +35,7 @@ public record LaunchShahedByRoutePacket(List<BlockPos> launcherPositions, int al
                 buf.writeInt(p.altitudeMode);
             },
             (buf) -> {
-                int n = buf.readInt();
+                int n = PacketLimits.readCount(buf, PacketLimits.MAX_LAUNCHERS, "launcher");
                 List<BlockPos> list = new ArrayList<>(n);
                 for (int i = 0; i < n; i++) list.add(buf.readBlockPos());
                 int mode = buf.readInt();

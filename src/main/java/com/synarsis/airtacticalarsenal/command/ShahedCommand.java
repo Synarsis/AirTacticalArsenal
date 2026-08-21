@@ -37,7 +37,6 @@ public class ShahedCommand {
                                                             BlockPos targetPos = BlockPosArgument.getBlockPos(context,
                                                                     "target");
                                                             ServerLevel level = context.getSource().getLevel();
-                                                            preloadChunks(level, startPos, Vec3.atCenterOf(targetPos));
                                                             ShahedEntity shahed = new ShahedEntity(level, startPos,
                                                                     targetPos, "low");
                                                             shahed.isLegitSpawn = true;
@@ -58,7 +57,6 @@ public class ShahedCommand {
                                                             BlockPos targetPos = BlockPosArgument.getBlockPos(context,
                                                                     "target");
                                                             ServerLevel level = context.getSource().getLevel();
-                                                            preloadChunks(level, startPos, Vec3.atCenterOf(targetPos));
                                                             ShahedEntity shahed = new ShahedEntity(level, startPos,
                                                                     targetPos, "high");
                                                             shahed.isLegitSpawn = true;
@@ -81,7 +79,6 @@ public class ShahedCommand {
                                                     BlockPos targetPos = BlockPosArgument.getBlockPos(context,
                                                             "target");
                                                     ServerLevel level = context.getSource().getLevel();
-                                                    preloadChunks(level, startPos, Vec3.atCenterOf(targetPos));
                                                     IskanderEntity iskander = new IskanderEntity(level, startPos,
                                                             targetPos);
                                                     iskander.isLegitSpawn = true;
@@ -449,29 +446,4 @@ public class ShahedCommand {
                                 }))));
     }
 
-    private static void preloadChunks(ServerLevel level, Vec3 from, Vec3 to) {
-        ChunkPos spawnChunk = new ChunkPos(new BlockPos((int) from.x, (int) from.y, (int) from.z));
-        for (int x = -3; x <= 3; ++x) {
-            for (int z = -3; z <= 3; ++z) {
-                level.setChunkForced(spawnChunk.x + x, spawnChunk.z + z, true);
-            }
-        }
-
-        double totalDistance = from.distanceTo(to);
-        int numPoints = Math.max(1, (int) (totalDistance / 32.0));
-        for (int i = 0; i <= numPoints; ++i) {
-            double progress = (double) i / (double) numPoints;
-            Vec3 pointOnPath = new Vec3(
-                    from.x + (to.x - from.x) * progress,
-                    from.y + (to.y - from.y) * progress,
-                    from.z + (to.z - from.z) * progress);
-            ChunkPos pathChunk = new ChunkPos(
-                    new BlockPos((int) pointOnPath.x, (int) pointOnPath.y, (int) pointOnPath.z));
-            for (int x = -2; x <= 2; ++x) {
-                for (int z = -2; z <= 2; ++z) {
-                    level.setChunkForced(pathChunk.x + x, pathChunk.z + z, true);
-                }
-            }
-        }
-    }
 }

@@ -128,12 +128,15 @@ public record OpenShahedTabletPacket(
     }
 
     public static void handle(OpenShahedTabletPacket payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            mc.execute(() -> mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.ShahedTabletScreen(
-                    payload.launcherPositions(), payload.hasDroneList(), payload.targetList(),
-                    payload.launcherYawList(), payload.savedCoords(), payload.savedRoutes(),
-                    payload.flyingShahedsData())));
-        });
+        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
+        // server that loads a class referencing client types aborts mod loading entirely -- the
+        // server does not start at all. Guard before touching anything client-side.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
+            return;
+        }
+        context.enqueueWork(() -> com.synarsis.airtacticalarsenal.client.ClientScreens.openShahedTablet(
+                payload.launcherPositions(), payload.hasDroneList(), payload.targetList(),
+                payload.launcherYawList(), payload.savedCoords(), payload.savedRoutes(),
+                payload.flyingShahedsData()));
     }
 }

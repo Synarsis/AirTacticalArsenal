@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.event;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.chunk.MissileChunkManager;
 import com.synarsis.airtacticalarsenal.command.ShahedCommand;
 import com.synarsis.airtacticalarsenal.entity.IskanderEntity;
 import com.synarsis.airtacticalarsenal.network.IskanderSpawnPacket;
@@ -11,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -28,6 +30,17 @@ public class ServerForgeEvents {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         ShahedCommand.register(event.getDispatcher());
+    }
+
+    /**
+     * Releases chunks still held by missiles in flight.
+     *
+     * <p>Shutdown saves entities rather than removing them, so the per-entity release in
+     * {@code remove()} never runs on this path -- the tickets would otherwise be left behind.
+     */
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        MissileChunkManager.cleanup();
     }
 
     @SubscribeEvent

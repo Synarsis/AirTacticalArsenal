@@ -31,7 +31,7 @@ public record UpdateOrlanRoutePacket(int orlanEntityId, List<BlockPos> waypoints
             },
             (buf) -> {
                 int id = buf.readInt();
-                int n = buf.readInt();
+                int n = PacketLimits.readCount(buf, PacketLimits.MAX_WAYPOINTS, "waypoint");
                 List<BlockPos> wps = new ArrayList<>(n);
                 for (int i = 0; i < n; i++) wps.add(buf.readBlockPos());
                 return new UpdateOrlanRoutePacket(id, wps);
