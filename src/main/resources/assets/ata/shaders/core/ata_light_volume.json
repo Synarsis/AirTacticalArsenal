@@ -1,0 +1,32 @@
+{
+  "blend": {
+    "func": "add",
+    "srcrgb": "one",
+    "dstrgb": "one"
+  },
+  "vertex": "ata:ata_light_volume",
+  "fragment": "ata:ata_light_volume",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    { "name": "DepthSampler" },
+    { "name": "OccupancySampler" }
+  ],
+  "uniforms": [
+    { "name": "InvProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "Proj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "LightPos", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "LightColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 0.0 ] },
+    { "name": "LightDir", "type": "float", "count": 4, "values": [ 0.0, 0.0, -1.0, 0.0 ] },
+    { "name": "LightCone", "type": "float", "count": 4, "values": [ 1.0, 0.0, 0.0, 1.0 ] },
+    { "name": "DepthSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "FogRange", "type": "float", "count": 2, "values": [ 1000.0, 2000.0 ] },
+    { "name": "AccScale", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "InvView", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "LightWorld", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "Shadow", "type": "float", "count": 4, "values": [ 0.0, 1.0, 0.25, 0.0 ] },
+    { "name": "OccOrigin", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
+    { "name": "OccMod", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] }
+  ]
+}

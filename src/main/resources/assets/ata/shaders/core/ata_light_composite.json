@@ -1,0 +1,16 @@
+{
+  "vertex": "ata:ata_light_composite",
+  "fragment": "ata:ata_light_composite",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    { "name": "SceneSampler" },
+    { "name": "LightSampler" },
+    { "name": "DepthSampler" },
+    { "name": "HazeSampler" }
+  ],
+  "uniforms": [
+    { "name": "Params", "type": "float", "count": 4, "values": [ 1.0, 0.0, 0.0, 0.0 ] }
+  ]
+}
