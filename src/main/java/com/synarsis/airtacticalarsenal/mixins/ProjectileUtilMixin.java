@@ -1,7 +1,7 @@
 package com.synarsis.airtacticalarsenal.mixins;
 
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelAim;
-import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelRegistry;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.VehicleRegistry;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.phys.AABB;
@@ -23,7 +23,7 @@ public abstract class ProjectileUtilMixin {
             at = @At("HEAD"), cancellable = true)
     private static void ata$aimAtTheModel(Entity shooter, Vec3 start, Vec3 end, AABB area,
             Predicate<Entity> filter, double distance, CallbackInfoReturnable<EntityHitResult> cir) {
-        if (TelRegistry.any(shooter.level())) {
+        if (VehicleRegistry.any(shooter.level())) {
             cir.setReturnValue(TelAim.pick(shooter, start, end, area, filter, distance));
         }
     }

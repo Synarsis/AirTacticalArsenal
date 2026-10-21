@@ -10,7 +10,8 @@ import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelBoneGroups;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelHitboxPose;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelHitboxQuery;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelModelHitbox;
-import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelRegistry;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxVehicle;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.VehicleRegistry;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.WorldBox;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.Zone;
 import com.synarsis.airtacticalarsenal.entity.tel.physics.Obb;
@@ -86,7 +87,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider {
+public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider, HitboxVehicle {
 
     public static final float DEFAULT_MAX_HEALTH = 400.0f;
     private static final float BURNING_FRACTION = 0.1f;
@@ -413,7 +414,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
             this.updateCarry();
         }
         this.boxKey = Long.MIN_VALUE;
-        TelRegistry.add(this.level(), this);
+        VehicleRegistry.add(this.level(), this);
         if (!this.level().isClientSide) {
             this.sweepBullets();
         }
@@ -1975,20 +1976,20 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
     @Override
     public void onAddedToLevel() {
         super.onAddedToLevel();
-        TelRegistry.add(this.level(), this);
+        VehicleRegistry.add(this.level(), this);
     }
 
     @Override
     public void onRemovedFromLevel() {
         this.dropJolt();
         super.onRemovedFromLevel();
-        TelRegistry.remove(this.level(), this);
+        VehicleRegistry.remove(this.level(), this);
     }
 
     @Override
     public void remove(RemovalReason reason) {
         this.dropJolt();
-        TelRegistry.remove(this.level(), this);
+        VehicleRegistry.remove(this.level(), this);
         if (!this.level().isClientSide && !reason.shouldSave()) {
             this.returnPendingRound();
         }

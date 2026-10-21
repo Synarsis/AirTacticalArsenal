@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.vehicle.physics;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
 import com.synarsis.airtacticalarsenal.network.VehicleSpecPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -30,7 +31,9 @@ public final class VehicleEvents {
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            PacketDistributor.sendToPlayer(player, new VehicleSpecPacket(VehicleSpecs.currentJson()));
+            for (String name : VehicleSpecs.names()) {
+                PacketDistributor.sendToPlayer(player, new VehicleSpecPacket(name, VehicleSpecs.json(name)));
+            }
         }
     }
 
@@ -45,6 +48,9 @@ public final class VehicleEvents {
         AABB area = new AABB(centre, centre).inflate(reach);
         for (Entity entity : level.getEntitiesOfClass(IskanderTelEntity.class, area)) {
             ((IskanderTelEntity) entity).pushByExplosion(centre, power);
+        }
+        for (PatriotVehicleEntity entity : level.getEntitiesOfClass(PatriotVehicleEntity.class, area)) {
+            entity.pushByExplosion(centre, power);
         }
     }
 }

@@ -226,6 +226,20 @@ public final class ImpactFx {
         wreck(bay);
     }
 
+    public static void patriotDestroyed(com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity vehicle,
+            boolean detonated) {
+        Vec3 tractor = TelGeometry.localToWorld(vehicle.getX(), vehicle.getY(), vehicle.getZ(), vehicle.getYRot(),
+                vehicle.getXRot(), vehicle.roll, new Vec3(0.0, 2.5, 11.0));
+        Vec3 trailer = TelGeometry.localToWorld(vehicle.getX(), vehicle.getY(), vehicle.getZ(), vehicle.getYRot(),
+                vehicle.getXRot(), vehicle.roll, new Vec3(0.0, 3.0, -1.0));
+        if (!com.synarsis.airtacticalarsenal.compat.ExplosionOverhaulCompat.leadsVisuals()) {
+            blast(tractor, 0.6, false, SPARKS_WRECK);
+            blast(trailer, 0.8, true);
+        }
+        wreck(tractor);
+        wreck(trailer);
+    }
+
     public static void wreck(Vec3 at) {
         AtaLights.point(at.add(0.0, 0.5, 0.0)).colour(1.0f, 0.50f, 0.20f).strength(4.0, 20.0).flicker(0.25, 7.0)
                 .life(0, WRECK_TICKS - 60, 60, Fall.LINEAR).seed(at.hashCode()).shadows(true);

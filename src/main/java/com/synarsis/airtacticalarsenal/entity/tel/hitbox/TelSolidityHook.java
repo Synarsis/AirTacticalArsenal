@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.entity.tel.hitbox;
 
-import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxVehicle;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.VehicleRegistry;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -15,11 +16,11 @@ public final class TelSolidityHook {
         if (!(e instanceof LivingEntity) || e.isSpectator() || e.isPassenger()) {
             return;
         }
-        if (!TelRegistry.any(e.level())) {
+        if (!VehicleRegistry.any(e.level())) {
             return;
         }
-        for (IskanderTelEntity tel : TelRegistry.in(e.level())) {
-            if (tel.isRemoved() || e.getRootVehicle() == tel) {
+        for (HitboxVehicle tel : VehicleRegistry.in(e.level())) {
+            if (tel.entity().isRemoved() || e.getRootVehicle() == tel.entity()) {
                 continue;
             }
             AABB body = e.getBoundingBox();
@@ -49,9 +50,10 @@ public final class TelSolidityHook {
         }
     }
 
-    private static void carry(Entity e, IskanderTelEntity tel) {
-        Vec3 d = tel.getCarryDelta();
-        double turn = Math.toRadians(tel.getCarryYaw());
+    private static void carry(Entity e, HitboxVehicle vehicle) {
+        Entity tel = vehicle.entity();
+        Vec3 d = vehicle.getCarryDelta();
+        double turn = Math.toRadians(vehicle.getCarryYaw());
         if (d.lengthSqr() < 1.0E-12 && Math.abs(turn) < 1.0E-9) {
             return;
         }

@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.item;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotKind;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
@@ -27,6 +28,16 @@ public class ModItems {
             () -> new IskanderTelItem(new Item.Properties()
                     .stacksTo(1)
                     .rarity(Rarity.EPIC)));
+
+    public static final DeferredItem<Item> PATRIOT_LAUNCHER = ITEMS.register("patriot_launcher",
+            () -> new PatriotItem(new Item.Properties()
+                    .stacksTo(1)
+                    .rarity(Rarity.EPIC), PatriotKind.LAUNCHER));
+
+    public static final DeferredItem<Item> PATRIOT_RADAR = ITEMS.register("patriot_radar",
+            () -> new PatriotItem(new Item.Properties()
+                    .stacksTo(1)
+                    .rarity(Rarity.EPIC), PatriotKind.RADAR));
 
     public static final DeferredItem<Item> SHAHED = ITEMS.register("shahed",
             () -> new ShahedItem(new Item.Properties()

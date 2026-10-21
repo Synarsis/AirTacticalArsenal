@@ -512,6 +512,11 @@ public class ShahedCommand {
                                                 .executes(context -> setTelTrace(context.getSource(), true)))
                                         .then(Commands.literal("off")
                                                 .executes(context -> setTelTrace(context.getSource(), false)))))
+                        .then(Commands.literal("patriot")
+                                .then(Commands.literal("state")
+                                        .executes(context -> patriotState(context.getSource())))
+                                .then(Commands.literal("skip")
+                                        .executes(context -> patriotSkip(context.getSource()))))
                         .then(Commands.literal("physics")
                                 .then(Commands.literal("on")
                                         .executes(context -> setPhysicsDebug(context.getSource(), true)))
@@ -783,6 +788,38 @@ public class ShahedCommand {
                 .orElse(null);
     }
 
+    private static com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity nearestPatriot(
+            CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        return source.getLevel().getEntitiesOfClass(
+                com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity.class,
+                player.getBoundingBox().inflate(80.0)).stream()
+                .min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(player)))
+                .orElse(null);
+    }
+
+    private static int patriotState(CommandSourceStack source) throws CommandSyntaxException {
+        var patriot = nearestPatriot(source);
+        if (patriot == null) {
+            source.sendFailure(Component.literal("No Patriot within 80 blocks"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(patriot.debugState()), false);
+        return 1;
+    }
+
+    private static int patriotSkip(CommandSourceStack source) throws CommandSyntaxException {
+        var patriot = nearestPatriot(source);
+        if (patriot == null) {
+            source.sendFailure(Component.literal("No Patriot within 80 blocks"));
+            return 0;
+        }
+        boolean moved = patriot.debugSkip();
+        source.sendSuccess(() -> Component.literal(moved ? "Skipped: " + patriot.debugState()
+                : "Nothing to skip: " + patriot.debugState()), false);
+        return moved ? 1 : 0;
+    }
+
     private static int fillTel(CommandSourceStack source) throws CommandSyntaxException {
         IskanderTelEntity tel = targetedTel(source);
         if (tel == null) {
@@ -845,8 +882,10 @@ public class ShahedCommand {
             source.sendFailure(Component.literal("Vehicle settings not applied: " + problem));
             return 0;
         }
-        PacketDistributor.sendToAllPlayers(new com.synarsis.airtacticalarsenal.network.VehicleSpecPacket(
-                com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs.currentJson()));
+        for (String name : com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs.names()) {
+            PacketDistributor.sendToAllPlayers(new com.synarsis.airtacticalarsenal.network.VehicleSpecPacket(name,
+                    com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs.json(name)));
+        }
         source.sendSuccess(() -> Component.literal("Vehicle settings reloaded"), true);
         return 1;
     }

@@ -73,6 +73,10 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     private boolean inputBoost;
     private boolean driven;
     private final boolean wheeled;
+    private final boolean ownsSlot;
+    private JoltVehicle brakeSource;
+    private double appliedBrake;
+    private double appliedHandbrake;
     private double impactSpeed;
     private double impactNormalY;
     private double impactApproachY;
@@ -101,10 +105,16 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
 
     public JoltVehicle(PhysicsWorld world, VehicleSpec spec, double x, double y, double z, double yawDeg,
             double pitchDeg, double rollDeg, boolean wheeled) {
+        this(world, spec, -1, x, y, z, yawDeg, pitchDeg, rollDeg, wheeled);
+    }
+
+    public JoltVehicle(PhysicsWorld world, VehicleSpec spec, int sharedSlot, double x, double y, double z,
+            double yawDeg, double pitchDeg, double rollDeg, boolean wheeled) {
         this.world = world;
         this.wheeled = wheeled;
         this.spec = spec;
-        this.slot = world.takeSlot();
+        this.ownsSlot = sharedSlot < 0;
+        this.slot = this.ownsSlot ? world.takeSlot() : sharedSlot;
         if (this.slot < 0) {
             throw new IllegalStateException("too many vehicles in one world");
         }
@@ -401,6 +411,47 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         this.driven = driven;
     }
 
+    public void followBrakesOf(JoltVehicle source) {
+        this.brakeSource = source;
+    }
+
+    public double appliedBrake() {
+        return this.appliedBrake;
+    }
+
+    public double appliedHandbrake() {
+        return this.appliedHandbrake;
+    }
+
+    public Body body() {
+        return this.body;
+    }
+
+    public double[][] rotation() {
+        Quat q = this.bodies.getRotation(this.bodyId);
+        return PoseMath.rotation(q.getX(), q.getY(), q.getZ(), q.getW());
+    }
+
+    public double[] origin() {
+        RVec3 p = this.bodies.getPosition(this.bodyId);
+        return new double[] {p.xx(), p.yy(), p.zz()};
+    }
+
+    public void teleportBody(double[] origin, double[][] rotation, Vec3 linear, Vec3 angular) {
+        double[] q = PoseMath.quaternion(rotation);
+        this.bodies.setPositionAndRotation(this.bodyId, new RVec3(origin[0], origin[1], origin[2]),
+                new Quat((float) q[0], (float) q[1], (float) q[2], (float) q[3]), EActivation.Activate);
+        if (linear != null) {
+            this.bodies.setLinearAndAngularVelocity(this.bodyId, linear, angular == null ? new Vec3(0f, 0f, 0f) : angular);
+        }
+    }
+
+    public void moveKinematicBody(double[] origin, double[][] rotation, double dt) {
+        double[] q = PoseMath.quaternion(rotation);
+        this.bodies.moveKinematic(this.bodyId, new RVec3(origin[0], origin[1], origin[2]),
+                new Quat((float) q[0], (float) q[1], (float) q[2], (float) q[3]), (float) dt);
+    }
+
     private static double clamp(double v, double lo, double hi) {
         return v < lo ? lo : Math.min(v, hi);
     }
@@ -615,6 +666,12 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
                 ? a.steerReturnPerSecond : a.steerRatePerSecond) * dt;
         this.smoothSteer = approach(this.smoothSteer, steerTarget, steerRate);
 
+        if (this.brakeSource != null) {
+            brake = this.brakeSource.appliedBrake;
+            handbrake = this.brakeSource.appliedHandbrake;
+        }
+        this.appliedBrake = brake;
+        this.appliedHandbrake = handbrake;
         this.controller.setDriverInput((float) this.smoothThrottle, (float) -this.smoothSteer, (float) brake,
                 (float) handbrake);
 
@@ -753,6 +810,8 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
             }
         }
         this.owned.clear();
-        this.world.releaseSlot(this.slot);
+        if (this.ownsSlot) {
+            this.world.releaseSlot(this.slot);
+        }
     }
 }

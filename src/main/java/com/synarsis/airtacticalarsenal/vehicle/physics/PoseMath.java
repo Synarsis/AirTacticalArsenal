@@ -45,7 +45,10 @@ public final class PoseMath {
     }
 
     public static double[] quaternion(double yawDeg, double pitchDeg, double rollDeg) {
-        double[][] m = rotation(yawDeg, pitchDeg, rollDeg);
+        return quaternion(rotation(yawDeg, pitchDeg, rollDeg));
+    }
+
+    public static double[] quaternion(double[][] m) {
         double trace = m[0][0] + m[1][1] + m[2][2];
         double x;
         double y;
@@ -77,6 +80,58 @@ public final class PoseMath {
             z = 0.25 * s;
         }
         return new double[] {x, y, z, w};
+    }
+
+    public static double[][] multiply(double[][] a, double[][] b) {
+        double[][] out = new double[3][3];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                out[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+            }
+        }
+        return out;
+    }
+
+    public static double[][] transpose(double[][] a) {
+        double[][] out = new double[3][3];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                out[i][j] = a[j][i];
+            }
+        }
+        return out;
+    }
+
+    public static double[] apply(double[][] m, double[] v) {
+        return new double[] {
+                m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+                m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+                m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+        };
+    }
+
+    public static double[][] articulation(double yawDeg, double pitchDeg, double rollDeg) {
+        double alpha = Math.toRadians(-yawDeg);
+        double theta = Math.toRadians(pitchDeg);
+        double phi = Math.toRadians(rollDeg);
+        double ca = Math.cos(alpha);
+        double sa = Math.sin(alpha);
+        double ct = Math.cos(theta);
+        double st = Math.sin(theta);
+        double cp = Math.cos(phi);
+        double sp = Math.sin(phi);
+        return new double[][] {
+                {ca * cp, st * sa * cp - ct * sp, ct * sa * cp + st * sp},
+                {ca * sp, st * sa * sp + ct * cp, ct * sa * sp - st * cp},
+                {-sa, st * ca, ct * ca},
+        };
+    }
+
+    public static double[] articulationAngles(double[][] m) {
+        double alpha = -Math.asin(Math.max(-1.0, Math.min(1.0, m[2][0])));
+        double theta = Math.atan2(m[2][1], m[2][2]);
+        double phi = Math.atan2(m[1][0], m[0][0]);
+        return new double[] {Math.toDegrees(-alpha), Math.toDegrees(theta), Math.toDegrees(phi)};
     }
 
     public static double[] anglesDegrees(double[][] m) {

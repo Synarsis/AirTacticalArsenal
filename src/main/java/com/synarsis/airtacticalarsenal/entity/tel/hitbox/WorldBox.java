@@ -1,9 +1,10 @@
 package com.synarsis.airtacticalarsenal.entity.tel.hitbox;
 
+import com.synarsis.airtacticalarsenal.combat.hitbox.HitTag;
 import com.synarsis.airtacticalarsenal.entity.tel.physics.Obb;
 import net.minecraft.world.phys.Vec3;
 
-public record WorldBox(Zone zone, Vec3 centre, Vec3 ax, Vec3 ay, Vec3 az, double hx, double hy, double hz,
+public record WorldBox(HitTag zone, Vec3 centre, Vec3 ax, Vec3 ay, Vec3 az, double hx, double hy, double hz,
         boolean solid) {
 
     public Obb toObb() {

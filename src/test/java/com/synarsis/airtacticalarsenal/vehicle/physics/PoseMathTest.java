@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("Pose of the vehicle and the pose of its Jolt body")
 class PoseMathTest {
@@ -84,5 +85,42 @@ class PoseMathTest {
         assertEquals(10.0, Units.blocksPerTickToMs(0.5), 1.0e-9);
         assertEquals(2 * Math.PI, Units.rpmToRadPerSecond(60.0), 1.0e-9);
         assertEquals(600.0, Units.radPerSecondToRpm(Units.rpmToRadPerSecond(600.0)), 1.0e-9);
+    }
+
+    @Test
+    @DisplayName("an articulation turns into a matrix and back")
+    void articulationRoundTrip() {
+        double[][] cases = {{0, 0, 0}, {30, 0, 0}, {-45, 5, 2}, {70, -10, 3}, {-20, 15, -4}};
+        for (double[] c : cases) {
+            double[] back = PoseMath.articulationAngles(PoseMath.articulation(c[0], c[1], c[2]));
+            assertEquals(c[0], back[0], 1.0e-6);
+            assertEquals(c[1], back[1], 1.0e-6);
+            assertEquals(c[2], back[2], 1.0e-6);
+        }
+    }
+
+    @Test
+    @DisplayName("a trailer yawed in the entity's positive direction has a positive articulation, and it looks to the right")
+    void articulationSign() {
+        double[][] tractor = PoseMath.rotation(0.0, 0.0, 0.0);
+        double[][] trailer = PoseMath.rotation(20.0, 0.0, 0.0);
+        double[] a = PoseMath.articulationAngles(PoseMath.multiply(PoseMath.transpose(tractor), trailer));
+        assertEquals(20.0, a[0], 1.0e-6);
+        double[][] m = PoseMath.articulation(20.0, 0.0, 0.0);
+        assertTrue(m[0][2] < 0.0, "a positive articulation turns the trailer's front toward minus X");
+        assertEquals(trailer[0][2], m[0][2], 1.0e-9);
+    }
+
+    @Test
+    @DisplayName("a matrix turns into a quaternion and back")
+    void matrixQuaternion() {
+        double[][] r = PoseMath.rotation(33.0, -8.0, 4.0);
+        double[] q = PoseMath.quaternion(r);
+        double[][] back = PoseMath.rotation(q[0], q[1], q[2], q[3]);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                assertEquals(r[i][j], back[i][j], 1.0e-9);
+            }
+        }
     }
 }

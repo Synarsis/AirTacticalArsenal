@@ -1,5 +1,7 @@
 package com.synarsis.airtacticalarsenal.entity.tel;
 
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxPart;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxVehicle;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
@@ -12,7 +14,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.entity.PartEntity;
 
-public class TelPart extends PartEntity<IskanderTelEntity> {
+public class TelPart extends PartEntity<IskanderTelEntity> implements HitboxPart {
 
     public final int index;
 
@@ -20,6 +22,11 @@ public class TelPart extends PartEntity<IskanderTelEntity> {
         super(parent);
         this.index = index;
         this.refreshDimensions();
+    }
+
+    @Override
+    public HitboxVehicle owner() {
+        return this.getParent();
     }
 
     @Override

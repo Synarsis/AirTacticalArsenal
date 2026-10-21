@@ -2,6 +2,7 @@ package com.synarsis.airtacticalarsenal;
 
 import com.synarsis.airtacticalarsenal.client.renderer.IskanderRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.IskanderTelRenderer;
+import com.synarsis.airtacticalarsenal.client.renderer.PatriotRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.OrlanLauncherRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.OrlanRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.PaintStandRenderer;
@@ -43,6 +44,10 @@ public class AirTacticalArsenalClient {
                 com.synarsis.airtacticalarsenal.client.TelClientEffects::trace;
         com.synarsis.airtacticalarsenal.entity.tel.TelInput.destroyedFx =
                 com.synarsis.airtacticalarsenal.client.fx.ImpactFx::telDestroyed;
+        com.synarsis.airtacticalarsenal.entity.patriot.PatriotInput.clientTick =
+                com.synarsis.airtacticalarsenal.client.PatriotClientEffects::tick;
+        com.synarsis.airtacticalarsenal.entity.patriot.PatriotInput.destroyedFx =
+                com.synarsis.airtacticalarsenal.client.fx.ImpactFx::patriotDestroyed;
         com.synarsis.airtacticalarsenal.entity.IskanderEntity.clientFx =
                 com.synarsis.airtacticalarsenal.client.fx.TrailFx::tick;
     }
@@ -60,6 +65,8 @@ public class AirTacticalArsenalClient {
             event.registerEntityRenderer(ModEntities.SHAHED.get(),          ShahedRenderer::new);
             event.registerEntityRenderer(ModEntities.ISKANDER.get(),        IskanderRenderer::new);
             event.registerEntityRenderer(ModEntities.ISKANDER_TEL.get(),    IskanderTelRenderer::new);
+            event.registerEntityRenderer(ModEntities.PATRIOT_LAUNCHER.get(), PatriotRenderer::new);
+            event.registerEntityRenderer(ModEntities.PATRIOT_RADAR.get(),    PatriotRenderer::new);
             event.registerEntityRenderer(ModEntities.ORLAN.get(),           OrlanRenderer::new);
             event.registerEntityRenderer(ModEntities.SHAHED_LAUNCHER.get(), ShahedLauncherRenderer::new);
             event.registerEntityRenderer(ModEntities.ORLAN_LAUNCHER.get(),  OrlanLauncherRenderer::new);
@@ -104,6 +111,9 @@ public class AirTacticalArsenalClient {
             event.registerAboveAll(
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "tel_hud"),
                     new com.synarsis.airtacticalarsenal.client.hud.TelHud());
+            event.registerAboveAll(
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "patriot_hud"),
+                    new com.synarsis.airtacticalarsenal.client.hud.PatriotHud());
             event.registerAboveAll(
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "fx_flash"),
                     new com.synarsis.airtacticalarsenal.client.fx.FxScreenFlash());

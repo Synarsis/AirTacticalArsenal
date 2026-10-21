@@ -11,12 +11,13 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record VehicleSpecPacket(String json) implements CustomPacketPayload {
+public record VehicleSpecPacket(String name, String json) implements CustomPacketPayload {
 
     public static final Type<VehicleSpecPacket> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "vehicle_spec"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, VehicleSpecPacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.stringUtf8(64), VehicleSpecPacket::name,
             ByteBufCodecs.stringUtf8(65536), VehicleSpecPacket::json,
             VehicleSpecPacket::new);
 
@@ -28,8 +29,8 @@ public record VehicleSpecPacket(String json) implements CustomPacketPayload {
     public static void handle(VehicleSpecPacket payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             try {
-                VehicleSpecs.apply(payload.json());
-            } catch (JsonParseException error) {
+                VehicleSpecs.apply(payload.name(), payload.json());
+            } catch (JsonParseException | IllegalArgumentException error) {
                 LogUtils.getLogger().warn("The server sent vehicle settings that could not be read: {}", error.getMessage());
             }
         });

@@ -24,6 +24,9 @@ public class TelClientEvents {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && mc.player.getVehicle() instanceof IskanderTelEntity) {
             event.setDistance(AtaClientConfig.getTelCameraDistance());
+        } else if (mc.player != null
+                && mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity) {
+            event.setDistance(Math.max(AtaClientConfig.getTelCameraDistance() * 1.6f, 14.0f));
         }
     }
 }

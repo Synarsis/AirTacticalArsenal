@@ -1,6 +1,9 @@
 package com.synarsis.airtacticalarsenal.entity;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotGeometry;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotLauncherEntity;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotRadarEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
 import net.minecraft.core.registries.Registries;
@@ -44,6 +47,22 @@ public class ModEntities {
                     .updateInterval(1)
                     .setShouldReceiveVelocityUpdates(false)
                     .build("iskander_tel"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<PatriotLauncherEntity>> PATRIOT_LAUNCHER = ENTITY_TYPES.register("patriot_launcher",
+            () -> EntityType.Builder.<PatriotLauncherEntity>of(PatriotLauncherEntity::new, MobCategory.MISC)
+                    .sized(PatriotGeometry.TYPE_WIDTH, PatriotGeometry.TYPE_HEIGHT)
+                    .clientTrackingRange(12)
+                    .updateInterval(1)
+                    .setShouldReceiveVelocityUpdates(false)
+                    .build("patriot_launcher"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<PatriotRadarEntity>> PATRIOT_RADAR = ENTITY_TYPES.register("patriot_radar",
+            () -> EntityType.Builder.<PatriotRadarEntity>of(PatriotRadarEntity::new, MobCategory.MISC)
+                    .sized(PatriotGeometry.TYPE_WIDTH, PatriotGeometry.TYPE_HEIGHT)
+                    .clientTrackingRange(12)
+                    .updateInterval(1)
+                    .setShouldReceiveVelocityUpdates(false)
+                    .build("patriot_radar"));
 
     public static final DeferredHolder<EntityType<?>, EntityType<PaintStandEntity>> PAINT_STAND = ENTITY_TYPES.register("paint_stand",
             () -> EntityType.Builder.<PaintStandEntity>of(PaintStandEntity::new, MobCategory.MISC)

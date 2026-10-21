@@ -1,8 +1,8 @@
 package com.synarsis.airtacticalarsenal.entity.tel.hitbox;
 
 import com.synarsis.airtacticalarsenal.combat.hitbox.Obb;
-import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
-import com.synarsis.airtacticalarsenal.entity.tel.TelPart;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxPart;
+import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxVehicle;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -20,11 +20,11 @@ public final class TelAim {
     }
 
     @Nullable
-    private static IskanderTelEntity launcherOf(Entity e) {
-        if (e instanceof TelPart part) {
-            return part.getParent();
+    private static HitboxVehicle launcherOf(Entity e) {
+        if (e instanceof HitboxPart part) {
+            return part.owner();
         }
-        return e instanceof IskanderTelEntity tel ? tel : null;
+        return e instanceof HitboxVehicle vehicle ? vehicle : null;
     }
 
     @Nullable
@@ -38,8 +38,8 @@ public final class TelAim {
         for (Entity candidate : level.getEntities(shooter, area, filter)) {
             Optional<Vec3> clip;
             boolean inside;
-            IskanderTelEntity tel = launcherOf(candidate);
-            if (tel != null && tel.hasPassenger(shooter)) {
+            HitboxVehicle tel = launcherOf(candidate);
+            if (tel != null && tel.entity().hasPassenger(shooter)) {
                 continue;
             }
             if (tel != null) {

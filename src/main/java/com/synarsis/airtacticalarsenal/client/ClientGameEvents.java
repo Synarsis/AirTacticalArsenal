@@ -136,6 +136,9 @@ public class ClientGameEvents {
         if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity tel
                 && tel.isCrewSeat(mc.player)) {
             mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.TelFireControlScreen(tel));
+        } else if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity patriot
+                && patriot.isCrewSeat(mc.player)) {
+            mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.PatriotControlScreen(patriot));
         }
     }
 

@@ -64,6 +64,8 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue SHAHED_EXPLOSION_VEHICLE_MULTIPLIER;
 
     public static final ModConfigSpec.DoubleValue TEL_MAX_HEALTH;
+    public static final ModConfigSpec.DoubleValue PATRIOT_LAUNCHER_MAX_HEALTH;
+    public static final ModConfigSpec.DoubleValue PATRIOT_RADAR_MAX_HEALTH;
     public static final ModConfigSpec.DoubleValue TEL_MAX_FORWARD_SPEED;
     public static final ModConfigSpec.DoubleValue TEL_MAX_BACKWARD_SPEED;
     public static final ModConfigSpec.DoubleValue TEL_ACCELERATION;
@@ -176,6 +178,8 @@ public class ShahedConfig {
     public static double getShahedExplosionVehicleMultiplier(){ return SHAHED_EXPLOSION_VEHICLE_MULTIPLIER.get(); }
 
     public static double getTelMaxHealth() { return TEL_MAX_HEALTH.get(); }
+    public static double getPatriotLauncherMaxHealth() { return PATRIOT_LAUNCHER_MAX_HEALTH.get(); }
+    public static double getPatriotRadarMaxHealth() { return PATRIOT_RADAR_MAX_HEALTH.get(); }
     public static double getTelMaxForwardSpeed() { return TEL_MAX_FORWARD_SPEED.get(); }
     public static double getTelMaxBackwardSpeed() { return TEL_MAX_BACKWARD_SPEED.get(); }
     public static double getTelAcceleration() { return TEL_ACCELERATION.get(); }
@@ -341,6 +345,12 @@ public class ShahedConfig {
         TEL_PHYSICS_KEYS.put("telBrakePower", TEL_BRAKE_POWER);
         TEL_PHYSICS_KEYS.put("telBrakeDamp", TEL_BRAKE_DAMP);
         TEL_PHYSICS_KEYS.put("telInertiaRotateRate", TEL_INERTIA_ROTATE_RATE);
+        BUILDER.pop();
+
+        BUILDER.push("Patriot");
+        BUILDER.comment("The M901 launcher and the AN/MPQ-65 radar, each on a trailer behind an M983 tractor.");
+        PATRIOT_LAUNCHER_MAX_HEALTH = BUILDER.comment("Launcher strength").defineInRange("patriotLauncherMaxHealth", 500.0, 50.0, 5000.0);
+        PATRIOT_RADAR_MAX_HEALTH = BUILDER.comment("Radar strength").defineInRange("patriotRadarMaxHealth", 450.0, 50.0, 5000.0);
         BUILDER.pop();
 
         SPEC = BUILDER.build();

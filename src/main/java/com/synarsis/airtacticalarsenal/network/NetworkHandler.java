@@ -40,6 +40,9 @@ public class NetworkHandler {
         registrar.playToServer(TelImpactPacket.TYPE, TelImpactPacket.STREAM_CODEC, TelImpactPacket::handle);
         registrar.playToServer(TelRollPacket.TYPE, TelRollPacket.STREAM_CODEC, TelRollPacket::handle);
         registrar.playToClient(VehicleSpecPacket.TYPE, VehicleSpecPacket.STREAM_CODEC, VehicleSpecPacket::handle);
+        registrar.playToServer(PatriotCommandPacket.TYPE, PatriotCommandPacket.STREAM_CODEC, PatriotCommandPacket::handle);
+        registrar.playToServer(PatriotPosePacket.TYPE, PatriotPosePacket.STREAM_CODEC, PatriotPosePacket::handle);
+        registrar.playToServer(PatriotImpactPacket.TYPE, PatriotImpactPacket.STREAM_CODEC, PatriotImpactPacket::handle);
         registrar.playToServer(TelCommandPacket.TYPE, TelCommandPacket.STREAM_CODEC, TelCommandPacket::handle);
         registrar.playToServer(TelSetTargetPacket.TYPE, TelSetTargetPacket.STREAM_CODEC, TelSetTargetPacket::handle);
         registrar.playToClient(DebugOverridesPacket.TYPE, DebugOverridesPacket.STREAM_CODEC, DebugOverridesPacket::handle);

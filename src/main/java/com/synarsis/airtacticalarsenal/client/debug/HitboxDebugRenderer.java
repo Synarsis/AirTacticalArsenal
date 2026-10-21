@@ -4,6 +4,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotClearance;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotHitbox;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotPose;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.TelClearance;
 import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
@@ -72,6 +76,10 @@ public final class HitboxDebugRenderer {
                 }
                 continue;
             }
+            if (entity instanceof PatriotVehicleEntity patriot && mc.player != null
+                    && mc.player.getVehicle() == patriot && patriot.distanceToSqr(cam) < 96.0 * 96.0) {
+                drawPatriotCells(pose, lines, patriot);
+            }
             if (!(entity instanceof ObbProvider provider) || provider.useAabb()) {
                 continue;
             }
@@ -127,6 +135,23 @@ public final class HitboxDebugRenderer {
             double plane = Suspension.bottom(y, pitch, roll, 0);
             drawProbe(pose, lines, spot, bottom, scan.skidState()[i], scan.skidTop()[i],
                     Suspension.windowTop(plane, climb), 0.15);
+        }
+    }
+
+    private static void drawPatriotCells(PoseStack pose, VertexConsumer lines, PatriotVehicleEntity patriot) {
+        PatriotHitbox model = PatriotHitbox.of(patriot.kind());
+        PatriotPose posed = patriot.hitboxPose();
+        TelClearance.Pose at = patriot.clearancePose();
+        TelClearance.Solid solid = patriot.worldSolid();
+        java.util.Set<net.minecraft.core.BlockPos> cells = new java.util.HashSet<>();
+        cells.addAll(PatriotClearance.supportCells(model, posed, at));
+        cells.addAll(PatriotClearance.liftCells(model, posed, at));
+        cells.addAll(PatriotClearance.tractorCells(model, posed, at));
+        for (net.minecraft.core.BlockPos p : cells) {
+            if (solid.at(p.getX(), p.getY(), p.getZ())) {
+                LevelRenderer.renderLineBox(pose, lines, p.getX(), p.getY(), p.getZ(), p.getX() + 1.0, p.getY() + 1.0,
+                        p.getZ() + 1.0, 1.0f, 0.1f, 0.1f, 1.0f);
+            }
         }
     }
 
