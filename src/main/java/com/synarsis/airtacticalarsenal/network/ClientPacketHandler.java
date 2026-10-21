@@ -28,9 +28,6 @@ public class ClientPacketHandler {
     private static final Random random = new Random();
     private static final int ORLAN_LANDED_PHASE = 6;
 
-    private static final Map<BlockPos, LauncherStateUpdatePacket.LauncherState> launcherStates = new HashMap<>();
-    private static final Map<BlockPos, int[]> launcherTimers = new HashMap<>();
-
     private static final Map<Integer, int[]> orlanDataCache = new HashMap<>();
 
     public static void handleShahedSpawn(int entityId, Vec3 currentPos, BlockPos targetPos, String diveMode) {
@@ -85,6 +82,8 @@ public class ClientPacketHandler {
         if (mc.player == null || mc.level == null) {
             return;
         }
+
+        com.synarsis.airtacticalarsenal.client.fx.ShahedFx.explosionLight(explosionPos);
 
         ShahedEngineSoundClient closestSound = null;
         double closestDistance = Double.MAX_VALUE;
@@ -191,8 +190,6 @@ public class ClientPacketHandler {
         }
         activeOrlanSounds.clear();
 
-        launcherStates.clear();
-        launcherTimers.clear();
         orlanDataCache.clear();
     }
 
@@ -205,46 +202,6 @@ public class ClientPacketHandler {
                 packet.isScanComplete(),
                 packet.getScanProgress(),
                 packet.getTotalChunks());
-    }
-
-    public static void handleOpenUnifiedTerminal(OpenUnifiedTerminalPacket packet) {
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> {
-            com.synarsis.airtacticalarsenal.client.gui.UnifiedTerminalScreen screen =
-                    new com.synarsis.airtacticalarsenal.client.gui.UnifiedTerminalScreen(
-                            packet.getTerminalPos(), packet.getLauncherPositions(),
-                            packet.getLauncherLoadedStates(), packet.getLauncherLaunchingStates(),
-                            packet.hasLauncher(), packet.getLauncherCount(), packet.getFreeLaunchers(),
-                            packet.getTargetY(), packet.isBlacklistEnabled(), packet.isWhitelistEnabled(),
-                            packet.getBlacklistZones(), packet.getWhitelistZones());
-            screen.loadTargetsFromServer(packet.getLauncherPositions(),
-                    packet.getLauncherTargets(), packet.getLauncherDistances(), packet.getLauncherCEPs());
-            mc.setScreen(screen);
-        });
-    }
-
-    public static void handleLauncherStateUpdate(BlockPos launcherPos, LauncherStateUpdatePacket.LauncherState state,
-            int countdownTicks, int totalCountdownTicks, int flightTicks) {
-        launcherStates.put(launcherPos, state);
-        launcherTimers.put(launcherPos, new int[] { countdownTicks, totalCountdownTicks, flightTicks });
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof com.synarsis.airtacticalarsenal.client.gui.UnifiedTerminalScreen terminal) {
-            terminal.updateLauncherState(launcherPos, state, countdownTicks, totalCountdownTicks, flightTicks);
-        }
-    }
-
-    public static LauncherStateUpdatePacket.LauncherState getLauncherState(BlockPos pos) {
-        return launcherStates.getOrDefault(pos, LauncherStateUpdatePacket.LauncherState.EMPTY);
-    }
-
-    public static int[] getLauncherTimers(BlockPos pos) {
-        return launcherTimers.getOrDefault(pos, new int[] { 0, 0, 0 });
-    }
-
-    public static void clearLauncherState(BlockPos pos) {
-        launcherStates.remove(pos);
-        launcherTimers.remove(pos);
     }
 
     public static void handleOrlanSpawn(int entityId, double x, double y, double z, double motionX, double motionY,

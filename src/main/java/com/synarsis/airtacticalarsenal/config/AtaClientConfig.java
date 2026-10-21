@@ -13,6 +13,14 @@ public final class AtaClientConfig {
     public static final ModConfigSpec.IntValue HIT_MARKER_TICKS;
     public static final ModConfigSpec.BooleanValue PART_LABELS;
     public static final ModConfigSpec.BooleanValue HITBOX_OVERLAY;
+    public static final ModConfigSpec.DoubleValue TEL_CAMERA_DISTANCE;
+    public static final ModConfigSpec.BooleanValue TEL_HUD;
+    public static final ModConfigSpec.EnumValue<FxQuality> FX_QUALITY;
+    public static final ModConfigSpec.BooleanValue FX_SCREEN_FLASH;
+    public static final ModConfigSpec.BooleanValue FX_CAMERA_SHAKE;
+    public static final ModConfigSpec.EnumValue<FxLighting> FX_LIGHTING;
+    public static final ModConfigSpec.DoubleValue FX_LIGHT_INTENSITY;
+    public static final ModConfigSpec.BooleanValue FX_HEAT_HAZE;
 
     private AtaClientConfig() {
     }
@@ -35,6 +43,39 @@ public final class AtaClientConfig {
         PART_LABELS = BUILDER
                 .comment("Name the section that was hit under the crosshair -- wing, engine, warhead")
                 .define("partHitLabels", true);
+        BUILDER.pop();
+
+        BUILDER.push("Iskander TEL");
+        TEL_CAMERA_DISTANCE = BUILDER
+                .comment("Third-person camera distance while riding the launcher, in blocks")
+                .defineInRange("telCameraDistance", 16.0, 4.0, 40.0);
+        TEL_HUD = BUILDER
+                .comment("Show speed, hull and missile status while riding the launcher")
+                .define("telHud", true);
+        BUILDER.pop();
+
+        BUILDER.push("Effects");
+        BUILDER.comment("Smoke, fire and flashes of the launcher and the missile (launch, flight, impact).");
+        FX_QUALITY = BUILDER
+                .comment("How many particles the effects may use: LOW 35%, MEDIUM 65%, HIGH all of them")
+                .defineEnum("fxQuality", FxQuality.HIGH);
+        FX_SCREEN_FLASH = BUILDER
+                .comment("Flash the screen white when a blast is in view")
+                .define("fxScreenFlash", true);
+        FX_CAMERA_SHAKE = BUILDER
+                .comment("Shake the camera when a launch or a blast is near")
+                .define("fxCameraShake", true);
+        FX_LIGHTING = BUILDER
+                .comment("The lighting of blasts, rocket flames and the launcher's headlights on the world.",
+                        "OFF: none. LOW: 8 lights, no normals, no shadows. MEDIUM: 16 lights, normals.",
+                        "HIGH: 32 lights, full resolution, contact shadows. Off by itself under an Iris/Oculus shader pack.")
+                .defineEnum("fxLighting", FxLighting.HIGH);
+        FX_LIGHT_INTENSITY = BUILDER
+                .comment("Strength of all those lights, 1.0 as designed")
+                .defineInRange("fxLightIntensity", 1.0, 0.0, 2.0);
+        FX_HEAT_HAZE = BUILDER
+                .comment("Hot air shakes the picture over flames and fireballs (only with fxLighting HIGH)")
+                .define("fxHeatHaze", true);
         BUILDER.pop();
 
         BUILDER.push("Debug");
@@ -65,6 +106,38 @@ public final class AtaClientConfig {
 
     public static boolean showPartLabels() {
         return PART_LABELS.get();
+    }
+
+    public static float getTelCameraDistance() {
+        return TEL_CAMERA_DISTANCE.get().floatValue();
+    }
+
+    public static boolean isTelHudEnabled() {
+        return TEL_HUD.get();
+    }
+
+    public static FxQuality getFxQuality() {
+        return FX_QUALITY.get();
+    }
+
+    public static FxLighting getFxLighting() {
+        return FX_LIGHTING.get();
+    }
+
+    public static float getFxLightIntensity() {
+        return FX_LIGHT_INTENSITY.get().floatValue();
+    }
+
+    public static boolean isFxHeatHazeEnabled() {
+        return FX_HEAT_HAZE.get();
+    }
+
+    public static boolean isFxScreenFlashEnabled() {
+        return FX_SCREEN_FLASH.get();
+    }
+
+    public static boolean isFxCameraShakeEnabled() {
+        return FX_CAMERA_SHAKE.get();
     }
 
     public static boolean isHitboxOverlayEnabled() {

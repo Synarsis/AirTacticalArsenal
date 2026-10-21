@@ -3,6 +3,8 @@ package com.synarsis.airtacticalarsenal.command;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.ShahedEntity;
 import com.synarsis.airtacticalarsenal.entity.IskanderEntity;
+import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
+import com.synarsis.airtacticalarsenal.entity.tel.TelPart;
 import com.synarsis.airtacticalarsenal.worldmap.WorldMapData;
 import com.synarsis.airtacticalarsenal.worldmap.WorldMapScanner;
 import com.mojang.brigadier.CommandDispatcher;
@@ -19,6 +21,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.network.chat.Component;
 import com.synarsis.airtacticalarsenal.network.HitboxDebugPacket;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -492,6 +495,45 @@ public class ShahedCommand {
                                                 IntegerArgumentType.getInteger(context, "range")))))
                         .then(Commands.literal("parts")
                                 .executes(context -> listParts(context.getSource())))
+                        .then(Commands.literal("tel")
+                                .then(Commands.literal("fill")
+                                        .executes(context -> fillTel(context.getSource())))
+                                .then(Commands.literal("info")
+                                        .executes(context -> telInfo(context.getSource())))
+                                .then(Commands.literal("state")
+                                        .executes(context -> telState(context.getSource())))
+                                .then(Commands.literal("skip")
+                                        .executes(context -> telSkip(context.getSource())))
+                                .then(Commands.literal("trace")
+                                        .then(Commands.literal("on")
+                                                .executes(context -> setTelTrace(context.getSource(), true)))
+                                        .then(Commands.literal("off")
+                                                .executes(context -> setTelTrace(context.getSource(), false)))))
+                        .then(Commands.literal("lights")
+                                .then(Commands.literal("on")
+                                        .executes(context -> setLightDebug(context.getSource(), true)))
+                                .then(Commands.literal("off")
+                                        .executes(context -> setLightDebug(context.getSource(), false)))
+                                .then(Commands.literal("buffer")
+                                        .executes(context -> toggleLightView(context.getSource(),
+                                                com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_BUFFER,
+                                                "Light buffer instead of the picture")))
+                                .then(Commands.literal("voxels")
+                                        .executes(context -> toggleLightView(context.getSource(),
+                                                com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_VOXELS,
+                                                "Outline of the solidity volume"))))
+                        .then(Commands.literal("fx")
+                                .then(Commands.argument("scene", StringArgumentType.word())
+                                        .suggests((c, b) -> SharedSuggestionProvider.suggest(
+                                                com.synarsis.airtacticalarsenal.network.FxDebugKind.sceneNames(), b))
+                                        .executes(context -> playFxScene(context.getSource(),
+                                                StringArgumentType.getString(context, "scene"), 1.0))
+                                        .then(Commands.argument("power",
+                                                com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.1, 3.0))
+                                                .executes(context -> playFxScene(context.getSource(),
+                                                        StringArgumentType.getString(context, "scene"),
+                                                        com.mojang.brigadier.arguments.DoubleArgumentType
+                                                                .getDouble(context, "power"))))))
                         .then(Commands.literal("spawn")
                                 .executes(context -> spawnHeldShahed(context.getSource(), 20.0, 3.0))
                                 .then(Commands.argument("distance", IntegerArgumentType.integer(2, 200))
@@ -703,6 +745,124 @@ public class ShahedCommand {
 
         source.sendSuccess(() -> Component.literal(String.format(
                 "Held Shahed at %.0f, %.0f, %.0f  (id %d)", at.x, at.y, at.z, shahed.getId())), false);
+        return 1;
+    }
+
+    private static IskanderTelEntity targetedTel(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Vec3 eye = player.getEyePosition();
+        Vec3 far = eye.add(player.getLookAngle().scale(64.0));
+
+        IskanderTelEntity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Entity e : source.getLevel().getEntities((Entity) null, new AABB(eye, far).inflate(4.0),
+                e -> e instanceof IskanderTelEntity || e instanceof TelPart)) {
+            java.util.Optional<Vec3> hit = e.getBoundingBox().clip(eye, far);
+            if (hit.isPresent()) {
+                double d = hit.get().distanceToSqr(eye);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = e instanceof TelPart part ? part.getParent() : (IskanderTelEntity) e;
+                }
+            }
+        }
+        if (best != null) {
+            return best;
+        }
+        return source.getLevel().getEntitiesOfClass(IskanderTelEntity.class, player.getBoundingBox().inflate(40.0))
+                .stream()
+                .min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(player)))
+                .orElse(null);
+    }
+
+    private static int fillTel(CommandSourceStack source) throws CommandSyntaxException {
+        IskanderTelEntity tel = targetedTel(source);
+        if (tel == null) {
+            source.sendFailure(Component.literal("No launcher in sight"));
+            return 0;
+        }
+        tel.debugFill();
+        source.sendSuccess(() -> Component.literal("Loaded both rounds"), false);
+        return 1;
+    }
+
+    private static int setTelTrace(CommandSourceStack source, boolean enabled) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PacketDistributor.sendToPlayer(player, new com.synarsis.airtacticalarsenal.network.TelTracePacket(enabled));
+        source.sendSuccess(() -> Component.literal("Launcher trace: ").append(onOff(enabled)), false);
+        return 1;
+    }
+
+    private static int telState(CommandSourceStack source) throws CommandSyntaxException {
+        IskanderTelEntity tel = targetedTel(source);
+        if (tel == null) {
+            source.sendFailure(Component.literal("No launcher in sight"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(tel.debugState()), false);
+        return 1;
+    }
+
+    private static int telSkip(CommandSourceStack source) throws CommandSyntaxException {
+        IskanderTelEntity tel = targetedTel(source);
+        if (tel == null) {
+            source.sendFailure(Component.literal("No launcher in sight"));
+            return 0;
+        }
+        boolean moved = tel.debugSkip();
+        source.sendSuccess(() -> Component.literal(moved ? "Skipped: " + tel.debugState()
+                : "Nothing to skip: " + tel.debugState()), false);
+        return moved ? 1 : 0;
+    }
+
+    private static int telInfo(CommandSourceStack source) throws CommandSyntaxException {
+        IskanderTelEntity tel = targetedTel(source);
+        if (tel == null) {
+            source.sendFailure(Component.literal("No launcher in sight"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(
+                "TEL %d  hull %.1f/%.1f  slots [%s] [%s]  state %s  yaw %.1f  pitch %.1f  roll %.1f  riders %d",
+                tel.getId(), tel.getHealth(), tel.getMaxHealth(),
+                tel.isLoaded(0) ? "loaded" : "empty", tel.isLoaded(1) ? "loaded" : "empty",
+                tel.getTelState(), tel.getYRot(), tel.getXRot(), tel.getRoll(), tel.getPassengers().size()))
+                .withStyle(st -> st.withColor(0xFFFF55)), false);
+        return 1;
+    }
+
+    private static int setLightDebug(CommandSourceStack source, boolean enabled) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PacketDistributor.sendToPlayer(player, com.synarsis.airtacticalarsenal.network.FxDebugPacket.of(
+                enabled ? com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_ON
+                        : com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_OFF, player.position(), 1.0));
+        source.sendSuccess(() -> Component.literal("Light wireframe: ").append(onOff(enabled)), false);
+        return 1;
+    }
+
+    private static int toggleLightView(CommandSourceStack source, com.synarsis.airtacticalarsenal.network.FxDebugKind kind,
+            String what) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PacketDistributor.sendToPlayer(player, com.synarsis.airtacticalarsenal.network.FxDebugPacket.of(kind,
+                player.position(), 1.0));
+        source.sendSuccess(() -> Component.literal(what + ": toggled"), false);
+        return 1;
+    }
+
+    private static int playFxScene(CommandSourceStack source, String name, double power) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        var scene = com.synarsis.airtacticalarsenal.network.FxDebugKind.scene(name);
+        if (scene.isEmpty()) {
+            source.sendFailure(Component.literal("No such scene: " + name + " (try "
+                    + String.join(", ", com.synarsis.airtacticalarsenal.network.FxDebugKind.sceneNames()) + ")"));
+            return 0;
+        }
+        net.minecraft.world.phys.HitResult hit = player.pick(120.0, 1.0f, false);
+        Vec3 at = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
+                ? player.getEyePosition().add(player.getLookAngle().scale(30.0)) : hit.getLocation();
+        PacketDistributor.sendToPlayer(player,
+                com.synarsis.airtacticalarsenal.network.FxDebugPacket.of(scene.get(), at, power));
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "%s at %.0f %.0f %.0f, power %.1f",
+                name, at.x, at.y, at.z, power)), false);
         return 1;
     }
 
