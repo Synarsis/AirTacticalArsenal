@@ -11,8 +11,6 @@ import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
-// PORT-NOTE: ChunkStatus moved from net.minecraft.world.level.chunk.ChunkStatus (1.20.1)
-//            to net.minecraft.world.level.chunk.status.ChunkStatus (1.21.1).
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.LevelResource;

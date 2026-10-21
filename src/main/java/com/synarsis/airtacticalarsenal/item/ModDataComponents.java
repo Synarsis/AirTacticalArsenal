@@ -21,15 +21,12 @@ public class ModDataComponents {
     public static final DeferredRegister.DataComponents COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, AirTacticalArsenal.MODID);
 
-    // ---- SprayCanItem ----
-    // Stored as float (matches original NBT "SprayCharge" float behavior)
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Float>> SPRAY_CHARGE =
             register("spray_charge", b -> b.persistent(Codec.FLOAT).networkSynchronized(ByteBufCodecs.FLOAT));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> HAS_WATER =
             register("has_water", b -> b.persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL));
 
-    // ---- LaunchInterfaceCableItem ----
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlockPos>> REGISTERED_LAUNCHER =
             register("registered_launcher",
                     b -> b.persistent(BlockPos.CODEC).networkSynchronized(BlockPos.STREAM_CODEC));
@@ -38,8 +35,6 @@ public class ModDataComponents {
             register("registered_launcher_dimension",
                     b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));
 
-    // ---- ControlTabletItem / OrlanTabletItem ----
-    // List of BlockPos for linked launchers.
     private static final StreamCodec<ByteBuf, List<BlockPos>> BLOCK_POS_LIST_STREAM_CODEC =
             BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list());
 
@@ -48,12 +43,10 @@ public class ModDataComponents {
                     b -> b.persistent(BlockPos.CODEC.listOf())
                             .networkSynchronized(BLOCK_POS_LIST_STREAM_CODEC));
 
-    // Saved coords: map of slot index -> int[] (x, z) — wrapped in a record for cleaner codec.
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SavedCoords>> SAVED_COORDS =
             register("saved_coords",
                     b -> b.persistent(SavedCoords.CODEC).networkSynchronized(SavedCoords.STREAM_CODEC));
 
-    // ---- Generic UUID (for linked entity / drone) ----
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> LINKED_ENTITY =
             register("linked_entity", b -> b.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
 
@@ -63,7 +56,6 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> CAMERA_MODE =
             register("camera_mode", b -> b.persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL));
 
-    // ---- ShahedItem ----
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> SHAHED_COLOR =
             register("shahed_color", b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));
 

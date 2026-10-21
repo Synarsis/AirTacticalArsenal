@@ -24,11 +24,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Client-side game-bus event handler ported from Forge {@code ClientForgeEvents}.
- * Drives the Orlan FPV camera (tick / camera angles / FOV / mouse / keys), renders the
- * camera overlay + spray-can charge HUD, and cleans up on disconnect/respawn.
- */
 @EventBusSubscriber(modid = AirTacticalArsenal.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class ClientGameEvents {
 
@@ -90,8 +85,6 @@ public class ClientGameEvents {
 
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
-        // Reads the bindings rather than hard-coded scancodes, so these can be rebound and so a
-        // clash with another mod shows up in the controls screen instead of silently double-firing.
         if (event.getAction() == GLFW.GLFW_PRESS
                 && ModKeys.SETTINGS.matches(event.getKey(), event.getScanCode())) {
             Minecraft mc = Minecraft.getInstance();

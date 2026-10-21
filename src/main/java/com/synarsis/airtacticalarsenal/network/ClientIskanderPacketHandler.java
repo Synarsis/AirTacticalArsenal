@@ -19,11 +19,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * Client-side router for Iskander spawn / remove / explosion packets.
- *
- * Ported from forge {@code com.synarsis.airtacticalarsenal.network.ClientIskanderPacketHandler}.
- */
 @OnlyIn(Dist.CLIENT)
 public class ClientIskanderPacketHandler {
 

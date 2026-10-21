@@ -167,5 +167,65 @@
         "attenuation_distance": 450
       }
     ]
+  },
+  "tel_engine": {
+    "subtitle": "subtitles.ata.tel_engine",
+    "sounds": [
+      {
+        "name": "minecraft:entity.minecart.riding",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 0.8,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "tel_strike": {
+    "subtitle": "subtitles.ata.tel_strike",
+    "sounds": [
+      {
+        "name": "minecraft:block.anvil.land",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 0.7,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "tel_hydraulics": {
+    "subtitle": "subtitles.ata.tel_hydraulics",
+    "sounds": [
+      {
+        "name": "minecraft:block.piston.contract",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 0.5,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "tel_covers": {
+    "subtitle": "subtitles.ata.tel_covers",
+    "sounds": [
+      {
+        "name": "minecraft:block.iron_trapdoor.open",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 0.6,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "tel_jacks": {
+    "subtitle": "subtitles.ata.tel_jacks",
+    "sounds": [
+      {
+        "name": "minecraft:block.piston.extend",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 0.6,
+        "attenuation_distance": 48
+      }
+    ]
   }
 }

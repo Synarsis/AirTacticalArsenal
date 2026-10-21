@@ -40,7 +40,6 @@ public class OrlanRouteScreen extends Screen {
     private static final int PLAYER_COLOR = 0xFF4488FF;
     private static final int DRONE_COLOR = 0xFFFF4444;
 
-    /** All the route limits below are lifted by {@code /ata debug nolimits on}. */
     private static boolean limitsOn() {
         return com.synarsis.airtacticalarsenal.debug.DebugOverrides.limitsApply();
     }
@@ -143,7 +142,6 @@ public class OrlanRouteScreen extends Screen {
         }
     }
 
-    /** Public default constructor for SurfaceHeightCache fallback / opener stubs. */
     public OrlanRouteScreen() {
         this(null, java.util.List.of(BlockPos.ZERO), java.util.List.of(0f),
                 java.util.List.of(false), java.util.List.of(new ArrayList<>()), updated -> {}, -1);
@@ -1023,7 +1021,6 @@ public class OrlanRouteScreen extends Screen {
     }
 
     public void onHeightReceived(int x, int z, int y) {
-        // no-op (kept for SurfaceHeightCache compatibility)
     }
 
     private void renderHeightProfile(GuiGraphics g, int px, int py, int pw, int ph) {

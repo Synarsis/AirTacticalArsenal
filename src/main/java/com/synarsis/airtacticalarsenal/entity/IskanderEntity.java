@@ -347,12 +347,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
             if (denom < 0.001) return ballisticTargetY;
             double q2 = Math.max(0, Math.min(1, (progress - diveStartProgress) / denom));
 
-            // The guard above checks denom, but the slope below divides by diveStartProgress --
-            // a different value, and exactly 0.0 whenever the arc has no length (a target directly
-            // above or below the launcher). That gave m0 = -Infinity, and at progress = 1.0 the
-            // Hermite coefficient multiplying it is 0, so the result was 0 * -Infinity = NaN.
-            // NaN reached setPos, and neither detonation condition can fire on a NaN altitude:
-            // the missile became undetonatable while pinning chunks at world origin.
             if (diveStartProgress < 0.001) {
                 return diveStartY + (ballisticTargetY - diveStartY) * q2;
             }
@@ -1283,9 +1277,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     @Override
     public void remove(RemovalReason reason) {
         if (!this.level().isClientSide) {
-            // releaseLauncher() used to run only from explode(), so any other way the missile left
-            // the world -- /kill, a discard, an unload -- left the launcher armed forever. It is
-            // guarded by launcherReleased, so calling it twice on the explode path is harmless.
             releaseLauncher();
             MissileChunkManager.unregisterMissile(this);
             PacketDistributor.sendToAllPlayers(new IskanderRemovePacket(this.getId()));
@@ -1331,9 +1322,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("LegitSpawn", this.isLegitSpawn);
-        // releaseLauncher() is the only code that clears the launcher's LOADED / LAUNCHING /
-        // inFlight state, and it needs launcherPos. Losing it across a reload left the launcher
-        // armed permanently: it could not be reloaded, fired, or unloaded again.
         if (this.launcherPos != null) {
             tag.putInt("LauncherX", this.launcherPos.getX());
             tag.putInt("LauncherY", this.launcherPos.getY());

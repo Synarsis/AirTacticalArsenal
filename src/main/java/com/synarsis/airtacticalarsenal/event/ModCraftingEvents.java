@@ -9,16 +9,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
-/**
- * Makes the Spray Can refill recipe count <em>stacked</em> black dye (e.g. 2 dye in a single grid
- * slot), not just one-per-slot.
- *
- * <p>Vanilla crafting only removes ONE item from each occupied slot, and {@code getRemainingItems}
- * cannot remove more (the leftover is grown back), so {@link com.synarsis.airtacticalarsenal.recipe.SprayCanFillingRecipe}
- * alone charges +30 per dye <em>slot</em>. After the craft, this handler tops the can's charge up
- * from the dye left over in the grid (the part of each stack beyond the one vanilla already took)
- * and consumes exactly those extra dyes — so a slot of 2 dye gives +60 and is fully spent.
- */
 @EventBusSubscriber(modid = AirTacticalArsenal.MODID, bus = EventBusSubscriber.Bus.GAME)
 public class ModCraftingEvents {
 
@@ -32,8 +22,6 @@ public class ModCraftingEvents {
         }
 
         int charge = SprayCanItem.getCharge(result);
-        // Only the refill recipe yields a partly-charged can (>=30). Skip empty/fresh cans and full ones
-        // so we never silently eat dye left in the grid for an unrelated craft.
         if (charge <= 0 || charge >= SprayCanItem.MAX_CHARGE) {
             return;
         }

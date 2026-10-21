@@ -12,8 +12,6 @@ class FuzeTest {
 
     private static final double DUD_CHANCE = 0.35;
 
-    // ---------------------------------------------------------------- fuze condition
-
     @Test
     @DisplayName("an untouched warhead is armed, a wrecked one is dead")
     void fuzeFollowsWarheadDurability() {
@@ -26,12 +24,8 @@ class FuzeTest {
     @Test
     @DisplayName("a drone with no warhead section at all is treated as armed")
     void missingSectionDoesNotDisarmEverything() {
-        // Guards the airframes that have no warhead box in their table: they should behave as they
-        // always did rather than silently becoming incapable of going off.
         assertEquals(FuzeState.ARMED, FuzeState.fromWarhead(0.0f, 0.0f));
     }
-
-    // ---------------------------------------------------------------- impact
 
     @Test
     @DisplayName("an intact warhead goes off where it lands")
@@ -57,7 +51,6 @@ class FuzeTest {
     @Test
     @DisplayName("a damaged warhead is likelier to fire when it arrives hard")
     void degradedDependsOnArrival() {
-        // Same unlucky roll, two arrivals: only the hard one still detonates.
         assertEquals(ImpactOutcome.FULL,
                 ImpactOutcome.resolve(FuzeState.DEGRADED, 3.0, true, DUD_CHANCE, 0.5));
         assertNotEquals(ImpactOutcome.FULL,
@@ -102,7 +95,6 @@ class FuzeTest {
     @Test
     @DisplayName("outcomes and fuze states keep stable ids")
     void idsAreStable() {
-        // These reach save files, logs and commands; renaming one silently breaks all three.
         assertEquals("armed", FuzeState.ARMED.id());
         assertEquals("degraded", FuzeState.DEGRADED.id());
         assertEquals("dead", FuzeState.DEAD.id());

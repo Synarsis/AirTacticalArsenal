@@ -27,7 +27,6 @@ public record IskanderRemovePacket(int entityId) implements CustomPacketPayload 
     }
 
     public static void handle(IskanderRemovePacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

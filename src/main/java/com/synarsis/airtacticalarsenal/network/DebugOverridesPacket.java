@@ -9,7 +9,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Mirrors the server's testing switches onto a client. */
 public record DebugOverridesPacket(boolean noLaunchLimits) implements CustomPacketPayload {
 
     public static final Type<DebugOverridesPacket> TYPE = new Type<>(
@@ -26,7 +25,6 @@ public record DebugOverridesPacket(boolean noLaunchLimits) implements CustomPack
     }
 
     public static void handle(DebugOverridesPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

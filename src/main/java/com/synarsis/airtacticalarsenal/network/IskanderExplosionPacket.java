@@ -30,7 +30,6 @@ public record IskanderExplosionPacket(Vec3 explosionPos) implements CustomPacket
     }
 
     public static void handle(IskanderExplosionPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

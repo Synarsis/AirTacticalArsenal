@@ -6,7 +6,6 @@ import net.minecraft.nbt.CompoundTag;
 
 import java.util.List;
 
-/** Durability of an airframe, tracked per section as well as in total. */
 public final class PartHealth {
 
     private final float[] hp = new float[HitPart.values().length];
@@ -48,11 +47,6 @@ public final class PartHealth {
         return sum;
     }
 
-    /**
-     * Applies aimed damage.
-     *
-     * @return {@code true} if this is the blow that knocked the section out
-     */
     public boolean hurt(HitPart part, float damage) {
         int i = part.ordinal();
         if (hp[i] <= 0.0f) {
@@ -62,7 +56,6 @@ public final class PartHealth {
         return hp[i] <= 0.0f;
     }
 
-    /** Applies damage that arrived without a direction -- a blast, fire, a command. */
     public void hurtEverywhere(float damage) {
         float pool = total();
         if (pool <= 0.0f) {
@@ -95,7 +88,6 @@ public final class PartHealth {
     }
 
     public void save(CompoundTag tag) {
-        // Written by name, not ordinal: reordering HitPart must not silently reassign durability.
         CompoundTag parts = new CompoundTag();
         for (HitPart part : HitPart.values()) {
             parts.putFloat(part.id(), hp[part.ordinal()]);

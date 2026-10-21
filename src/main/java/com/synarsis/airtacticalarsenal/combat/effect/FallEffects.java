@@ -14,7 +14,6 @@ import org.joml.Vector3d;
 
 import java.util.List;
 
-/** What a drone coming apart looks like. */
 public final class FallEffects {
 
     private static final double VIEW_RANGE = 192.0;
@@ -44,13 +43,6 @@ public final class FallEffects {
         }
     }
 
-    /**
-     * A section has come off: wreckage away from the airframe, and smoke where it tore loose.
-     *
-     * @param at centre of the box that was knocked out
-     * @param motion the airframe's own velocity, so debris carries on with it rather than dropping
-     * straight down out of a drone doing three blocks a tick
-     */
     public static void sectionLost(ServerLevel level, HitPart part, Vec3 at, Vec3 motion,
                                    RandomSource random) {
         for (int i = 0; i < PIECES_PER_LOSS; i++) {
@@ -69,7 +61,6 @@ public final class FallEffects {
         }
     }
 
-    /** The trail a crippled drone leaves on the way down. */
     public static void fallTrail(ServerLevel level, List<Obb> boxes, FallMode mode, Vec3 motion,
                                  int fallTicks, RandomSource random) {
         Vec3 tail = centreOf(boxes, HitPart.ENGINE);
@@ -84,7 +75,6 @@ public final class FallEffects {
             }
             case SPIRAL, TUMBLE -> {
                 puff(level, ParticleTypes.LARGE_SMOKE, tail, 4, 0.2, 0.01);
-                // The odd piece shaking loose as it comes apart.
                 if (fallTicks % 6 == 0) {
                     piece(level, ModParticles.DEBRIS.get(), tail,
                             motion.scale(0.5).add((random.nextDouble() - 0.5) * 0.2,
@@ -97,7 +87,6 @@ public final class FallEffects {
         }
     }
 
-    /** A drone that arrived without going off: dirt thrown up, pieces shed, and nothing else. */
     public static void groundScatter(ServerLevel level, Vec3 at, Vec3 motion, RandomSource random) {
         puff(level, ParticleTypes.LARGE_SMOKE, at, 18, 0.6, 0.02);
         puff(level, ParticleTypes.CAMPFIRE_COSY_SMOKE, at.add(0, 0.4, 0), 10, 0.5, 0.01);

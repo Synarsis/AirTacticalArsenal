@@ -11,7 +11,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** The mod's settings, reachable from the mod list and from a key. */
 @OnlyIn(Dist.CLIENT)
 public class AtaSettingsScreen extends Screen {
 
@@ -89,7 +88,6 @@ public class AtaSettingsScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
 
-        // The server's side of things, shown but not touchable.
         int y = this.height - 96;
         graphics.drawCenteredString(this.font,
                 Component.translatable("gui.ata.settings.server_section"), this.width / 2, y, 0xFFFF55);

@@ -16,18 +16,17 @@ public class ModCreativeTabs {
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> ATA_TAB = CREATIVE_MODE_TABS.register("ata_tab",
             () -> CreativeModeTab.builder()
-                    .icon(() -> new ItemStack(ModBlocks.UNIFIED_TERMINAL.get()))
+                    .icon(() -> new ItemStack(ModItems.ISKANDER_TEL.get()))
                     .title(Component.translatable("itemGroup.ata"))
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.SHAHED_RADAR.get());
                         output.accept(ModBlocks.SIREN.get());
-                        output.accept(ModBlocks.UNIFIED_TERMINAL.get());
-                        output.accept(ModBlocks.LAUNCHER.get());
+                        output.accept(ModBlocks.SHAHED_TERMINAL.get());
+                        output.accept(ModItems.ISKANDER_TEL.get());
                         output.accept(ModItems.ISKANDER.get());
                         output.accept(ModItems.SHAHED.get());
                         output.accept(ModItems.SHAHED_LAUNCHER.get());
                         output.accept(ModItems.CONTROL_TABLET.get());
-                        output.accept(ModItems.LAUNCH_INTERFACE_CABLE.get());
                         output.accept(ModItems.PAINT_STAND.get());
 
                         ItemStack fullSprayCan = new ItemStack(ModItems.SPRAY_CAN.get());

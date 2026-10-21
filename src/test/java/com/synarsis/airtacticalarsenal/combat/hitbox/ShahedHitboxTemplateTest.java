@@ -8,14 +8,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Sanity of the Shahed's box table and of the rotation that places it. */
 @DisplayName("Shahed hitboxes: template and body rotation")
 class ShahedHitboxTemplateTest {
 
-    /**
-     * Model envelope in render space: every cube of shahed.geo.json put through GeckoLib's bake --
-     * mirrored along X, X and Y rotations negated, composed Rz*Ry*Rx. In blocks.
-     */
     private static final float MODEL_MIN_X = -1.450f;
     private static final float MODEL_MAX_X = 1.4583f;
     private static final float MODEL_MIN_Y = -0.126f;
@@ -46,8 +41,6 @@ class ShahedHitboxTemplateTest {
                     box.part().id() + " has a zero-volume box");
             assertTrue(box.hpFraction() > 0, box.part().id() + " carries no durability");
         }
-        // A part may own more than one box -- TAIL is a fin on each wingtip -- but every part the
-        // outcome table can knock out has to be reachable by a shot.
         for (HitPart part : HitPart.values()) {
             assertTrue(ShahedHitboxes.TEMPLATE.stream().anyMatch(b -> b.part() == part),
                     part.id() + " has no box, so nothing can ever hit it");
@@ -125,8 +118,6 @@ class ShahedHitboxTemplateTest {
     @Test
     @DisplayName("wing boxes stay on their own side of the fuselage")
     void wingBoxesStayOnTheirSide() {
-        // Not exact mirrors any more: the table traces real cubes, and the model's own swept panels
-        // and split halves differ by a few hundredths between sides.
         for (PartBox box : ShahedHitboxes.TEMPLATE) {
             if (box.part() == HitPart.WING_LEFT) {
                 assertTrue(box.center().x() > 0.0f, "a WING_LEFT box strayed to starboard");
@@ -139,8 +130,6 @@ class ShahedHitboxTemplateTest {
     @Test
     @DisplayName("heading south, the left wing sits to the east")
     void leftWingIsOnTheAirframesLeft() {
-        // Mod yaw is atan2(motion.x, motion.z): heading south (+Z) is yaw 0, so local axes map
-        // straight onto world axes. Facing south, east (+X) is on your left.
         PartBox left = ShahedHitboxes.TEMPLATE.stream()
                 .filter(b -> b.part() == HitPart.WING_LEFT)
                 .max(java.util.Comparator.comparing(b -> b.halfExtents().x())).orElseThrow();

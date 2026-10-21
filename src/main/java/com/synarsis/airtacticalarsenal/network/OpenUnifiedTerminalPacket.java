@@ -161,7 +161,6 @@ public record OpenUnifiedTerminalPacket(
     public List<Double> getLauncherCEPs() { return launcherCEPs; }
 
     public static void handle(OpenUnifiedTerminalPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

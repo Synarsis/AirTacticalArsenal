@@ -30,6 +30,12 @@ public class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> ISKANDER_PREPARING = registerSoundEvent("iskander_preparing");
     public static final DeferredHolder<SoundEvent, SoundEvent> ISKANDER_TERMINAL = registerSoundEvent("iskander_terminal");
 
+    public static final DeferredHolder<SoundEvent, SoundEvent> TEL_ENGINE = registerSoundEvent("tel_engine");
+    public static final DeferredHolder<SoundEvent, SoundEvent> TEL_STRIKE = registerSoundEvent("tel_strike");
+    public static final DeferredHolder<SoundEvent, SoundEvent> TEL_HYDRAULICS = registerSoundEvent("tel_hydraulics");
+    public static final DeferredHolder<SoundEvent, SoundEvent> TEL_COVERS = registerSoundEvent("tel_covers");
+    public static final DeferredHolder<SoundEvent, SoundEvent> TEL_JACKS = registerSoundEvent("tel_jacks");
+
     private static DeferredHolder<SoundEvent, SoundEvent> registerSoundEvent(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

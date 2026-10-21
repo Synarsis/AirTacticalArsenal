@@ -8,10 +8,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * These classes are edited from both sides, so it is easy to reach for a client type in one and
- * not notice until a dedicated server refuses to start.
- */
 @DisplayName("Server safety: combat and debug classes stay off the client")
 class ServerSafetyTest {
 
@@ -49,8 +45,6 @@ class ServerSafetyTest {
     @Test
     @DisplayName("the Explosion Overhaul layer never names a client class")
     void explosionOverhaulLayerIsServerSafe() {
-        // Explosions are resolved server-side; reaching for a client type here would stop a
-        // dedicated server loading the mod at all.
         assertServerSafe(com.synarsis.airtacticalarsenal.compat.ExplosionOverhaulCompat.class);
     }
 
@@ -63,7 +57,6 @@ class ServerSafetyTest {
     @Test
     @DisplayName("control: a client class is detectable this way")
     void controlTheScanFindsClientReferences() {
-        // Without this, every assertion above would also pass on a scanner that found nothing at all.
         assertTrue(ClassRefs.of(com.synarsis.airtacticalarsenal.client.debug.HitboxDebugRenderer.class)
                         .referencesAnythingIn(CLIENT_PACKAGE),
                 "the wireframe renderer is client-only and must show up as such");

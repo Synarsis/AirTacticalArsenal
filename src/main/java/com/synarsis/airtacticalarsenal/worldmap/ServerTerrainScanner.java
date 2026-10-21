@@ -10,8 +10,6 @@ import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
-// PORT-NOTE: ChunkStatus moved from net.minecraft.world.level.chunk.ChunkStatus (1.20.1)
-//            to net.minecraft.world.level.chunk.status.ChunkStatus (1.21.1).
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.LevelResource;
@@ -28,15 +26,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Builds a 1536x1536 terrain PNG per radar position by sampling biomes/heightmaps, caches it
- * to disk and ticks builds cooperatively with {@link ServerRouteMapScanner} via the shared
- * {@link #GLOBAL_BUILD_ORDER}.
- *
- * PORT-NOTE: In Forge 1.20.1 this class lived in the {@code radar} package. For NeoForge it was
- *            moved to the {@code worldmap} package; behaviour is otherwise a faithful port of the
- *            Forge {@code radar/ServerTerrainScanner.java}.
- */
 public class ServerTerrainScanner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("ATA-RadarMap");

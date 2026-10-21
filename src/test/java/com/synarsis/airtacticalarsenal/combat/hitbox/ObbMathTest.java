@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The oriented-box maths, which is the one part of the hit system whose failures are invisible. */
 @DisplayName("OBB: segment clipping and rotation")
 class ObbMathTest {
 
@@ -31,7 +30,6 @@ class ObbMathTest {
         double t = box.clipSegment(new Vec3(-2, 0, 0), new Vec3(2, 0, 0));
 
         assertTrue(t > 0.0 && t < 1.0, "expected an entry parameter inside the segment, got " + t);
-        // Entry is at x = -0.5 along a segment spanning x = -2..2, i.e. 1.5/4.
         assertEquals(0.375, t, 1.0E-6);
     }
 
@@ -39,14 +37,12 @@ class ObbMathTest {
     @DisplayName("a segment that stops short of the box misses")
     void segmentStoppingShortMisses() {
         Obb box = boxAt(0, 0, 0, 0, 0, 0);
-        // Aimed straight at the box, but ending ten blocks before reaching it.
         double t = box.clipSegment(new Vec3(-20, 0, 0), new Vec3(-10, 0, 0));
 
         assertEquals(Obb.NO_HIT, t,
                 "a segment ending short of the box must not register; got t=" + t);
     }
 
-    /** The old comparison measured against the segment's length, making it an endless ray. */
     @Test
     @DisplayName("the previous comparison accepted that same non-reaching segment")
     void previousComparisonAcceptedTheMiss() {
@@ -93,7 +89,6 @@ class ObbMathTest {
     @Test
     @DisplayName("yawing the box by ninety degrees changes what a given segment hits")
     void rotationChangesWhatIsHit() {
-        // A long, thin box lying along local Z.
         PartBox slab = PartBox.of(HitPart.BODY, 0.2f, 0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
         Obb alongZ = new Obb(HitPart.BODY);
@@ -148,7 +143,6 @@ class ObbMathTest {
     @Test
     @DisplayName("clipping stays exact far from the origin")
     void precisionHoldsAtWorldEdge() {
-        // Float centres would resolve to worse than a sixteenth of a block out here.
         double far = 2_000_000.0;
         Obb box = boxAt(far, 64, far, 0, 0, 0);
 

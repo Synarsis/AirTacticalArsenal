@@ -25,7 +25,6 @@ class HitScanTest {
     @Test
     @DisplayName("the nearest section along the shot wins, not the first in the list")
     void nearestSectionWins() {
-        // Listed far-then-near on purpose: order in the table must not decide the answer.
         List<Obb> boxes = List.of(box(HitPart.ENGINE, 0, 4, 0.5f), box(HitPart.WARHEAD, 0, 1, 0.5f));
 
         HitScan.Hit hit = HitScan.nearest(boxes, new Vec3(0, 0, -2), new Vec3(0, 0, 6));
@@ -38,7 +37,6 @@ class HitScanTest {
     @Test
     @DisplayName("a shot through a gap in the airframe hits nothing")
     void gapBetweenSectionsIsAMiss() {
-        // Two sections either side of x = 0 with clear air between them.
         List<Obb> boxes = List.of(box(HitPart.WING_LEFT, 1.5f, 0, 0.5f),
                 box(HitPart.WING_RIGHT, -1.5f, 0, 0.5f));
 
@@ -82,7 +80,6 @@ class HitScanTest {
         List<Obb> boxes = ShahedHitboxes.newBoxes();
         ShahedHitboxes.place(boxes, 0, 0, 0, 0, 0, 0);
 
-        // Level flight along +Z, so the nose is the +Z end; shoot back down the axis into it.
         HitScan.Hit hit = HitScan.nearest(boxes, new Vec3(0, 0.19, 5), new Vec3(0, 0.19, 1.0));
 
         assertNotNull(hit, "a shot straight down the nose must land somewhere");
@@ -95,7 +92,6 @@ class HitScanTest {
         List<Obb> boxes = ShahedHitboxes.newBoxes();
         ShahedHitboxes.place(boxes, 0, 0, 0, 0, 0, 0);
 
-        // Straight down through the port wing panel, well outboard of the fuselage.
         HitScan.Hit hit = HitScan.nearest(boxes, new Vec3(1.0, 3, -1.0), new Vec3(1.0, -3, -1.0));
 
         assertNotNull(hit, "a shot through the wing must land somewhere");

@@ -6,15 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * Smoke test for the adversarial-review harness itself.
- *
- * Proves two things before any repro test is trusted:
- *  1. JUnit 5 runs at all under the ModDevGradle build.
- *  2. Plain Minecraft value classes (Vec3, BlockPos) are on the test classpath and
- *     usable WITHOUT Bootstrap.bootStrap() — which is what makes pure-java repro
- *     tests of the mod's trajectory math possible outside a running game.
- */
 class HarnessSmokeTest {
 
     @Test

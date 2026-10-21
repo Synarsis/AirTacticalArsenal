@@ -28,7 +28,6 @@ public record ShahedExplosionPacket(Vec3 position) implements CustomPacketPayloa
     public Vec3 getPosition() { return position; }
 
     public static void handle(ShahedExplosionPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

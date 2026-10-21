@@ -9,16 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.chunk.ChunkAccess;
-// PORT-NOTE: ChunkStatus moved to net.minecraft.world.level.chunk.status.ChunkStatus in 1.21.1.
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Client -> server request for a segment's max terrain height and sampled height profile.
- * Mirrors the Forge {@code RequestSegmentMaxHeightPacket}; replies with a
- * {@link SegmentMaxHeightPacket}.
- */
 public record RequestSegmentMaxHeightPacket(int x1, int z1, int x2, int z2, int segmentIndex)
         implements CustomPacketPayload {
 

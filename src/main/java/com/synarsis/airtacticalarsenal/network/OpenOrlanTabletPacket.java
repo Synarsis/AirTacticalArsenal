@@ -105,9 +105,6 @@ public record OpenOrlanTabletPacket(
     }
 
     public static void handle(OpenOrlanTabletPacket payload, IPayloadContext context) {
-        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
-        // server that loads a class referencing client types aborts mod loading entirely -- the
-        // server does not start at all. Guard before touching anything client-side.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

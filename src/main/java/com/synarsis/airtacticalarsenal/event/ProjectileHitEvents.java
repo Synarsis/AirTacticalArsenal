@@ -3,6 +3,7 @@ package com.synarsis.airtacticalarsenal.event;
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.combat.hitbox.HitScan;
 import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
+import com.synarsis.airtacticalarsenal.entity.tel.TelPart;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.EntityHitResult;
@@ -11,7 +12,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 
-/** Lets a shot that threads a gap in an airframe carry on instead of being eaten by it. */
 @EventBusSubscriber(modid = AirTacticalArsenal.MODID)
 public final class ProjectileHitEvents {
 
@@ -24,6 +24,9 @@ public final class ProjectileHitEvents {
             return;
         }
         Entity target = entityHit.getEntity();
+        if (target instanceof TelPart part) {
+            target = part.getParent();
+        }
         if (!(target instanceof ObbProvider provider) || provider.useAabb()) {
             return;
         }

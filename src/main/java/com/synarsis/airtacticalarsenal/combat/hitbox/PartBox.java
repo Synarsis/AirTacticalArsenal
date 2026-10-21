@@ -3,23 +3,9 @@ package com.synarsis.airtacticalarsenal.combat.hitbox;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-/**
- * One box of an airframe's hit geometry, in model-local coordinates and immutable.
- *
- * @param part which section a hit here belongs to
- * @param center box centre, model-local
- * @param halfExtents half-size along each local axis
- * @param localRotation the cube's own rotation, composed under the airframe's
- * @param hpFraction share of the airframe's total durability carried by this box
- */
 public record PartBox(HitPart part, Vector3f center, Vector3f halfExtents,
                       Quaternionf localRotation, float hpFraction) {
 
-    /**
-     * @param hx half-extent along local X (span across the wings)
-     * @param hy half-extent along local Y (up)
-     * @param hz half-extent along local Z (towards the nose)
-     */
     public static PartBox of(HitPart part,
                              float hx, float hy, float hz,
                              float cx, float cy, float cz,

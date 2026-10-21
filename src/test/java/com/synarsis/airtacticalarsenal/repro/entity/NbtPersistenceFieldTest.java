@@ -9,29 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * REPRO: entities F-2 and F-8 / blocks F-3 — state that decides whether an entity survives a
- * reload is never written to NBT.
- *
- * <p>Both flying entities gate their whole tick on a plain Java field:
- * {@code if (!level().isClientSide && !this.isLegitSpawn) { this.discard(); return; }}. The field
- * defaults to {@code false} and is set only by the code that spawns the entity legitimately.
- * Nothing writes it to NBT, so an entity restored from disk comes back with {@code false} and
- * deletes itself on its first tick.
- *
- * <p>The deletion is not quiet. {@code ShahedEntity.remove} treats a {@code DISCARDED} removal
- * outside the WARMUP phase as a shoot-down and fires the full explosion effect broadcast, so a
- * server restart with drones in the air greets every player with phantom detonations.
- *
- * <p>{@code IskanderEntity.launcherPos} has the same gap with a worse consequence: it is the only
- * handle back to the launcher block, and {@code releaseLauncher()} is what clears LOADED /
- * LAUNCHING / inFlight. Lose it across a restart and the launcher stays armed forever -- it can
- * no longer be loaded, fired, or unloaded.
- *
- * <p>An NBT key is a string constant in the class's constant pool, so its absence is provable
- * without a world. {@link OrlanEntity} serves as the control: it does persist {@code LegitSpawn},
- * which shows the pattern was understood and simply not applied to the other two entities.
- */
 @DisplayName("F-2/F-8: flight-critical fields are missing from entity NBT")
 class NbtPersistenceFieldTest {
 
@@ -64,16 +41,10 @@ class NbtPersistenceFieldTest {
     @Test
     void iskanderMustPersistTheLauncherItLaunchedFrom() {
         ClassRefs refs = ClassRefs.of(IskanderEntity.class);
-        boolean persisted = refs.references("LauncherX")
-                || refs.references("LauncherPos")
-                || refs.references("LauncherPosX");
-
-        assertTrue(persisted,
-                "IskanderEntity.addAdditionalSaveData writes the full trajectory but not"
-                        + " launcherPos. releaseLauncher() is the only code that clears the"
-                        + " launcher's LOADED/LAUNCHING/inFlight state and it needs that field, so"
-                        + " after a restart mid-flight the launcher stays armed permanently:"
-                        + " LoadingHatchBlock refuses to reload it, LaunchRocketPacket refuses to"
-                        + " fire it, and RemoveRocketPacket refuses to unload it.");
+        assertTrue(refs.references("LauncherVehicle"),
+                "IskanderEntity.addAdditionalSaveData writes the full trajectory but not the"
+                        + " launcher vehicle it left. canHitEntity uses that id to keep the missile from"
+                        + " exploding on its own launcher (or its hit parts) on the way up, so after a"
+                        + " restart mid-climb the missile would blow up on the machine it was fired from.");
     }
 }

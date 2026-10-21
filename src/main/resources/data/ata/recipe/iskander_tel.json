@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "PFP",
+    "CCC"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_block"},
+    "B": {"item": "minecraft:blast_furnace"},
+    "P": {"item": "minecraft:piston"},
+    "F": {"item": "minecraft:furnace"},
+    "C": {"item": "minecraft:coal_block"}
+  },
+  "result": {
+    "id": "ata:iskander_tel",
+    "count": 1
+  }
+}

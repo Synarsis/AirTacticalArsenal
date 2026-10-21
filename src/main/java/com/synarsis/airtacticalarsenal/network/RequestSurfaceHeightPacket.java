@@ -9,15 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.chunk.ChunkAccess;
-// PORT-NOTE: ChunkStatus moved to net.minecraft.world.level.chunk.status.ChunkStatus in 1.21.1.
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Client -> server request for the WORLD_SURFACE height at (x, z). Mirrors the Forge
- * {@code RequestSurfaceHeightPacket}; replies with a {@link SurfaceHeightPacket}.
- */
 public record RequestSurfaceHeightPacket(int x, int z) implements CustomPacketPayload {
 
     public static final Type<RequestSurfaceHeightPacket> TYPE = new Type<>(

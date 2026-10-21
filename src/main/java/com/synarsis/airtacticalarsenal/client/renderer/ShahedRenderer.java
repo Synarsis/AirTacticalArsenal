@@ -47,15 +47,9 @@ public class ShahedRenderer extends GeoEntityRenderer<ShahedEntity> {
         float prevPitch = animatable.xRotO;
 
         float interpYaw = lerpAngle(prevYaw, yaw, partialTick);
-        // Shortest arc, not a plain lerp. A tumbling airframe carries its pitch past +-180, and a
-        // linear blend across that wrap swings the model the long way round the circle in a
-        // single frame -- which reads as the model glitching for an instant.
         float interpPitch = lerpAngle(prevPitch, pitch, partialTick);
         float interpRoll = lerpAngle(animatable.getRollO(), animatable.getRoll(), partialTick);
 
-        // Yaw, then pitch, then roll about the fuselage. ShahedHitboxes.bodyRotation composes the
-        // same three in the same order; if one is ever reordered without the other, the boxes stop
-        // matching the model and nothing but the /ata debug hitbox overlay will show it.
         poseStack.mulPose(Axis.YP.rotationDegrees(interpYaw));
         poseStack.mulPose(Axis.XP.rotationDegrees(-interpPitch));
         poseStack.mulPose(Axis.ZP.rotationDegrees(interpRoll));

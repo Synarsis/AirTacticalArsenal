@@ -10,18 +10,6 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Opens the mod's screens. Client-only, and never referenced from a class the server loads.
- *
- * <p>The screen-opening packet handlers used to construct screens inline. That put a reference to
- * {@code Screen} into the handler's own bytecode, and registering the handler on a dedicated
- * server made FML's dist cleaner refuse to load the class -- so
- * {@code RegisterPayloadHandlersEvent} threw and <em>the whole mod failed to load</em>. It did not
- * degrade; the server simply would not start.
- *
- * <p>The indirection is what keeps that from happening: the handlers now mention only this class
- * by name, and a name is resolved lazily, on first call -- which happens only on a client.
- */
 public final class ClientScreens {
 
     private ClientScreens() {}

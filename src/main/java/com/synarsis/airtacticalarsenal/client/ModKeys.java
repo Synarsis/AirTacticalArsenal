@@ -8,7 +8,6 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
 
-/** The mod's keys, as proper bindings. */
 @OnlyIn(Dist.CLIENT)
 public final class ModKeys {
 
@@ -30,6 +29,14 @@ public final class ModKeys {
             "key.ata.night_vision", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY);
 
+    public static final KeyMapping TEL_FIRE_CONTROL = new KeyMapping(
+            "key.ata.tel_fire_control", KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
+
+    public static final KeyMapping TEL_HEADLIGHTS = new KeyMapping(
+            "key.ata.tel_headlights", KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, CATEGORY);
+
     private ModKeys() {
     }
 
@@ -38,5 +45,7 @@ public final class ModKeys {
         event.register(CAMERA_EXIT);
         event.register(CAMERA_LOCK);
         event.register(NIGHT_VISION);
+        event.register(TEL_FIRE_CONTROL);
+        event.register(TEL_HEADLIGHTS);
     }
 }

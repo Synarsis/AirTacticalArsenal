@@ -23,9 +23,6 @@ public class ShahedItemRenderer extends GeoItemRenderer<ShahedItem> {
     public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack poseStack,
                              MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
 
-        // The paint colour is stored in CUSTOM_DATA NBT ("ShahedColor") by PaintStandEntity.ejectShahed
-        // and read back by ShahedLauncherEntity on launch — read it from the same place so the held
-        // item matches the painted drone (the SHAHED_COLOR data component is never written for items).
         String color = "white";
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data != null) {

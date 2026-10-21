@@ -15,38 +15,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
-/**
- * REPRO: network F-5 — unbounded collection sizing in client-to-server stream codecs.
- *
- * <p>Every client-to-server codec in this mod reads an element count straight off the wire
- * with {@code buf.readInt()} and immediately hands it to {@code new ArrayList<>(n)} or
- * {@code new int[n]}. Both allocate storage for {@code n} elements BEFORE a single element is
- * read, so the allocation is driven by the attacker's declared count and not by how many bytes
- * the packet actually carries.
- *
- * <p>That is the whole attack: a payload of roughly a dozen bytes claims
- * {@link Integer#MAX_VALUE} elements and the server tries to allocate an array of that length
- * while still inside the network decoder — before any handler, permission check, or
- * {@code enqueueWork} runs. The resulting {@link OutOfMemoryError} escapes the decode path.
- *
- * <p>Contrast with the codecs that size a plain {@code new ArrayList<>()} and fill it in a loop
- * (e.g. {@code LaunchFromUnifiedTerminalPacket}): those still lack a bound, but the loop hits
- * the end of the buffer and throws a decode error long before memory runs out. Those are NOT
- * reproduced here — this test targets only the codecs that allocate up front, because those are
- * the ones a tiny packet can weaponise.
- *
- * <p>EXPECTED (a bounded codec): decode rejects the absurd count with a decode-level exception,
- * the way {@code ByteBufCodecs.list(maxSize)} does.
- * ACTUAL (current code): {@link OutOfMemoryError}.
- *
- * <p>Note on safety: {@link Integer#MAX_VALUE} exceeds the JVM's maximum array length, so the
- * error is raised by the array-size check rather than by exhausting the heap. The test neither
- * allocates gigabytes nor destabilises the JVM.
- */
 @DisplayName("F-5: client->server codecs allocate attacker-declared sizes before reading the body")
 class UnboundedDecoderOomTest {
 
-    /** Element count an attacker writes into the packet. Larger than any array the JVM allows. */
     private static final int HOSTILE_COUNT = Integer.MAX_VALUE;
 
     private static RegistryFriendlyByteBuf buf(Consumer<RegistryFriendlyByteBuf> fill) {
@@ -56,11 +27,6 @@ class UnboundedDecoderOomTest {
         return b;
     }
 
-    /**
-     * Decodes a hostile payload and reports how the codec reacted.
-     *
-     * @return nothing; fails the test if an {@link OutOfMemoryError} escapes the decoder.
-     */
     private static <T> void assertRejectsHostileCountWithoutOom(
             String packetName,
             StreamCodec<RegistryFriendlyByteBuf, T> codec,
@@ -69,8 +35,6 @@ class UnboundedDecoderOomTest {
         int payloadBytes = hostilePayload.readableBytes();
         try {
             codec.decode(hostilePayload);
-            // A bounded codec would normally throw; returning is acceptable too, as long as it
-            // did not try to size the collection from the wire.
         } catch (OutOfMemoryError oom) {
             throw new AssertionError(
                     packetName + ": a " + payloadBytes + "-byte packet claiming " + HOSTILE_COUNT
@@ -81,7 +45,6 @@ class UnboundedDecoderOomTest {
                             + " (ByteBufCodecs.list(max)) would have rejected the count instead.",
                     oom);
         } catch (RuntimeException expected) {
-            // Ran out of buffer / decode error: the bound-less allocation did not happen.
         }
     }
 
@@ -92,7 +55,7 @@ class UnboundedDecoderOomTest {
                 SaveShahedRoutePacket.STREAM_CODEC,
                 buf(b -> {
                     b.writeBlockPos(net.minecraft.core.BlockPos.ZERO);
-                    b.writeInt(HOSTILE_COUNT); // waypoint count -> new ArrayList<>(n)
+                    b.writeInt(HOSTILE_COUNT);
                 }));
     }
 
@@ -112,7 +75,7 @@ class UnboundedDecoderOomTest {
         assertRejectsHostileCountWithoutOom(
                 "LaunchShahedByRoutePacket",
                 LaunchShahedByRoutePacket.STREAM_CODEC,
-                buf(b -> b.writeInt(HOSTILE_COUNT))); // launcher-position count comes first here
+                buf(b -> b.writeInt(HOSTILE_COUNT)));
     }
 
     @Test
@@ -121,22 +84,20 @@ class UnboundedDecoderOomTest {
                 "UpdateOrlanRoutePacket",
                 UpdateOrlanRoutePacket.STREAM_CODEC,
                 buf(b -> {
-                    b.writeInt(0);            // orlan entity id
+                    b.writeInt(0);
                     b.writeInt(HOSTILE_COUNT);
                 }));
     }
 
     @Test
     void saveTabletCoordsPacketAllocatesFromTheWire() {
-        // This one nests: an outer entry count, then a per-entry int[] length. The inner
-        // length is the sharper edge -- one entry is enough.
         assertRejectsHostileCountWithoutOom(
                 "SaveTabletCoordsPacket",
                 SaveTabletCoordsPacket.STREAM_CODEC,
                 buf(b -> {
-                    b.writeInt(1);            // one entry
-                    b.writeInt(0);            // slot key
-                    b.writeInt(HOSTILE_COUNT); // int[] length -> new int[n]
+                    b.writeInt(1);
+                    b.writeInt(0);
+                    b.writeInt(HOSTILE_COUNT);
                 }));
     }
 }

@@ -11,15 +11,6 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
-/**
- * Blocks Create's fake players (e.g. DeployerFakePlayer) from interacting with ATA blocks
- * or entities, preventing contraption-driven sabotage of mod functionality.
- *
- * Registered on the game event bus via @EventBusSubscriber.
- *
- * NOTE: NeoForge 1.21.1 removed Event#setCancellationResult; relying on setCanceled(true)
- * plus setUseBlock/setUseItem(TriState.FALSE) is the supported pattern.
- */
 @EventBusSubscriber(modid = AirTacticalArsenal.MODID)
 public class CreateBlockingHandler {
 

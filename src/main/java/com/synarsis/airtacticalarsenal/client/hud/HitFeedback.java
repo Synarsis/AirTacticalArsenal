@@ -11,7 +11,6 @@ import net.minecraft.sounds.SoundSource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
-/** The marker on the crosshair that answers "did I hit it, and where?". */
 @OnlyIn(Dist.CLIENT)
 public final class HitFeedback {
 
@@ -46,8 +45,6 @@ public final class HitFeedback {
         }
 
         if (AtaClientConfig.isHitMarkerSoundEnabled() && mc.player != null) {
-            // Vanilla samples: a bright note for a hit, a dull one when it bounced off. No new
-            // binaries, and they read as different at a glance.
             mc.player.playSound(hit.penetrated() ? SoundEvents.ARROW_HIT_PLAYER : SoundEvents.ANVIL_LAND,
                     hit.penetrated() ? 0.5f : 0.22f,
                     hit.penetrated() ? (hit.knockedOut() ? 1.6f : 1.2f) : 1.9f);
@@ -77,8 +74,6 @@ public final class HitFeedback {
         int reach = Math.round(6.0f * AtaClientConfig.getHitMarkerScale());
         int gap = Math.round(2.0f * AtaClientConfig.getHitMarkerScale());
 
-        // Four strokes away from the centre. A knocked-out section gets a longer, squarer mark so it
-        // is obvious something came off rather than merely took damage.
         int outer = knockedOut ? reach + 3 : reach;
         stroke(graphics, cx - outer, cy - outer, cx - gap, cy - gap);
         stroke(graphics, cx + gap, cy - outer, cx + outer, cy - gap);

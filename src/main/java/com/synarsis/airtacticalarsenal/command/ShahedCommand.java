@@ -35,7 +35,6 @@ public class ShahedCommand {
                 : Component.translatable("command.ata.config.off").withStyle(s -> s.withColor(0xFF5555));
     }
 
-    /** Registers the command tree under {@code /ata}, with {@code /shahed} as an alias. */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         LiteralCommandNode<CommandSourceStack> root = dispatcher.register(Commands.literal("ata")
                 .requires(source -> source.hasPermission(2))
@@ -508,11 +507,6 @@ public class ShahedCommand {
                 .redirect(root));
     }
 
-    /**
-     * Lifts every launch restriction: minimum and maximum range, blacklist and whitelist zones, and
-     * the launcher's firing arc. Server-wide, and broadcast so the terminal screens stop refusing
-     * launches the server would now accept.
-     */
     private static int setNoLaunchLimits(CommandSourceStack source, boolean enabled) {
         com.synarsis.airtacticalarsenal.debug.DebugOverrides.setNoLaunchLimits(enabled);
         PacketDistributor.sendToAllPlayers(
@@ -527,7 +521,6 @@ public class ShahedCommand {
     private static final String[] FUZE_IDS = java.util.Arrays.stream(FuzeState.values())
             .map(FuzeState::id).toArray(String[]::new);
 
-    /** The drone the caller means: the one they are looking at, or failing that the nearest. */
     private static ShahedEntity targetedShahed(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         Vec3 eye = player.getEyePosition();
@@ -547,8 +540,6 @@ public class ShahedCommand {
             return best;
         }
 
-        // Not aiming at one: fall back to whatever is closest, so these still work when the drone is
-        // behind you or already spiralling out of view.
         return source.getLevel().getEntitiesOfClass(ShahedEntity.class,
                         player.getBoundingBox().inflate(96.0)).stream()
                 .min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(player)))
@@ -608,7 +599,6 @@ public class ShahedCommand {
         return 1;
     }
 
-    /** Sets the warhead to a chosen condition. */
     private static int setFuze(CommandSourceStack source, String rawState) throws CommandSyntaxException {
         ShahedEntity shahed = targetedShahed(source);
         if (reject(source, shahed, null, null)) {
@@ -642,7 +632,6 @@ public class ShahedCommand {
         return 1;
     }
 
-    /** Lets a held drone go on a short flight ending at a point ahead of it. */
     private static int releaseTarget(CommandSourceStack source, int range) throws CommandSyntaxException {
         ShahedEntity shahed = targetedShahed(source);
         if (reject(source, shahed, null, null)) {
@@ -660,8 +649,6 @@ public class ShahedCommand {
         BlockPos ground = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
                 BlockPos.containing(aim.x, shahed.getY(), aim.z));
 
-        // Nose over for the last stretch rather than the stock 350 blocks, which on a short leg would
-        // mean diving from the moment it is let go.
         shahed.debugCruiseTo(ground, Math.min(60.0, range * 0.25));
         shahed.setDebugHold(false);
 
@@ -694,7 +681,6 @@ public class ShahedCommand {
         return 1;
     }
 
-    /** Puts a Shahed in the air in front of the caller and holds it there. */
     private static int spawnHeldShahed(CommandSourceStack source, double distance, double height)
             throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
@@ -705,7 +691,6 @@ public class ShahedCommand {
         Vec3 at = player.position()
                 .add(-Math.sin(rad) * distance, height + player.getEyeHeight(), Math.cos(rad) * distance);
 
-        // Facing away from the caller, so the view is the one a defender actually gets.
         BlockPos nominalTarget = BlockPos.containing(at.add(-Math.sin(rad) * 500, 0, Math.cos(rad) * 500));
         ShahedEntity shahed = new ShahedEntity(level, at, nominalTarget, "low", yaw);
         shahed.isLegitSpawn = true;

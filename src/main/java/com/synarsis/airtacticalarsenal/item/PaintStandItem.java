@@ -32,11 +32,8 @@ public class PaintStandItem extends Item implements GeoItem {
         super(properties);
     }
 
-        // Item renderer registered in AirTacticalArsenalClient via RegisterClientExtensionsEvent.
-
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        // No controllers (stand has no item-form animation).
     }
 
     @Override

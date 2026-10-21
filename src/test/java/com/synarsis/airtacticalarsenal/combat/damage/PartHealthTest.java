@@ -26,7 +26,6 @@ class PartHealthTest {
         PartHealth health = full();
         assertEquals(100.0f, health.totalCapacity(), 0.01f);
         assertEquals(100.0f, health.total(), 0.01f);
-        // WARHEAD owns 18% of the airframe across all of its boxes.
         assertEquals(18.0f, health.capacity(HitPart.WARHEAD), 0.01f);
     }
 

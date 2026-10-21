@@ -32,7 +32,6 @@ public class PaintStandRenderer extends GeoEntityRenderer<PaintStandEntity> {
 
         poseStack.popPose();
 
-        // Billboard progress text above the stand (drawn at the clean entry pose, after the model).
         if (entity.hasShahed() && entity.getPaintProgress() > 0 && entity.getPaintProgress() < 1.0f
                 && shouldShowProgressBar(entity)) {
             renderProgressBar(entity, poseStack, bufferSource, packedLight);
@@ -63,9 +62,6 @@ public class PaintStandRenderer extends GeoEntityRenderer<PaintStandEntity> {
 
         poseStack.translate(0, 2.0, 0);
 
-        // NOTE: vanilla 1.21 renderNameTag is just cameraOrientation() + scale(0.025,-0.025,0.025).
-        // The extra YP-180 the 1.20.1 version used flips the text AWAY from the camera in 1.21
-        // (backface -> invisible), which is why the bar was provably drawn yet never showed.
         poseStack.mulPose(Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation());
         poseStack.scale(0.025F, -0.025F, 0.025F);
 

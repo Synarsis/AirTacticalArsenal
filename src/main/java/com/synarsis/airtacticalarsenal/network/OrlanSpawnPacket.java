@@ -62,7 +62,6 @@ public record OrlanSpawnPacket(
     }
 
     public static void handle(OrlanSpawnPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

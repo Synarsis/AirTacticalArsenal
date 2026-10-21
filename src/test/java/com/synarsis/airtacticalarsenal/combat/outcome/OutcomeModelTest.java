@@ -26,8 +26,6 @@ class OutcomeModelTest {
         return s;
     }
 
-    // ---------------------------------------------------------------- outcomes
-
     @Test
     @DisplayName("every section maps to an outcome, and none of them throws")
     void everyPartResolves() {
@@ -52,10 +50,8 @@ class OutcomeModelTest {
     @Test
     @DisplayName("a later, lesser hit cannot rescue a drone that is already going down")
     void outcomesOnlyEscalate() {
-        // Wing first, then the engine: it does not recover into a tidy glide.
         FallMode afterWing = OutcomeResolver.onKnockedOut(HitPart.WING_LEFT, FallMode.NONE);
         assertEquals(FallMode.SPIRAL, OutcomeResolver.onKnockedOut(HitPart.ENGINE, afterWing));
-        // Losing structure afterwards changes nothing either.
         assertEquals(FallMode.SPIRAL, OutcomeResolver.onKnockedOut(HitPart.BODY, afterWing));
     }
 
@@ -79,8 +75,6 @@ class OutcomeModelTest {
         assertEquals(FallMode.SPIRAL, OutcomeResolver.onDurabilityExhausted(FallMode.SPIRAL),
                 "already falling: keep the mode it is in");
     }
-
-    // ---------------------------------------------------------------- kinematics
 
     @Test
     @DisplayName("a glide trades height for distance and keeps its heading")
@@ -156,7 +150,6 @@ class OutcomeModelTest {
     @Test
     @DisplayName("entering a tumble mid-fall picks up from the attitude it already had")
     void tumbleResumesFromCurrentAttitude() {
-        // A fire that spreads switches modes with the fall tick already well advanced.
         FallController.State midFall = new FallController.State(new Vec3(0.8, -1.2, 0), 0, -30.0f, 12.0f);
         FallController.State next = FallController.step(FallMode.TUMBLE, 240, 1, midFall,
                 FallController.Tuning.DEFAULT);
@@ -180,8 +173,6 @@ class OutcomeModelTest {
     @Test
     @DisplayName("a drone crippled while stationary still flies away, in every mode")
     void crippledFromAStandstillGetsMoving() {
-        // The case a held test drone hits: released with no velocity at all. Modes that read the
-        // velocity as found left it hanging in the air.
         FallController.State still = new FallController.State(Vec3.ZERO, 0, 0, 0);
         for (FallMode mode : FallMode.values()) {
             if (mode == FallMode.NONE) {

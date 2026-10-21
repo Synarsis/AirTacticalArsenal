@@ -102,7 +102,6 @@ public class RouteTerrainRenderer {
                 for (int x = 0; x < TEX_SIZE; x++)
                     d.setPixelRGBA(x, y, DARK);
         displayTexture.upload();
-        // Nearest filtering — keep the route/terrain map crisp (1.21 DynamicTexture defaults to linear).
         displayTexture.setFilter(false, false);
         textureLocation = Minecraft.getInstance().getTextureManager()
                 .register("ata_route_terrain", displayTexture);

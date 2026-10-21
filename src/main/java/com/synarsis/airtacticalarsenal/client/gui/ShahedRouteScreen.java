@@ -59,7 +59,6 @@ public class ShahedRouteScreen extends Screen {
     private final Screen parentScreen;
     private final Consumer<List<List<BlockPos>>> onSaveCallback;
 
-    /** All the route limits below are lifted by {@code /ata debug nolimits on}. */
     private static boolean limitsOn() {
         return com.synarsis.airtacticalarsenal.debug.DebugOverrides.limitsApply();
     }
@@ -148,7 +147,6 @@ public class ShahedRouteScreen extends Screen {
         }
     }
 
-    /** Public default constructor for callers that just need the route screen open without parent context. */
     public ShahedRouteScreen() {
         this(null, java.util.List.of(BlockPos.ZERO), java.util.List.of(0f),
                 java.util.List.of(false), java.util.List.of(new ArrayList<>()), updated -> {});
@@ -1235,7 +1233,6 @@ public class ShahedRouteScreen extends Screen {
     }
 
     public void onHeightReceived(int x, int z, int y) {
-        // no-op (kept for SurfaceHeightCache compatibility)
     }
 
     public void onSegmentHeightReceived(int segmentIndex, int maxY) {

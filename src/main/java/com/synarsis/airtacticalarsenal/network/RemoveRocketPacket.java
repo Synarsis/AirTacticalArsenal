@@ -35,7 +35,6 @@ public record RemoveRocketPacket(BlockPos launcherPos) implements CustomPacketPa
         return TYPE;
     }
 
-    /** Empties the launcher's loading hatch and returns what it held, or EMPTY if it held nothing. */
     private static ItemStack takeFromHatch(Level level, BlockPos launcherPos) {
         if (!(level.getBlockEntity(launcherPos) instanceof LauncherBlockEntity launcherBE)) return ItemStack.EMPTY;
         BlockPos hatchPos = launcherBE.getLoadingHatchPos();
@@ -81,10 +80,6 @@ public record RemoveRocketPacket(BlockPos launcherPos) implements CustomPacketPa
 
             launcher.setLoaded(level, launcherPos, false);
 
-            // Take the rocket OUT of the hatch rather than minting a new one. Previously the hatch
-            // kept its copy while the player also received a fresh item, so the cycle
-            // "load via hatch -> remove via terminal -> take from hatch" produced one extra
-            // Iskander every pass, without limit.
             ItemStack rocketItem = takeFromHatch(level, launcherPos);
             if (rocketItem.isEmpty()) {
                 rocketItem = new ItemStack(ModItems.ISKANDER.get());

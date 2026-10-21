@@ -11,12 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Wrapper around the legacy NBT structure of "SavedCoords" used by ControlTabletItem and OrlanTabletItem.
- * Maps a slot index (int) -> a 2-element int[] containing (x, z) coordinates.
- *
- * Stored on disk as a list of entries (slot, x, z) so we can codec it cleanly.
- */
 public record SavedCoords(Map<Integer, int[]> entries) {
 
     public static final SavedCoords EMPTY = new SavedCoords(new HashMap<>());

@@ -16,43 +16,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.neoforged.neoforge.common.world.chunk.TicketController;
 import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
 
-/**
- * Tracks which chunks are force-loaded by each in-flight missile and drops them as
- * the missile moves.
- *
- * Forge 1.20.1 used {@code ForgeChunkManager.forceChunk(level, MOD_ID, entityUuid, x, z, force, ticking)}
- * with a custom {@code setForcedChunkLoadingCallback} to clean up on world load. NeoForge
- * 1.21.1 exposes either a {@code TicketController} for entity-owned tickets or the simpler
- * {@link ServerLevel#setChunkForced(int, int, boolean)} which uses a per-level forced-chunk set.
- *
- * Because missile chunks are short-lived (forced for a few seconds while the entity is alive)
- * the simpler {@code setChunkForced} call is used here and we just clean up on
- * {@link #unregisterMissile(Entity)} / {@link #cleanup()}.
- *
- * TODO: if multiple missiles overlap chunks and one unregisters before the other, the chunk
- *       will be released even though the second missile still needs it. The Forge ticket
- *       system handled that via per-UUID tickets — port a {@code TicketController} if this
- *       becomes a problem in practice.
- */
 public class MissileChunkManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MissileChunkManager.class);
     private static final ResourceLocation TICKET_ID =
             ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "missile_chunk");
 
-    /**
-     * Per-entity chunk tickets -- the NeoForge equivalent of the Forge ForgeChunkManager this mod
-     * was originally written against.
-     *
-     * <p>Replaces {@link ServerLevel#setChunkForced}, which was the wrong tool twice over. It keeps
-     * one flat set of forced chunks per level with no notion of who asked, so when two missiles'
-     * areas overlapped, the first to finish released chunks the second was still flying through.
-     * And it writes into the level's persistent forced-chunk data, so a missile airborne at
-     * shutdown left its chunks forced inside the save file permanently.
-     */
     private static final TicketController TICKETS = new TicketController(TICKET_ID);
 
-    /** Registers the controller. Called from the mod constructor on the mod event bus. */
     public static void registerTicketController(RegisterTicketControllersEvent event) {
         event.register(TICKETS);
     }
@@ -65,7 +36,6 @@ public class MissileChunkManager {
 
     private static final Map<Integer, ServerLevel> missileLevels = new ConcurrentHashMap<>();
 
-    /** Ticket owners. Tickets are keyed by UUID, which outlives the numeric entity id. */
     private static final Map<Integer, java.util.UUID> missileOwners = new ConcurrentHashMap<>();
 
     private static final Map<Integer, ChunkPos> lastChunkPosCache = new ConcurrentHashMap<>();
@@ -171,9 +141,6 @@ public class MissileChunkManager {
     }
 
     public static void cleanup() {
-        // Best-effort: drop every chunk we still have tickets for.
-        // TODO: in NeoForge a TicketController would let us scope cleanup per level/entity;
-        //       for now we just iterate the bookkeeping map.
         for (Map.Entry<Integer, Set<ChunkPos>> entry : loadedChunksPerMissile.entrySet()) {
             ServerLevel level = missileLevels.get(entry.getKey());
             java.util.UUID owner = missileOwners.get(entry.getKey());

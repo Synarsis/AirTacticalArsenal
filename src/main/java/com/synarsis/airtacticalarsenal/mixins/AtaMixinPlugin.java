@@ -8,32 +8,8 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Decides which of this mod's mixins may be applied.
- *
- * <p>Exists for one case: {@link LevelRendererMixin} redirects three calls inside
- * {@code LevelRenderer.setupRender}, and the rendering-optimisation mods rewrite that method
- * wholesale. Mixin refuses to inject into a method another mixin has merged at the same priority,
- * and it refuses at the <em>prepare</em> stage with an {@code InvalidInjectionException} -- which
- * {@code require = 0} does not suppress, because that setting only governs "the target was not
- * found", not "injecting here is not allowed". The result was a hard crash during mod construction:
- * the game never reached the main menu.
- *
- * <p>So the mixin is simply not offered when such a mod is present. The drone camera still works --
- * {@code setCameraEntity} and {@code ClientChunkCacheMixin} are untouched -- it only loses the
- * render-grid recentring, which can leave distant sections around the drone unbuilt. A cosmetic
- * limitation is the right trade against refusing to start.
- */
 public class AtaMixinPlugin implements IMixinConfigPlugin {
 
-    /**
-     * Mods that replace {@code LevelRenderer.setupRender}.
-     *
-     * <p>Checked by mod id through {@link LoadingModList}, which is populated before mixins are
-     * applied. OptiFine is absent from the list because it is not a NeoForge mod and would not
-     * appear here; if it is installed, the injection simply fails to find its target, which
-     * {@code require = 0} does handle.
-     */
     private static final Set<String> RENDERER_REPLACING_MODS =
             Set.of("embeddium", "sodium", "rubidium", "nvidium", "xenon");
 

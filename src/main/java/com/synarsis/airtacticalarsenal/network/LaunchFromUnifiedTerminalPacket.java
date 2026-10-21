@@ -84,9 +84,6 @@ public record LaunchFromUnifiedTerminalPacket(
                 for (BlockPos launcherPos : launcherPositions) {
                     BlockState launcherState = level.getBlockState(launcherPos);
                     if (launcherState.getBlock() instanceof LauncherBlock launcherBlock) {
-                        // This condition used to be inverted: it looked for a launcher that was
-                        // NOT loaded and then set LOADED on it, firing a full missile without
-                        // consuming any ammunition at all.
                         if (launcherState.getValue(LauncherBlock.LOADED)) {
                             if (!launcherBlock.isBlocked(level, launcherPos)) {
                                 selectedLauncher = launcherPos;
@@ -130,9 +127,6 @@ public record LaunchFromUnifiedTerminalPacket(
                 shahed.isLegitSpawn = true;
                 level.addFreshEntity(shahed);
             } else {
-                // Hand off to the rocket block entity instead of spawning the missile directly.
-                // Spawning it here left the rocket block standing on the pad and the hatch still
-                // holding its item, so the same missile both flew and stayed behind.
                 BlockEntity rocketBE = level.getBlockEntity(selectedLauncher.above());
                 if (!(rocketBE instanceof IskanderRocketBlockEntity rocketEntity)) {
                     player.displayClientMessage(Component.translatable("message.ata.rocket.not_found"), true);

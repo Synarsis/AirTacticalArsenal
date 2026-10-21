@@ -259,7 +259,6 @@ public class ShahedTerminalScreen extends Screen {
             }
         } catch (NumberFormatException ignored) {
         }
-        // Widgets render via super.render() now that we use addRenderableWidget.
     }
 
     @Override
@@ -274,8 +273,6 @@ public class ShahedTerminalScreen extends Screen {
                 return;
             }
         }
-
-        // 1.21: EditBox no longer has tick(); cursor blink is handled internally.
     }
 
     @Override

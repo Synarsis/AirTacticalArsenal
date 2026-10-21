@@ -9,14 +9,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-/**
- * Orlan FPV: the client camera is the drone, but the player's body stays at the launch site.
- * Vanilla centres the client chunk cache on the player's body, so the drone's surrounding chunks
- * get evicted and render as empty sky (especially while the drone hovers and nothing re-triggers
- * chunk streaming). This mixin forces the chunk-cache view centre to follow the camera entity (the
- * drone) whenever it is updated while FPV is active, so terrain around the drone stays loaded and
- * rendered — without moving the player's body (so the player remains physically present and killable).
- */
 @Mixin(ClientChunkCache.class)
 public class ClientChunkCacheMixin {
 

@@ -46,8 +46,6 @@ public class SprayCanItem extends Item implements GeoItem {
         super(properties);
     }
 
-    // ---- Charge (stored as float for fractional consumption, but read as int rounded down) ----
-
     public static int getCharge(ItemStack stack) {
         return (int) getChargeFloat(stack);
     }
@@ -102,8 +100,6 @@ public class SprayCanItem extends Item implements GeoItem {
         return (r << 16) | (g << 8);
     }
 
-    // ---- Water ----
-
     public static boolean hasWater(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.HAS_WATER.get(), Boolean.FALSE);
     }
@@ -115,8 +111,6 @@ public class SprayCanItem extends Item implements GeoItem {
             stack.remove(ModDataComponents.HAS_WATER.get());
         }
     }
-
-    // ---- Use logic ----
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
@@ -261,10 +255,6 @@ public class SprayCanItem extends Item implements GeoItem {
     private void spawnPaintParticles(Level level, Vec3 pos, boolean isPainting) {
         if (!level.isClientSide) return;
 
-        // The `true` (forceAlwaysRender) is essential: vanilla drops normal particles when the game's
-        // particle setting is "Decreased"/"Minimal" (the default in heavy modpacks), which was hiding
-        // the spray completely even though addParticle was being called. Forcing them shows the spray
-        // regardless of that setting.
         DustParticleOptions blackDust = new DustParticleOptions(new Vector3f(0.05f, 0.05f, 0.05f), 2.0f);
 
         int count = isPainting ? 12 : 5;
@@ -323,8 +313,6 @@ public class SprayCanItem extends Item implements GeoItem {
 
         super.appendHoverText(stack, context, tooltip, flag);
     }
-
-        // Item renderer registered in AirTacticalArsenalClient via RegisterClientExtensionsEvent.
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {

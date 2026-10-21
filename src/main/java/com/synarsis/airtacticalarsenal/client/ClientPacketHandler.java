@@ -8,11 +8,6 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Helpers invoked from server-to-client tablet open packets to actually push a screen.
- * The richer {@code com.synarsis.airtacticalarsenal.network.ClientPacketHandler} (sound /
- * launcher state caches) ports separately when its referenced packets land.
- */
 public class ClientPacketHandler {
 
     public static void openShahedTabletScreen(List<BlockPos> positions, List<Boolean> drones,

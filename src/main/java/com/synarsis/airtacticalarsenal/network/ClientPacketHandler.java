@@ -20,14 +20,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * Client-side router for Shahed/launcher/world-map/explosion packets.
- *
- * Ported from forge {@code com.synarsis.airtacticalarsenal.network.ClientPacketHandler}.
- * Tracks per-entity {@link ShahedEngineSoundClient} and {@link OrlanEngineSoundClient}
- * instances: a looping engine sound is started on spawn, stopped/faded on remove, and
- * on explosion the closest active engine sound is told to fade out in sync with the boom.
- */
 @OnlyIn(Dist.CLIENT)
 public class ClientPacketHandler {
 
@@ -36,11 +28,9 @@ public class ClientPacketHandler {
     private static final Random random = new Random();
     private static final int ORLAN_LANDED_PHASE = 6;
 
-    // Cached launcher states for UnifiedTerminalScreen consumers.
     private static final Map<BlockPos, LauncherStateUpdatePacket.LauncherState> launcherStates = new HashMap<>();
     private static final Map<BlockPos, int[]> launcherTimers = new HashMap<>();
 
-    // Cached orlan packet data for renderers / overlays.
     private static final Map<Integer, int[]> orlanDataCache = new HashMap<>();
 
     public static void handleShahedSpawn(int entityId, Vec3 currentPos, BlockPos targetPos, String diveMode) {
@@ -71,12 +61,6 @@ public class ClientPacketHandler {
         mc.execute(sound::start);
     }
 
-    /**
-     * Fades the engine note out because the engine has actually stopped.
-     *
-     * <p>The sound used to end only when the drone exploded or the entity went away, so a drone
-     * gliding down with its engine shot off kept humming the whole way to the ground.
-     */
     public static void fadeEngine(int entityId) {
         ShahedEngineSoundClient sound = activeSounds.get(entityId);
         if (sound != null && !sound.isExploded()) {
@@ -102,7 +86,6 @@ public class ClientPacketHandler {
             return;
         }
 
-        // Find the closest active engine sound to the explosion and fade it out in sync.
         ShahedEngineSoundClient closestSound = null;
         double closestDistance = Double.MAX_VALUE;
         int closestEntityId = -1;

@@ -27,7 +27,6 @@ public record RocketLaunchStatePacket(BlockPos pos, int launchTicks, int totalTi
     }
 
     public static void handle(RocketLaunchStatePacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

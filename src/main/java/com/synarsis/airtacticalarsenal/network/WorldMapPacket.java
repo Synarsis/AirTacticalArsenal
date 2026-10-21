@@ -67,7 +67,6 @@ public record WorldMapPacket(
     public int getTotalChunks() { return totalChunks; }
 
     public static void handle(WorldMapPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

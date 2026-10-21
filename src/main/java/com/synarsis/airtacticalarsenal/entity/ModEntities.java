@@ -1,6 +1,8 @@
 package com.synarsis.airtacticalarsenal.entity;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
+import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -14,9 +16,6 @@ public class ModEntities {
 
     public static final DeferredHolder<EntityType<?>, EntityType<ShahedEntity>> SHAHED = ENTITY_TYPES.register("shahed",
             () -> EntityType.Builder.<ShahedEntity>of(ShahedEntity::new, MobCategory.MISC)
-                    // Declared size only: ShahedEntity overrides makeBoundingBox() with geometry that
-                    // turns with the airframe. 4.8 is the widest the 3.19 x 3.62 plate gets as it
-                    // yaws; the old 3.0 was narrower than the model, so nose and tail hung outside it.
                     .sized(4.8f, 1.0f)
                     .clientTrackingRange(600)
                     .updateInterval(1)
@@ -37,6 +36,14 @@ public class ModEntities {
                     .clientTrackingRange(64)
                     .updateInterval(10)
                     .build("shahed_launcher"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<IskanderTelEntity>> ISKANDER_TEL = ENTITY_TYPES.register("iskander_tel",
+            () -> EntityType.Builder.<IskanderTelEntity>of(IskanderTelEntity::new, MobCategory.MISC)
+                    .sized(TelGeometry.TYPE_WIDTH, TelGeometry.TYPE_HEIGHT)
+                    .clientTrackingRange(10)
+                    .updateInterval(1)
+                    .setShouldReceiveVelocityUpdates(false)
+                    .build("iskander_tel"));
 
     public static final DeferredHolder<EntityType<?>, EntityType<PaintStandEntity>> PAINT_STAND = ENTITY_TYPES.register("paint_stand",
             () -> EntityType.Builder.<PaintStandEntity>of(PaintStandEntity::new, MobCategory.MISC)

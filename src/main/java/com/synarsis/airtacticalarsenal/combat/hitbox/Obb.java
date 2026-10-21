@@ -7,28 +7,26 @@ import org.joml.Quaternionf;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-/** An oriented box in world space: a section of an airframe that turns with it. */
 public final class Obb {
 
     public static final double NO_HIT = -1.0;
 
-    private final HitPart part;
+    private final HitTag tag;
     private final Vector3f halfExtents = new Vector3f();
-    /**
-     * World-space centre, in double. Overworld coordinates reach the millions, where a float resolves
-     * to worse than a sixteenth of a block -- far too coarse to aim a hitbox with. Only the small
-     * local offsets below stay in float.
-     */
     private final Vector3d center = new Vector3d();
     private final Quaternionf rotation = new Quaternionf();
     private final Quaternionf inverse = new Quaternionf();
 
-    public Obb(HitPart part) {
-        this.part = part;
+    public Obb(HitTag tag) {
+        this.tag = tag;
+    }
+
+    public HitTag tag() {
+        return this.tag;
     }
 
     public HitPart part() {
-        return this.part;
+        return this.tag instanceof HitPart part ? part : null;
     }
 
     public Vector3d center() {
@@ -43,13 +41,8 @@ public final class Obb {
         return this.rotation;
     }
 
-    /**
-     * Places this box in the world. {@code rot} is the airframe's body-to-world rotation; the
-     * template's local centre is rotated by it and offset from the entity origin.
-     */
     public void place(PartBox template, double originX, double originY, double originZ, Quaternionf rot) {
         this.halfExtents.set(template.halfExtents());
-        // body * local: the cube's own turn first, then the airframe's.
         rot.mul(template.localRotation(), this.rotation);
         this.rotation.conjugate(this.inverse);
 
@@ -58,7 +51,13 @@ public final class Obb {
         this.center.set(originX + offset.x, originY + offset.y, originZ + offset.z);
     }
 
-    /** Slab test of a finite segment against this box. */
+    public void set(double cx, double cy, double cz, float hx, float hy, float hz, Quaternionf rot) {
+        this.center.set(cx, cy, cz);
+        this.halfExtents.set(hx, hy, hz);
+        this.rotation.set(rot);
+        this.rotation.conjugate(this.inverse);
+    }
+
     public double clipSegment(Vec3 from, Vec3 to) {
         Vector3f a = this.inverse.transform(
                 (float) (from.x - this.center.x), (float) (from.y - this.center.y), (float) (from.z - this.center.z),
@@ -76,7 +75,6 @@ public final class Obb {
             float half = this.halfExtents.get(axis);
 
             if (Math.abs(dir) < 1.0E-6f) {
-                // Parallel to this pair of planes: either inside the slab for the whole segment, or never.
                 if (Math.abs(origin) > half) {
                     return NO_HIT;
                 }
@@ -114,7 +112,6 @@ public final class Obb {
                 && Math.abs(local.z) <= this.halfExtents.z;
     }
 
-    /** Smallest axis-aligned box containing this one. */
     public AABB worldAabb() {
         Matrix3f m = this.rotation.get(new Matrix3f());
         double ex = Math.abs(m.m00()) * this.halfExtents.x

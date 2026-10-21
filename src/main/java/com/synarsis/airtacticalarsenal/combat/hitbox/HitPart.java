@@ -1,7 +1,6 @@
 package com.synarsis.airtacticalarsenal.combat.hitbox;
 
-/** A structural section of an airframe that can be hit and knocked out on its own. */
-public enum HitPart {
+public enum HitPart implements HitTag {
 
     WARHEAD("warhead", 0xFF3B30),
     AVIONICS("avionics", 0xFFCC00),
@@ -21,10 +20,12 @@ public enum HitPart {
         this.debugColor = debugColor;
     }
 
+    @Override
     public String id() {
         return this.id;
     }
 
+    @Override
     public int debugColor() {
         return this.debugColor;
     }

@@ -2,12 +2,6 @@ package com.synarsis.airtacticalarsenal.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/**
- * Settings that belong to whoever is looking at the screen, kept apart from the server's rules.
- *
- * <p>Must never name a class from {@code net.minecraft.client}: config specs are built on both
- * sides while the mod loads, and a client type here stops a dedicated server starting.
- */
 public final class AtaClientConfig {
 
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();

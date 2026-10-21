@@ -18,12 +18,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-/**
- * Game event bus subscriber. Handles entity tracking (re-syncing Iskander state on
- * tracking start) and per-tick maintenance of the radar scanners.
- *
- * Subscribed to the game/NeoForge event bus via @EventBusSubscriber(modid=...).
- */
 @EventBusSubscriber(modid = AirTacticalArsenal.MODID)
 public class ServerForgeEvents {
 
@@ -32,19 +26,12 @@ public class ServerForgeEvents {
         ShahedCommand.register(event.getDispatcher());
     }
 
-    /**
-     * Releases chunks still held by missiles in flight.
-     *
-     * <p>Shutdown saves entities rather than removing them, so the per-entity release in
-     * {@code remove()} never runs on this path -- the tickets would otherwise be left behind.
-     */
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         MissileChunkManager.cleanup();
         com.synarsis.airtacticalarsenal.debug.DebugOverrides.reset();
     }
 
-    /** A joining player has to be told the testing switches, or their terminal disagrees. */
     @SubscribeEvent
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
@@ -81,8 +68,6 @@ public class ServerForgeEvents {
         ServerLevel overworld = server.overworld();
         if (overworld == null) return;
 
-        // Interleave ServerTerrainScanner and ServerRouteMapScanner ticking by the lower
-        // buildStartOrder so map-builds happen first-come-first-served (mirrors Forge).
         long terrainOrder = ServerTerrainScanner.getFirstBuildingOrder();
         long routeOrder = ServerRouteMapScanner.getFirstBuildingOrder();
         if (terrainOrder <= routeOrder) {

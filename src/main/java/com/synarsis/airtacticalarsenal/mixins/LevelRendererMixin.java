@@ -10,16 +10,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/**
- * Orlan FPV (part 2). {@link LevelRenderer#setupRender} positions the render-section grid (ViewArea)
- * using the PLAYER BODY's position ({@code minecraft.player.getX/Y/Z}), and only re-positions it when
- * the body's chunk section changes. Since the body stays on the ground during FPV, the render grid
- * never follows the drone, so the drone's (cached) chunks have no render sections and show as empty
- * sky. This redirects those three position reads to the camera entity (the drone) while FPV is active,
- * so the render grid tracks the drone. The body itself is not moved (stays killable on the ground).
- *
- * Works together with {@code ClientChunkCacheMixin} (which keeps the chunk cache centred on the drone).
- */
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
 

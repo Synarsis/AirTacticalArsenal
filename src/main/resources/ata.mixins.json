@@ -4,9 +4,15 @@
   "package": "com.synarsis.airtacticalarsenal.mixins",
   "compatibilityLevel": "JAVA_21",
   "plugin": "com.synarsis.airtacticalarsenal.mixins.AtaMixinPlugin",
+  "mixins": [
+    "ProjectileUtilMixin",
+    "EntityMoveMixin",
+    "ServerVehicleMoveMixin"
+  ],
   "client": [
     "ClientChunkCacheMixin",
-    "LevelRendererMixin"
+    "LevelRendererMixin",
+    "LevelRendererBlockChangedMixin"
   ],
   "injectors": {
     "defaultRequire": 0

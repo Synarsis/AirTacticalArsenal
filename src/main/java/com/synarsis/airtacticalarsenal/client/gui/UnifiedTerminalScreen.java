@@ -520,7 +520,6 @@ public class UnifiedTerminalScreen extends Screen {
             int errorWidth = this.font.width(this.errorMessage);
             guiGraphics.drawString(this.font, this.errorMessage, guiLeft + (GUI_WIDTH - errorWidth) / 2, guiTop + 305, 0xFF0000, false);
         }
-        // Widgets (ЦЕЛЬ/ПУСК buttons) render last so they sit on top of the row fills.
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 

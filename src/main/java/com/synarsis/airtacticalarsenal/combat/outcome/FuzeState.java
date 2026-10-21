@@ -1,6 +1,5 @@
 package com.synarsis.airtacticalarsenal.combat.outcome;
 
-/** Condition of the warhead and its fuze. */
 public enum FuzeState {
 
     ARMED("armed"),

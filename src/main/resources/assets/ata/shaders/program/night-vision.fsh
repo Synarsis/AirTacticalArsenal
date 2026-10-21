@@ -25,7 +25,6 @@ const vec3 SEPIA = vec3(1.2, 1.0, 0.8);
 void main() {
     vec4 texColor = texture2D(DiffuseSampler, texCoord.xy);
 
-    // Gamma correction to lift shadows
     texColor.rgb = pow(texColor.rgb, vec3(0.5)) * Brightness;
 
     if (NightVisionEnabled > 0) {

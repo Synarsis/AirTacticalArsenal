@@ -36,7 +36,6 @@ public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) im
         return TYPE;
     }
 
-    /** Stores {@code rocket} in the launcher's loading hatch, if it still has one. */
     private static void mirrorIntoHatch(Level level, BlockPos launcherPos, ItemStack rocket) {
         if (!(level.getBlockEntity(launcherPos) instanceof LauncherBlockEntity launcherBE)) return;
         BlockPos hatchPos = launcherBE.getLoadingHatchPos();
@@ -89,8 +88,6 @@ public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) im
                 return;
             }
 
-            // Place the block FIRST, then take payment. Shrinking up front meant a failed
-            // placement had to refund, and the refund built a fresh stack.
             Direction facing = launcherState.getValue(LauncherBlock.FACING);
             if (!IskanderRocketBlock.placeRocket(level, launcherPos, facing)) {
                 player.displayClientMessage(Component.translatable("message.ata.rocket.install_failed"), true);
@@ -100,10 +97,6 @@ public record InstallRocketPacket(BlockPos launcherPos, BlockPos terminalPos) im
             ItemStack paid = player.getInventory().items.get(rocketSlot).split(1);
             launcher.setLoaded(level, launcherPos, true);
 
-            // The hatch is the single source of truth for whether a rocket is present. Leaving it
-            // empty here made the two halves disagree: the hatch refused to unload while a rocket
-            // block stood on the pad, and dismantling the launcher -- which only returns what the
-            // hatch holds -- destroyed the rocket outright.
             mirrorIntoHatch(level, launcherPos, paid);
 
             player.displayClientMessage(Component.translatable("message.ata.rocket.installed"), true);

@@ -51,8 +51,6 @@ public class TerrainMapRenderer {
                 for (int x = 0; x < CACHE_SIZE; x++)
                     d.setPixelRGBA(x, y, DARK);
         displayTexture.upload();
-        // 1.21 DynamicTexture defaults to linear filtering (blurry when scaled); the radar
-        // map must be crisp/nearest like the 1.20.1 build.
         displayTexture.setFilter(false, false);
         textureLocation = Minecraft.getInstance().getTextureManager()
                 .register("ata_radar_terrain", displayTexture);

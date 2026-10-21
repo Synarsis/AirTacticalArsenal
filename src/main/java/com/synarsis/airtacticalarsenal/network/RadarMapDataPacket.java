@@ -8,14 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Server -> client radar terrain map data. Carries either a build-status update
- * (STATUS_BUILDING / STATUS_QUEUED) or a chunk of the assembled PNG (STATUS_DATA).
- *
- * PORT-NOTE: Mirrors the Forge {@code RadarMapDataPacket}. The Forge class had two constructors
- *            (status+progress, and chunkIndex+totalChunks+data); they are preserved here as
- *            convenience constructors that delegate to the canonical 6-arg record constructor.
- */
 public record RadarMapDataPacket(BlockPos radarPos, int status, float progress,
                                  int chunkIndex, int totalChunks, byte[] data) implements CustomPacketPayload {
 
@@ -72,9 +64,6 @@ public record RadarMapDataPacket(BlockPos radarPos, int status, float progress,
     }
 
     public static void handle(RadarMapDataPacket payload, IPayloadContext context) {
-        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
-        // server that loads a class referencing client types aborts mod loading entirely -- the
-        // server does not start at all. Guard before touching anything client-side.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

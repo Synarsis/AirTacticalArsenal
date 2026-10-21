@@ -22,8 +22,6 @@ public class OrlanItem extends Item implements GeoItem {
         super(properties);
     }
 
-        // Item renderer registered in AirTacticalArsenalClient via RegisterClientExtensionsEvent.
-
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 0, this::predicate));

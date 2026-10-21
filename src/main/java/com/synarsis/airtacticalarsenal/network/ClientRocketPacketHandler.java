@@ -12,11 +12,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-/**
- * Client-side router for IskanderRocket block-entity launch-state packets.
- *
- * Ported from forge {@code com.synarsis.airtacticalarsenal.network.ClientRocketPacketHandler}.
- */
 @OnlyIn(Dist.CLIENT)
 public class ClientRocketPacketHandler {
 

@@ -7,13 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Server -> client segment max-height response. Mirrors the Forge {@code SegmentMaxHeightPacket};
- * carries the per-segment max terrain height and a sampled height profile, updating the client
- * {@code SurfaceHeightCache}.
- *
- * PORT-NOTE: heightProfile entries are transmitted as shorts to match the Forge wire format.
- */
 public record SegmentMaxHeightPacket(int x1, int z1, int x2, int z2,
                                      int segmentIndex, int maxY, int[] heightProfile) implements CustomPacketPayload {
 
@@ -55,9 +48,6 @@ public record SegmentMaxHeightPacket(int x1, int z1, int x2, int z2,
     }
 
     public static void handle(SegmentMaxHeightPacket payload, IPayloadContext context) {
-        // Client-only handler. Payload handlers are registered on both sides, and a dedicated
-        // server that loads a class referencing client types aborts mod loading entirely -- the
-        // server does not start at all. Guard before touching anything client-side.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

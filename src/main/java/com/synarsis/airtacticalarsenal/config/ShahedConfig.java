@@ -63,9 +63,25 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue SHAHED_EXPLOSION_ENTITY_MULTIPLIER;
     public static final ModConfigSpec.DoubleValue SHAHED_EXPLOSION_VEHICLE_MULTIPLIER;
 
+    public static final ModConfigSpec.DoubleValue TEL_MAX_HEALTH;
+    public static final ModConfigSpec.DoubleValue TEL_MAX_FORWARD_SPEED;
+    public static final ModConfigSpec.DoubleValue TEL_MAX_BACKWARD_SPEED;
+    public static final ModConfigSpec.DoubleValue TEL_ACCELERATION;
+    public static final ModConfigSpec.DoubleValue TEL_BRAKING;
+    public static final ModConfigSpec.DoubleValue TEL_STEERING;
+    public static final ModConfigSpec.BooleanValue TEL_BREAK_SOFT_BLOCKS;
+    public static final ModConfigSpec.DoubleValue TEL_MAX_LAUNCH_TILT;
+    public static final ModConfigSpec.IntValue TEL_SKY_CLEARANCE;
+    public static final ModConfigSpec.IntValue TEL_LOAD_TICKS;
+    public static final ModConfigSpec.BooleanValue TEL_CRUSH_DAMAGE;
+    public static final ModConfigSpec.DoubleValue TEL_CLIMB;
+    public static final ModConfigSpec.IntValue TEL_CONFIG_VERSION;
+    public static final java.util.Map<String, ModConfigSpec.DoubleValue> TEL_PHYSICS_KEYS = new java.util.LinkedHashMap<>();
+    public static final ModConfigSpec.DoubleValue TEL_BRAKE_POWER;
+    public static final ModConfigSpec.DoubleValue TEL_BRAKE_DAMP;
+    public static final ModConfigSpec.DoubleValue TEL_INERTIA_ROTATE_RATE;
+
     public static boolean isInForbiddenZone(int x, int z) {
-        // Gated here rather than at each call site so the terminal screens, which run this
-        // check themselves to grey out the launch button, agree with the server.
         if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()) {
             return false;
         }
@@ -157,6 +173,22 @@ public class ShahedConfig {
     public static double getShahedExplosionEntityMultiplier() { return SHAHED_EXPLOSION_ENTITY_MULTIPLIER.get(); }
     public static double getShahedExplosionVehicleMultiplier(){ return SHAHED_EXPLOSION_VEHICLE_MULTIPLIER.get(); }
 
+    public static double getTelMaxHealth() { return TEL_MAX_HEALTH.get(); }
+    public static double getTelMaxForwardSpeed() { return TEL_MAX_FORWARD_SPEED.get(); }
+    public static double getTelMaxBackwardSpeed() { return TEL_MAX_BACKWARD_SPEED.get(); }
+    public static double getTelAcceleration() { return TEL_ACCELERATION.get(); }
+    public static double getTelBraking() { return TEL_BRAKING.get(); }
+    public static double getTelSteering() { return TEL_STEERING.get(); }
+    public static boolean doesTelBreakSoftBlocks() { return TEL_BREAK_SOFT_BLOCKS.get(); }
+    public static double getTelMaxLaunchTilt() { return TEL_MAX_LAUNCH_TILT.get(); }
+    public static int getTelSkyClearance() { return TEL_SKY_CLEARANCE.get(); }
+    public static int getTelLoadTicks() { return TEL_LOAD_TICKS.get(); }
+    public static boolean isTelCrushDamageEnabled() { return TEL_CRUSH_DAMAGE.get(); }
+    public static double getTelClimb() { return TEL_CLIMB.get(); }
+    public static double getTelBrakePower() { return TEL_BRAKE_POWER.get(); }
+    public static double getTelBrakeDamp() { return TEL_BRAKE_DAMP.get(); }
+    public static double getTelInertiaRotateRate() { return TEL_INERTIA_ROTATE_RATE.get(); }
+
     public static boolean isBlacklistEnabled() { return BLACKLIST_ENABLED.get(); }
     public static void setBlacklistEnabled(boolean enabled) { BLACKLIST_ENABLED.set(enabled); }
 
@@ -164,8 +196,6 @@ public class ShahedConfig {
     public static void setWhitelistEnabled(boolean enabled) { WHITELIST_ENABLED.set(enabled); }
 
     public static void reload() {
-        // NeoForge auto-reloads the config when the file changes on disk.
-        // Reached from /ata config reload (or its /shahed alias).
     }
 
     static {
@@ -272,6 +302,37 @@ public class ShahedConfig {
         SHAHED_EXPLOSION_PLAYER_MULTIPLIER  = BUILDER.comment("Shahed: explosion damage multiplier vs players").defineInRange("shahedExplosionPlayerMultiplier",  1.0, 0.0, 20.0);
         SHAHED_EXPLOSION_ENTITY_MULTIPLIER  = BUILDER.comment("Shahed: explosion damage multiplier vs mobs/entities (non-vehicle)").defineInRange("shahedExplosionEntityMultiplier",  1.0, 0.0, 20.0);
         SHAHED_EXPLOSION_VEHICLE_MULTIPLIER = BUILDER.comment("Shahed: explosion damage multiplier vs SuperbWarfare/VVP vehicles").defineInRange("shahedExplosionVehicleMultiplier", 3.5, 0.0, 20.0);
+        BUILDER.pop();
+
+        BUILDER.push("Iskander TEL");
+        BUILDER.comment("The self-propelled 9P78-1 launcher. Reload times follow the animation lengths and are not configurable.");
+        TEL_MAX_HEALTH = BUILDER.comment("Hull strength").defineInRange("telMaxHealth", 400.0, 50.0, 5000.0);
+        TEL_MAX_FORWARD_SPEED = BUILDER.comment("Top speed multiplier going forward (0.95 is about 60 km/h)").defineInRange("telMaxForwardSpeed", 0.95, 0.1, 3.0);
+        TEL_MAX_BACKWARD_SPEED = BUILDER.comment("Top speed multiplier in reverse").defineInRange("telMaxBackwardSpeed", 0.45, 0.1, 3.0);
+        TEL_ACCELERATION = BUILDER.comment("How quickly engine power builds while accelerating (0.018 is about 6 s to 90% power)").defineInRange("telAcceleration", 0.018, 0.001, 0.2);
+        TEL_BRAKING = BUILDER.comment("How quickly engine power falls while braking or reversing").defineInRange("telBraking", 0.009, 0.001, 0.05);
+        TEL_STEERING = BUILDER.comment("Steering rate").defineInRange("telSteering", 0.035, 0.005, 0.2);
+        TEL_BREAK_SOFT_BLOCKS = BUILDER.comment("The launcher flattens leaves, glass, fences, crops and other blocks in the ata:tel_breakable tag as it drives").define("telBreakSoftBlocks", true);
+        TEL_MAX_LAUNCH_TILT = BUILDER.comment("Largest pitch or roll, in degrees, at which the missiles can be raised and fired").defineInRange("telMaxLaunchTilt", 8.0, 0.0, 45.0);
+        TEL_SKY_CLEARANCE = BUILDER.comment("Blocks of open sky required above a raised missile before it can launch").defineInRange("telSkyClearance", 40, 0, 320);
+        TEL_LOAD_TICKS = BUILDER.comment("How long putting a round into the bay, or taking one out, takes (160 is 8 seconds)").defineInRange("telLoadTicks", 160, 20, 1200);
+        TEL_CRUSH_DAMAGE = BUILDER.comment("The launcher hurts what it drives into").define("telCrushDamage", true);
+        TEL_CLIMB = BUILDER.comment("Tallest ledge a wheel drives up onto, in blocks; anything higher is a wall").defineInRange("telClimb", 1.3, 0.5, 2.0);
+        TEL_BRAKE_POWER = BUILDER.comment("Engine power the service brake (S while rolling forward) takes off each tick").defineInRange("telBrakePower", 0.08, 0.01, 1.0);
+        TEL_BRAKE_DAMP = BUILDER.comment("What the service brake multiplies the speed by each tick (lower stops sooner)").defineInRange("telBrakeDamp", 0.92, 0.5, 1.0);
+        TEL_INERTIA_ROTATE_RATE = BUILDER.comment("How far the body rocks when speeding up, braking and turning (0 for none)").defineInRange("telInertiaRotateRate", 0.6, 0.0, 3.0);
+        TEL_CONFIG_VERSION = BUILDER.comment(
+                "Which defaults the launcher driving values were last brought up to. NeoForge never overwrites a saved value",
+                "with a new default, so when the defaults change this number is raised and the driving keys are reset once.",
+                "Set it to the current number yourself to keep your own values.")
+                .defineInRange("telConfigVersion", 7, 0, 1000);
+        TEL_PHYSICS_KEYS.put("telMaxForwardSpeed", TEL_MAX_FORWARD_SPEED);
+        TEL_PHYSICS_KEYS.put("telMaxBackwardSpeed", TEL_MAX_BACKWARD_SPEED);
+        TEL_PHYSICS_KEYS.put("telAcceleration", TEL_ACCELERATION);
+        TEL_PHYSICS_KEYS.put("telClimb", TEL_CLIMB);
+        TEL_PHYSICS_KEYS.put("telBrakePower", TEL_BRAKE_POWER);
+        TEL_PHYSICS_KEYS.put("telBrakeDamp", TEL_BRAKE_DAMP);
+        TEL_PHYSICS_KEYS.put("telInertiaRotateRate", TEL_INERTIA_ROTATE_RATE);
         BUILDER.pop();
 
         SPEC = BUILDER.build();

@@ -1,6 +1,5 @@
 package com.synarsis.airtacticalarsenal.combat.outcome;
 
-/** How a crippled airframe comes down. */
 public enum FallMode {
 
     NONE("none"),

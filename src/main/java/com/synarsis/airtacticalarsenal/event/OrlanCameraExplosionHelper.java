@@ -17,14 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Pushes particle / chunk-update packets directly to camera-bound players (Orlan operators)
- * who are physically beyond the vanilla 512-block view distance — without those forced sends
- * the operator would see a stale or empty world chunk after an explosion at the drone's
- * remote location.
- *
- * Pure helper; no event subscriptions. Called from explosion code paths.
- */
 public class OrlanCameraExplosionHelper {
 
     private static final double MAX_VIEW_RANGE_SQ =

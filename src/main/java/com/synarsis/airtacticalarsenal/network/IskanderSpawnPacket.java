@@ -85,7 +85,6 @@ public record IskanderSpawnPacket(
     public Vec3 getFinalTargetPos() { return finalTargetPos; }
 
     public static void handle(IskanderSpawnPacket payload, IPayloadContext context) {
-        // Client-only handler; see the note in ClientScreens.
         if (net.neoforged.fml.loading.FMLEnvironment.dist != net.neoforged.api.distmarker.Dist.CLIENT) {
             return;
         }

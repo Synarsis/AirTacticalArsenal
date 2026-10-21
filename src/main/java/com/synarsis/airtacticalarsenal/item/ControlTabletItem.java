@@ -154,7 +154,6 @@ public class ControlTabletItem extends Item {
         if (sc == null) {
             return new java.util.HashMap<>();
         }
-        // Return a defensive copy so callers can mutate without changing the component value.
         java.util.HashMap<Integer, int[]> copy = new java.util.HashMap<>();
         for (Map.Entry<Integer, int[]> e : sc.entries().entrySet()) {
             copy.put(e.getKey(), e.getValue().clone());

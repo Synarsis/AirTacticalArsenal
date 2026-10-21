@@ -71,13 +71,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         CLIMBING,
         CRUISING,
         DIVING,
-        /** Terminal. Appended last: the ordinal goes on the wire and into save files. */
-        /** Terminal. Appended last: the ordinal is what goes on the wire and into save files. */
-        /**
-         * On the ground and finished. Appended last on purpose: {@code FLIGHT_PHASE_ID} is an ordinal on
-         * the wire and in save files, so inserting anywhere else would silently renumber every phase a
-         * loaded world already recorded.
-         */
         WRECK
     }
 
@@ -131,11 +124,9 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
     private static final EntityDataAccessor<Float> DATA_STAND_YAW = SynchedEntityData.defineId(ShahedEntity.class,
             EntityDataSerializers.FLOAT);
 
-    /** Held in place for testing by {@code /ata debug spawn}. */
     private static final EntityDataAccessor<Byte> FALL_MODE = SynchedEntityData.defineId(ShahedEntity.class,
             EntityDataSerializers.BYTE);
 
-    /** Roll, synced. */
     private static final EntityDataAccessor<Float> SYNC_Z_ROT = SynchedEntityData.defineId(ShahedEntity.class,
             EntityDataSerializers.FLOAT);
 
@@ -189,10 +180,8 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
     private boolean initialPacketSent = false;
     private boolean exploding = false;
 
-    /** Durability this drone was spawned with. Snapshotted once, never re-read. */
     private float maxHealth = (float) ShahedConfig.getShahedMaxHealth();
 
-    /** Roll, in degrees, and its value last tick. */
     private float zRot;
     private float zRotO;
 
@@ -205,17 +194,12 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
 
     private static final int FIRE_SPREADS_AFTER = 120;
 
-    /** A wreck that has not reached the ground by now is written off where it is. */
     private static final int FALL_TIMEOUT_TICKS = 900;
 
     private static final float BANK_GAIN = 18.0f;
     private static final float MAX_BANK_DEG = 30.0f;
     private static final float BANK_SMOOTHING = 0.15f;
 
-    /**
-     * Durability, tracked per section. The synced {@code HEALTH} value stays the sum, so the damaged
-     * flags and every config multiplier keep working off one number as before.
-     */
     private final PartHealth partHealth =
             new PartHealth(ShahedHitboxes.TEMPLATE, (float) ShahedConfig.getShahedMaxHealth());
 
@@ -465,8 +449,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             this.setXRot(syncedXRot);
             this.setYBodyRot(syncedYRot);
             this.setYHeadRot(syncedYRot);
-            // Roll comes off the wire rather than being recomputed here: the server owns it in every
-            // mode, so there is one source of truth and nothing to drift out of step.
             this.zRot = this.entityData.get(SYNC_Z_ROT);
 
             this.setPos(this.getX() + motion.x, this.getY() + motion.y, this.getZ() + motion.z);
@@ -972,8 +954,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
     public void remove(RemovalReason reason) {
         if (!this.level().isClientSide) {
 
-            // A wreck being cleaned up is not a kill: without this, every wreck that timed out
-            // would let off the full shootdown effect for everyone in the dimension.
             if (!this.exploding
                     && (reason == RemovalReason.DISCARDED || reason == RemovalReason.KILLED)
                     && this.flightPhase != FlightPhase.WARMUP
@@ -1133,8 +1113,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             this.targetAltitude = tag.getDouble("TargetAltitude");
         }
 
-        // Ceiling first: setHealth clamps against maxHealth, so restoring it afterwards left the
-        // drone clamped to whatever the config happened to say at load time.
         if (tag.contains("MaxHealth")) {
             this.maxHealth = tag.getFloat("MaxHealth");
         }
@@ -1162,7 +1140,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             this.partHealth.load(tag);
             this.setHealth(this.partHealth.total());
         } else if (tag.contains("Health")) {
-            // A world saved before sections existed: spread the single value back across them.
             this.partHealth.setTotal(tag.getFloat("Health"));
             this.setHealth(this.partHealth.total());
         }
@@ -1252,7 +1229,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         return this.getHealth() / this.maxHealth;
     }
 
-    /** The section a point falls in, or {@code null} if it is not on the airframe. */
     public HitPart partAt(Vec3 point) {
         return HitScan.at(getObbs(), point);
     }
@@ -1265,7 +1241,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         };
     }
 
-    /** Damage that arrived with a position but no section resolved yet. */
     public void takeDamage(float damage, Entity attacker, Vec3 hitPos, String source) {
         HitPart part = hitPos != null ? partAt(hitPos) : null;
         applyDamage(damage, attacker, part, hitPos, source);
@@ -1279,11 +1254,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         applyDamage(damage, attacker, part, hitPos, source, false);
     }
 
-    /**
-     * @param raw skip the calibre threshold and the damage multipliers and apply the number as given.
-     * Only the debug commands do this: a tool for setting up a specific failure is no use
-     * if the amount you asked for is not the amount that lands.
-     */
     private void applyDamage(float damage, Entity attacker, HitPart part, Vec3 hitPos, String source,
                              boolean raw) {
         if (!ShahedConfig.isShahedShootdownEnabled())
@@ -1344,7 +1314,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
                 }
             }
             if (part == HitPart.WING_LEFT || part == HitPart.WING_RIGHT) {
-                // Rolls into the side it lost.
                 this.spiralSign = part == HitPart.WING_LEFT ? 1 : -1;
             }
             setFallMode(OutcomeResolver.onKnockedOut(part, getFallMode()));
@@ -1365,8 +1334,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
 
         if (newHealth <= 0) {
-            // No longer deleted mid-air. It comes down, and the ground finishes it -- which is the
-            // whole point of the outcome model.
             setFallMode(OutcomeResolver.onDurabilityExhausted(getFallMode()));
         }
     }
@@ -1380,7 +1347,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
                 part != null ? part.ordinal() : -1, pct, knockedOut, penetrated));
     }
 
-    /** Puts the section, the damage and the remaining durability on the shooter's action bar. */
     private void reportHit(Entity attacker, HitPart part, float damage, boolean knockedOut, float health) {
         if (!ShahedConfig.isLoggingEnabled() || !(attacker instanceof ServerPlayer player)) {
             return;
@@ -1395,8 +1361,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         if (!(this.level() instanceof ServerLevel serverLevel))
             return;
 
-        // Explosion Overhaul's sparks read far better than a firework particle, and they cost one
-        // registry lookup to borrow. Does nothing when that mod is not installed.
         ExplosionOverhaulCompat.sparks(serverLevel, hitPos, 4, 0.08);
 
         for (ServerPlayer player : serverLevel.players()) {
@@ -1425,7 +1389,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
     }
 
-    /** Looks for TacZ rounds crossing the airframe. */
     private void checkTacZBulletCollisions() {
         if (this.level().isClientSide || !ShahedConfig.isShahedShootdownEnabled()) {
             return;
@@ -1436,7 +1399,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
                                 weaponId != null ? weaponId : "tacz_bullet"));
     }
 
-    /** Flies a crippled airframe and lands it. */
     private void tickFalling() {
         FallMode mode = getFallMode();
         this.fallTicks++;
@@ -1484,7 +1446,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
     }
 
-    /** Settles what a downed airframe does on arrival. */
     private void onGroundImpact(double impactSpeed) {
         FuzeState fuze = getFuzeState();
         ImpactOutcome outcome = ImpactOutcome.resolve(fuze, impactSpeed,
@@ -1503,7 +1464,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
     }
 
-    /** Part of the charge fires: a smaller blast that does not break blocks. */
     private void lowOrderDetonation() {
         if (this.exploding) {
             return;
@@ -1523,7 +1483,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
 
     private void becomeWreck() {
         Vec3 pos = this.position();
-        // Captured before the airframe is stopped: the debris should carry on the way it was going.
         Vec3 arriving = this.getDeltaMovement();
         this.setDeltaMovement(Vec3.ZERO);
         this.wreckTicks = 0;
@@ -1551,7 +1510,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
     }
 
-    /** Something hit the wreck. */
     private void onWreckHit(Entity attacker) {
         if (!this.wreckArmed || !ShahedConfig.isWreckCookOffEnabled()) {
             return;
@@ -1572,7 +1530,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         checkTacZBulletCollisions();
 
         if (++this.wreckTicks > ShahedConfig.getWreckLifetimeTicks()) {
-            // Cleaned up quietly. remove() knows not to make a bang out of this.
             this.discard();
         }
     }
@@ -1767,8 +1724,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             Vec3 from = to.subtract(directEntity.getDeltaMovement());
             HitScan.Hit hit = HitScan.nearest(getObbs(), from, to);
             if (hit == null) {
-                // Inside the bounding box but through a gap in the airframe -- between the wing and
-                // the fuselage, say. A clean miss, which is the entire point of the precise geometry.
                 return false;
             }
             takeDamage(amount, source.getEntity(), hit.part(), hit.point(), "projectile");
@@ -1776,7 +1731,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         }
 
         if (source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
-            // No direction to resolve: spread it.
             takeDamage(amount * 2.0f, source.getEntity(), (HitPart) null, this.position(), "explosion");
             return true;
         }
@@ -1796,8 +1750,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllerRegistrar) {
-        // 5-tick blend: the propeller now changes speed between cruise and dive, and at 0 the
-        // change snapped instead of spinning up.
         controllerRegistrar.add(new AnimationController<>(this, "controller", 5, this::predicate));
     }
 
@@ -1807,7 +1759,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             return PlayState.STOP;
         }
         if (isWreck()) {
-            // Nothing turns on a wreck.
             animationState.getController()
                     .setAnimation(RawAnimation.begin().thenLoop("animation.shahed.prop_stopped"));
             return PlayState.CONTINUE;
@@ -1820,7 +1771,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
             return PlayState.CONTINUE;
         }
         if (mode == FallMode.SPIRAL || mode == FallMode.TUMBLE) {
-            // Airframe gone: nothing is turning any more.
             animationState.getController()
                     .setAnimation(RawAnimation.begin().thenLoop("animation.shahed.prop_stopped"));
             return PlayState.CONTINUE;
@@ -1840,12 +1790,9 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
 
     @Override
     public AABB getBoundingBoxForCulling() {
-        // The bounding box now follows the airframe exactly, so the old fudge that padded a
-        // 3x1.5 block box out to something the model actually fitted in is no longer needed.
         return super.getBoundingBoxForCulling().inflate(1.0);
     }
 
-    /** Applies damage to one section as if a shot had landed there. */
     public void debugDamagePart(HitPart part, float amount) {
         applyDamage(amount, null, part, null, "debug", true);
     }
@@ -1858,12 +1805,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         return this.partHealth.capacity(part);
     }
 
-    /**
-     * Sets up a short, watchable flight: cruise straight ahead and come down on a point.
-     *
-     * @param target where it comes down
-     * @param diveAt horizontal distance from the target at which it noses over
-     */
     public void debugCruiseTo(BlockPos target, double diveAt) {
         this.entityData.set(TARGET_POS, target);
         this.waypoints.clear();
@@ -1876,7 +1817,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         this.diveDistance = diveAt;
         this.currentSpeed = getCruiseSpeed();
 
-        // Point it at the target so it does not spend the first seconds of a short flight turning.
         Vec3 toTarget = Vec3.atCenterOf(target).subtract(this.position());
         Vec3 heading = new Vec3(toTarget.x, 0, toTarget.z);
         if (heading.lengthSqr() > 1.0E-4) {
@@ -1898,16 +1838,11 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         this.entityData.set(SYNC_Z_ROT, 0.0f);
     }
 
-    /** Condition of the warhead, read off what is left of that section. */
     public FuzeState getFuzeState() {
         return FuzeState.fromWarhead(this.partHealth.remaining(HitPart.WARHEAD),
                 this.partHealth.capacity(HitPart.WARHEAD));
     }
 
-    /**
-     * Puts the warhead into a chosen condition, for testing the three arrival outcomes without having
-     * to shoot the nose until the dice land the right way.
-     */
     public void debugSetFuze(FuzeState wanted) {
         float capacity = this.partHealth.capacity(HitPart.WARHEAD);
         this.partHealth.restorePart(HitPart.WARHEAD);
@@ -1932,7 +1867,6 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         return FallMode.fromByte(this.entityData.get(FALL_MODE));
     }
 
-    /** Puts the airframe into a failure mode, if it is worse than the one it is already in. */
     private void setFallMode(FallMode mode) {
         FallMode current = getFallMode();
         if (mode == current) {
@@ -1967,12 +1901,9 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         return this.zRotO;
     }
 
-    /** Banks into the turn, proportionally to how fast the nose is swinging. */
     private void updateBank(float previousYaw, float newYaw) {
         this.zRotO = this.zRot;
         float yawRate = Mth.degreesDifference(previousYaw, newYaw);
-        // Negated: with the renderer's Z axis, a positive roll lifts the wing on the inside of
-        // the turn, so the airframe leaned out of its own turns.
         float target = Mth.clamp(-yawRate * BANK_GAIN, -MAX_BANK_DEG, MAX_BANK_DEG);
         this.zRot += (target - this.zRot) * BANK_SMOOTHING;
         this.entityData.set(SYNC_Z_ROT, this.zRot);
@@ -2013,12 +1944,10 @@ public class ShahedEntity extends Projectile implements GeoEntity, ObbProvider {
         return this.renderObbs;
     }
 
-    /** Yaw the model is actually drawn at while parked on a paint stand. */
     private float standPoseYaw() {
         return -getStandYaw();
     }
 
-    /** Bounding box that turns with the airframe. */
     @Override
     protected AABB makeBoundingBox() {
         return ShahedHitboxes.hullBox(this.getX(), this.getY(), this.getZ(),
