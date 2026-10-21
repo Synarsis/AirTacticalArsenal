@@ -65,6 +65,11 @@ public class TelHud implements LayeredDraw.Layer {
         g.drawString(font, Component.translatable("gui.ata.tel.hud.kmh"), tx + font.width(speed) * 2 + 4, ty + 9,
                 TelUi.DIM, false);
         ty += 18 + 2;
+        if (tel.joltSimulating()) {
+            String gear = tel.getGear() > 0 ? Integer.toString(tel.getGear()) : (tel.getGear() < 0 ? "R" : "N");
+            String drive = gear + "  " + Math.round(tel.getEngineRpm() / 10.0) * 10 + " rpm";
+            g.drawString(font, drive, tx + inner - font.width(drive), ty + 9, TelUi.DIM, false);
+        }
         float power = Mth.clamp(Math.abs((float) tel.engine.power), 0.0f, 1.0f);
         g.fill(tx, ty, tx + inner, ty + 3, 0xFF26282B);
         g.fill(tx, ty, tx + Math.round(inner * power), ty + 3, power > 0.85f ? TelUi.YELLOW : TelUi.GREEN);

@@ -458,6 +458,9 @@ public class ShahedCommand {
                                     }
                                     return 1;
                                 })))
+                .then(Commands.literal("vehicle")
+                        .then(Commands.literal("reload")
+                                .executes(context -> reloadVehicleSettings(context.getSource()))))
                 .then(Commands.literal("debug")
                         .then(Commands.literal("hitbox")
                                 .then(Commands.literal("on")
@@ -509,6 +512,11 @@ public class ShahedCommand {
                                                 .executes(context -> setTelTrace(context.getSource(), true)))
                                         .then(Commands.literal("off")
                                                 .executes(context -> setTelTrace(context.getSource(), false)))))
+                        .then(Commands.literal("physics")
+                                .then(Commands.literal("on")
+                                        .executes(context -> setPhysicsDebug(context.getSource(), true)))
+                                .then(Commands.literal("off")
+                                        .executes(context -> setPhysicsDebug(context.getSource(), false))))
                         .then(Commands.literal("lights")
                                 .then(Commands.literal("on")
                                         .executes(context -> setLightDebug(context.getSource(), true)))
@@ -827,6 +835,28 @@ public class ShahedCommand {
                 tel.isLoaded(0) ? "loaded" : "empty", tel.isLoaded(1) ? "loaded" : "empty",
                 tel.getTelState(), tel.getYRot(), tel.getXRot(), tel.getRoll(), tel.getPassengers().size()))
                 .withStyle(st -> st.withColor(0xFFFF55)), false);
+        return 1;
+    }
+
+    private static int reloadVehicleSettings(CommandSourceStack source) {
+        String problem = com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs.loadFromDisk(
+                net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
+        if (problem != null) {
+            source.sendFailure(Component.literal("Vehicle settings not applied: " + problem));
+            return 0;
+        }
+        PacketDistributor.sendToAllPlayers(new com.synarsis.airtacticalarsenal.network.VehicleSpecPacket(
+                com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs.currentJson()));
+        source.sendSuccess(() -> Component.literal("Vehicle settings reloaded"), true);
+        return 1;
+    }
+
+    private static int setPhysicsDebug(CommandSourceStack source, boolean enabled) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PacketDistributor.sendToPlayer(player, com.synarsis.airtacticalarsenal.network.FxDebugPacket.of(
+                enabled ? com.synarsis.airtacticalarsenal.network.FxDebugKind.PHYSICS_ON
+                        : com.synarsis.airtacticalarsenal.network.FxDebugKind.PHYSICS_OFF, player.position(), 1.0));
+        source.sendSuccess(() -> Component.literal("Physics overlay: ").append(onOff(enabled)), false);
         return 1;
     }
 

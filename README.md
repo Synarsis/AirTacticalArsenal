@@ -150,6 +150,14 @@ ground, then get in.
 - **Driving.** Move with the usual movement keys, Space is the handbrake, Ctrl
   the afterburner. It has a driver and a commander seat. It cannot work in water
   or on a steep slope.
+- **Weight.** The vehicle is driven by the Jolt physics engine: 42 tonnes, a slow
+  pull-away (about 9 s to 60 km/h), a top speed near 65 km/h, the body nods when
+  it brakes and leans in turns. It climbs one-block steps and hills, stops at a
+  two-block wall, rolls off a steep slope when left without a driver, is pushed
+  by explosions, and can tip over: right click on its side with an iron block
+  while sneaking to put it back on its wheels. Set `vehiclePhysics = "LEGACY"`
+  in the server config to use the older built-in driving instead; it is also
+  used when the native library cannot be loaded.
 - **Console (`G`).** The fire-control panel opens from the cab. Top to bottom:
   - **Covers.** Open the roof covers; missiles can only be loaded while the
     covers are open. Load an Iskander missile into each bay from your inventory.
@@ -223,6 +231,7 @@ permission level 2 — a player without operator rights sees nothing.
 /ata config                        show current settings
 /ata config <setting> ...          change one
 /ata map rescan | status
+/ata vehicle reload                reread config/ata/vehicles/iskander_tel.json
 ```
 
 ### Debug
@@ -251,6 +260,7 @@ For looking at the effects and the light without firing anything:
 /ata debug lights on|off                list of lights, wireframes, pass time
 /ata debug lights buffer                show the light buffer instead of the picture (toggle)
 /ata debug lights voxels                outline the blocks that cast shadows (toggle)
+/ata debug physics on|off              vehicle body, wheels with suspension and load, ground patch
 ```
 
 The scenes are the very ones the battle plays, only for you, with no damage and
@@ -261,6 +271,16 @@ no change to the world.
 - `config/ata-server.toml` — the rules: spawn coordinates, launch cost, block
   damage, whitelist and blacklist, durability, shootdown outcomes. Synced to
   clients; changing it needs operator rights.
+- `config/ata/vehicles/iskander_tel.json` — the physics of the launcher: mass, centre of
+  mass, body boxes, wheels, suspension, engine, gearbox, brakes, tyres, drag and the
+  driving aids. Created with defaults on the first start, reread by `/ata vehicle
+  reload` and sent to the players. To make it heavier or lighter change
+  `body.massKg` together with `engine.maxTorqueNm`; to change the pull-away
+  `gearbox.forward` and `drivetrain.finalDrive`; `brakes.serviceTorqueNm` for the
+  stopping distance; `suspension.*` and `body.centreOfMass` for the lean and nod;
+  `assist.slopeRelief` for how much hills slow it down. Delete the file to get the
+  new defaults after an update. The server config also has `vehiclePhysics`
+  (JOLT or LEGACY) and `vehicleGravityScale`.
 - `config/ata-client.toml` — your own preferences: hit marker, its sound and
   size, section labels.
 
@@ -290,6 +310,7 @@ src/main/java/com/synarsis/airtacticalarsenal
 │   ├── hud/                    hit marker
 │   ├── debug/                  hitbox wireframe
 │   ├── radar/ shader/ model/ renderer/ sound/
+├── vehicle/physics/            Jolt world, ground patch, vehicle body, vehicle settings
 ├── command/                    /ata and /shahed
 ├── compat/                     Create, TacZ, Superb Warfare, Explosion Overhaul
 ├── config/                     ata-server.toml and ata-client.toml specs
@@ -328,3 +349,4 @@ Short version:
 ## Credits
 
 - Iskander-M missile and 9P78-1 launcher — Model by Zinaida
+- Vehicle physics — [Jolt Physics](https://github.com/jrouwe/JoltPhysics) by Jorrit Rouwe (MIT) through [jolt-jni](https://github.com/stephengold/jolt-jni) by Stephen Gold (MIT), license texts in `licenses/`

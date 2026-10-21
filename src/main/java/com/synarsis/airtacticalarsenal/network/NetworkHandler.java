@@ -38,6 +38,8 @@ public class NetworkHandler {
         registrar.playToClient(FxDebugPacket.TYPE, FxDebugPacket.STREAM_CODEC, FxDebugPacket::handle);
         registrar.playToClient(TelTracePacket.TYPE, TelTracePacket.STREAM_CODEC, TelTracePacket::handle);
         registrar.playToServer(TelImpactPacket.TYPE, TelImpactPacket.STREAM_CODEC, TelImpactPacket::handle);
+        registrar.playToServer(TelRollPacket.TYPE, TelRollPacket.STREAM_CODEC, TelRollPacket::handle);
+        registrar.playToClient(VehicleSpecPacket.TYPE, VehicleSpecPacket.STREAM_CODEC, VehicleSpecPacket::handle);
         registrar.playToServer(TelCommandPacket.TYPE, TelCommandPacket.STREAM_CODEC, TelCommandPacket::handle);
         registrar.playToServer(TelSetTargetPacket.TYPE, TelSetTargetPacket.STREAM_CODEC, TelSetTargetPacket::handle);
         registrar.playToClient(DebugOverridesPacket.TYPE, DebugOverridesPacket.STREAM_CODEC, DebugOverridesPacket::handle);

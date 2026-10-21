@@ -13,7 +13,9 @@ public enum FxDebugKind {
     LIGHTS_ON,
     LIGHTS_OFF,
     LIGHTS_BUFFER,
-    LIGHTS_VOXELS;
+    LIGHTS_VOXELS,
+    PHYSICS_ON,
+    PHYSICS_OFF;
 
     private static final FxDebugKind[] VALUES = values();
 
@@ -22,7 +24,8 @@ public enum FxDebugKind {
     }
 
     public boolean isScene() {
-        return this != LIGHTS_ON && this != LIGHTS_OFF && this != LIGHTS_BUFFER && this != LIGHTS_VOXELS;
+        return this != LIGHTS_ON && this != LIGHTS_OFF && this != LIGHTS_BUFFER && this != LIGHTS_VOXELS
+                && this != PHYSICS_ON && this != PHYSICS_OFF;
     }
 
     public String commandName() {

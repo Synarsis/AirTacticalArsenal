@@ -80,6 +80,8 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue TEL_BRAKE_POWER;
     public static final ModConfigSpec.DoubleValue TEL_BRAKE_DAMP;
     public static final ModConfigSpec.DoubleValue TEL_INERTIA_ROTATE_RATE;
+    public static final ModConfigSpec.EnumValue<VehiclePhysicsMode> VEHICLE_PHYSICS;
+    public static final ModConfigSpec.DoubleValue VEHICLE_GRAVITY_SCALE;
 
     public static boolean isInForbiddenZone(int x, int z) {
         if (com.synarsis.airtacticalarsenal.debug.DebugOverrides.noLaunchLimits()) {
@@ -188,6 +190,8 @@ public class ShahedConfig {
     public static double getTelBrakePower() { return TEL_BRAKE_POWER.get(); }
     public static double getTelBrakeDamp() { return TEL_BRAKE_DAMP.get(); }
     public static double getTelInertiaRotateRate() { return TEL_INERTIA_ROTATE_RATE.get(); }
+    public static VehiclePhysicsMode getVehiclePhysics() { return VEHICLE_PHYSICS.get(); }
+    public static double getVehicleGravityScale() { return VEHICLE_GRAVITY_SCALE.get(); }
 
     public static boolean isBlacklistEnabled() { return BLACKLIST_ENABLED.get(); }
     public static void setBlacklistEnabled(boolean enabled) { BLACKLIST_ENABLED.set(enabled); }
@@ -321,6 +325,10 @@ public class ShahedConfig {
         TEL_BRAKE_POWER = BUILDER.comment("Engine power the service brake (S while rolling forward) takes off each tick").defineInRange("telBrakePower", 0.08, 0.01, 1.0);
         TEL_BRAKE_DAMP = BUILDER.comment("What the service brake multiplies the speed by each tick (lower stops sooner)").defineInRange("telBrakeDamp", 0.92, 0.5, 1.0);
         TEL_INERTIA_ROTATE_RATE = BUILDER.comment("How far the body rocks when speeding up, braking and turning (0 for none)").defineInRange("telInertiaRotateRate", 0.6, 0.0, 3.0);
+        VEHICLE_PHYSICS = BUILDER.comment("JOLT: vehicles are driven by the Jolt physics engine. LEGACY: the older built-in physics, also used when the Jolt native library does not load")
+                .defineEnum("vehiclePhysics", VehiclePhysicsMode.JOLT);
+        VEHICLE_GRAVITY_SCALE = BUILDER.comment("Gravity of vehicle physics relative to 9.81 m/s2; above 1 makes heavy vehicles feel less floaty on jumps")
+                .defineInRange("vehicleGravityScale", 1.6, 0.5, 4.0);
         TEL_CONFIG_VERSION = BUILDER.comment(
                 "Which defaults the launcher driving values were last brought up to. NeoForge never overwrites a saved value",
                 "with a new default, so when the defaults change this number is raised and the driving keys are reset once.",

@@ -4,6 +4,7 @@ import com.synarsis.airtacticalarsenal.combat.hitbox.HitTag;
 import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
 import com.synarsis.airtacticalarsenal.combat.sweep.BulletSweep;
 import com.synarsis.airtacticalarsenal.compat.CreateCompat;
+import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.IskanderEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelBoneGroups;
@@ -25,6 +26,11 @@ import com.synarsis.airtacticalarsenal.entity.tel.physics.TelSway;
 import com.synarsis.airtacticalarsenal.item.IskanderTelItem;
 import com.synarsis.airtacticalarsenal.item.ModItems;
 import com.synarsis.airtacticalarsenal.network.TelImpactPacket;
+import com.synarsis.airtacticalarsenal.network.TelRollPacket;
+import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
+import com.synarsis.airtacticalarsenal.vehicle.physics.Units;
+import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpec;
+import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
 import com.synarsis.airtacticalarsenal.sound.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -75,6 +81,7 @@ import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -242,6 +249,15 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
     private final double[] wheelOffsetO = new double[Suspension.WHEELS];
     private float speedKmh;
 
+    @Nullable
+    private TelJolt jolt;
+    private boolean joltDisabled;
+    private Vec3 observedVelocity = Vec3.ZERO;
+    private double observedYawRate;
+    private int overturnedTicks;
+    private int overturnHintCooldown;
+    private float rollSent = Float.NaN;
+
     private final Map<UUID, Rider> riders = new HashMap<>();
     private final Map<UUID, Integer> savedSeats = new HashMap<>();
 
@@ -352,7 +368,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
         this.rollO = this.roll;
         this.wheelRotLO = this.engine.wheelRotL;
         this.wheelRotRO = this.engine.wheelRotR;
-        this.steerO = this.engine.steerDegrees();
+        this.steerO = this.steerNow();
         this.swayPitchO = this.sway.fakePitch;
         this.swayRollO = this.sway.fakeRoll;
         if (this.collisionCooldown > 0) {
@@ -371,14 +387,19 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
         }
 
         boolean simulating = this.isControlledByLocalInstance();
-        if (simulating) {
-            this.simulate();
-        } else if (this.level().isClientSide) {
-            this.setDeltaMovement(Vec3.ZERO);
-        }
+        if (this.useJolt()) {
+            this.tickJolt(simulating);
+        } else {
+            this.dropJolt();
+            if (simulating) {
+                this.simulate();
+            } else if (this.level().isClientSide) {
+                this.setDeltaMovement(Vec3.ZERO);
+            }
 
-        if (!simulating && !this.level().isClientSide) {
-            this.followClientRoll();
+            if (!simulating && !this.level().isClientSide) {
+                this.followClientRoll();
+            }
         }
 
         if (this.level().isClientSide) {
@@ -389,16 +410,201 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
 
         this.updateParts();
 
-        Vec3 here = this.position();
-        this.carryDelta = this.carryFrom == null ? Vec3.ZERO : here.subtract(this.carryFrom);
-        this.carryYaw = this.carryFrom == null ? 0.0f : Mth.wrapDegrees(this.getYRot() - this.carryFromYaw);
-        this.carryFrom = here;
-        this.carryFromYaw = this.getYRot();
+        if (!this.joltDrivesPose()) {
+            this.updateCarry();
+        }
         this.boxKey = Long.MIN_VALUE;
         TelRegistry.add(this.level(), this);
         if (!this.level().isClientSide) {
             this.sweepBullets();
         }
+    }
+
+    private void updateCarry() {
+        Vec3 here = this.position();
+        this.carryDelta = this.carryFrom == null ? Vec3.ZERO : here.subtract(this.carryFrom);
+        this.carryYaw = this.carryFrom == null ? 0.0f : Mth.wrapDegrees(this.getYRot() - this.carryFromYaw);
+        this.carryFrom = here;
+        this.carryFromYaw = this.getYRot();
+    }
+
+    private boolean useJolt() {
+        return !this.joltDisabled && PhysicsWorlds.joltWanted();
+    }
+
+    private boolean joltDrivesPose() {
+        return this.jolt != null && this.jolt.role() == TelJolt.Role.SIMULATE;
+    }
+
+    private void dropJolt() {
+        if (this.jolt != null) {
+            this.jolt.close();
+            this.jolt = null;
+        }
+    }
+
+    public boolean isJacked() {
+        return this.getJackProgress(1.0f) >= 0.95f;
+    }
+
+    private void tickJolt(boolean simulating) {
+        if (this.jolt == null) {
+            this.jolt = new TelJolt(this);
+        }
+        boolean client = this.level().isClientSide;
+        boolean driven = this.getControllingPassenger() != null;
+        boolean stowed = this.getTelState() == TelState.STOWED;
+        int keys = client && driven && simulating ? TelInput.provider.getAsInt() : 0;
+        Vec3 velocity = client ? this.observedVelocity : this.serverVelocity;
+        double yawRate = client ? this.observedYawRate
+                : -Math.toRadians(Mth.wrapDegrees(this.getYRot() - this.yRotO)) * Units.TICKS_PER_SECOND;
+        this.jolt.update(simulating, driven, this.isJacked() || this.groundUnloaded(), stowed, keys, velocity, yawRate);
+        if (this.jolt.failed()) {
+            this.joltDisabled = true;
+            this.dropJolt();
+            return;
+        }
+        if (client && !simulating) {
+            this.setDeltaMovement(Vec3.ZERO);
+        }
+        if (this.jolt.role() == TelJolt.Role.SIMULATE) {
+            this.engine.wheelRotL = this.jolt.wheelRot(true);
+            this.engine.wheelRotR = this.jolt.wheelRot(false);
+            this.engine.power = driven ? this.jolt.load() * Math.signum(this.observedForward()) : 0.0;
+        }
+        if (client && simulating && this.jolt.role() == TelJolt.Role.SIMULATE
+                && (Float.isNaN(this.rollSent) || Math.abs(this.roll - this.rollSent) > 0.05f)) {
+            this.rollSent = this.roll;
+            PacketDistributor.sendToServer(new TelRollPacket(this.getId(), this.roll));
+        }
+    }
+
+    private boolean groundUnloaded() {
+        double reach = 12.0;
+        for (int dx = -1; dx <= 1; dx += 2) {
+            for (int dz = -1; dz <= 1; dz += 2) {
+                if (!this.level().hasChunkAt(BlockPos.containing(this.getX() + dx * reach, this.getY(),
+                        this.getZ() + dz * reach))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private double observedForward() {
+        Vec3 f = this.getViewVector(1.0f);
+        return this.observedVelocity.x * f.x + this.observedVelocity.z * f.z;
+    }
+
+    private float steerNow() {
+        if (this.joltDrivesPose()) {
+            return (float) Mth.clamp(this.jolt.steerDegrees(), -28.0, 28.0);
+        }
+        return (float) this.engine.steerDegrees();
+    }
+
+    public void applyJoltPose(double x, double y, double z, float yaw, float pitch, float roll, Vec3 velocity,
+            boolean grounded) {
+        this.setPos(x, y, z);
+        this.setYRot(yaw);
+        this.setXRot(pitch);
+        this.setRoll(roll);
+        this.setDeltaMovement(velocity);
+        this.setOnGround(grounded);
+        this.verticalCollisionBelow = grounded;
+        this.updateParts();
+        this.updateCarry();
+        this.boxKey = Long.MIN_VALUE;
+    }
+
+    void reportJoltImpact(byte kind, double speed) {
+        this.reportImpact(kind, speed);
+    }
+
+    void rollBackTo(double x, double y, double z, String reason) {
+        if (this.level().isClientSide) {
+            return;
+        }
+        AirTacticalArsenal.LOGGER.debug("Launcher {}: {}", this.getId(), reason);
+        this.setPos(x, y, z);
+        if (this.getControllingPassenger() instanceof ServerPlayer driver) {
+            driver.connection.send(new net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket(this));
+        }
+    }
+
+    public void acceptRoll(float value) {
+        if (Float.isFinite(value) && Math.abs(value) < 180.0f) {
+            this.setRoll(value);
+        }
+    }
+
+    boolean softBlocksGiveWayPublic() {
+        return this.softBlocksGiveWay();
+    }
+
+    public boolean isOverturned() {
+        return TelJolt.overturned(this.getXRot(), this.roll);
+    }
+
+    public boolean usesJolt() {
+        return this.jolt != null && this.jolt.active();
+    }
+
+    public boolean joltSimulating() {
+        return this.joltDrivesPose();
+    }
+
+    public double getEngineRpm() {
+        if (this.joltDrivesPose()) {
+            return this.jolt.rpm();
+        }
+        double fraction = Mth.clamp(this.speedKmh / 65.0, 0.0, 1.2);
+        return 700.0 + fraction * 1200.0;
+    }
+
+    public int getGear() {
+        return this.joltDrivesPose() ? this.jolt.gear() : 0;
+    }
+
+    public double getEngineLoad() {
+        if (this.joltDrivesPose()) {
+            return this.jolt.load();
+        }
+        return Mth.clamp(Math.abs(this.engine.power), 0.0, 1.0);
+    }
+
+    @Nullable
+    public TelJolt joltView() {
+        return this.jolt;
+    }
+
+    public void pushByExplosion(Vec3 centre, float power) {
+        if (this.level().isClientSide || this.jolt == null || !this.jolt.spinsFreely()) {
+            return;
+        }
+        Vec3 offset = new Vec3(this.getX(), this.getY() + 1.8, this.getZ()).subtract(centre);
+        double distance = offset.length();
+        if (distance > power * 12.0 + 12.0 || distance < 1.0E-3) {
+            return;
+        }
+        VehicleSpec spec = VehicleSpecs.current();
+        double magnitude = spec.limits.explosionImpulse * power / Math.max(distance * distance, 4.0);
+        Vec3 away = offset.normalize();
+        this.jolt.push(away.x * magnitude, Math.max(away.y, 0.25) * magnitude, away.z * magnitude);
+    }
+
+    private void rightWithIron(Player player, ItemStack held) {
+        for (Entity passenger : new ArrayList<>(this.getPassengers())) {
+            passenger.stopRiding();
+        }
+        if (!player.getAbilities().instabuild) {
+            held.shrink(1);
+        }
+        if (this.jolt != null) {
+            this.jolt.startRighting();
+        }
+        player.displayClientMessage(Component.translatable("message.ata.tel.righting"), true);
     }
 
     private void simulate() {
@@ -466,7 +672,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
         }
     }
 
-    private boolean softBlocksGiveWay() {
+    boolean softBlocksGiveWay() {
         try {
             return ShahedConfig.doesTelBreakSoftBlocks();
         } catch (IllegalStateException e) {
@@ -764,6 +970,8 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
             this.setDeltaMovement(Vec3.ZERO);
         }
 
+        this.tickOverturnHint();
+
         Vec3 vel = simulating ? this.getDeltaMovement() : this.serverVelocity;
         if (vel.lengthSqr() >= 0.09) {
             this.crushScan(vel, ShahedConfig.isTelCrushDamageEnabled(), simulating);
@@ -776,6 +984,22 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
                 Obb hull = Obb.fromPose(this.getX(), this.getY(), this.getZ(),
                         this.getYRot(), this.getXRot(), this.roll);
                 TelWorld.smashSoftBlocks(serverLevel, hull, vel, this);
+            }
+        }
+    }
+
+    private void tickOverturnHint() {
+        if (this.overturnHintCooldown > 0) {
+            this.overturnHintCooldown--;
+        }
+        boolean lying = this.isOverturned() && this.serverVelocity.lengthSqr() < 1.0E-3;
+        this.overturnedTicks = lying ? this.overturnedTicks + 1 : 0;
+        if (this.overturnedTicks >= 60 && this.overturnHintCooldown == 0) {
+            this.overturnHintCooldown = 400;
+            for (Player near : this.level().players()) {
+                if (near.distanceToSqr(this) < 20.0 * 20.0) {
+                    near.displayClientMessage(Component.translatable("message.ata.tel.overturned"), true);
+                }
             }
         }
     }
@@ -836,6 +1060,8 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
 
     private void tickClient(boolean simulating) {
         Vec3 vel = new Vec3(this.getX() - this.xo, this.getY() - this.yo, this.getZ() - this.zo);
+        this.observedVelocity = vel;
+        this.observedYawRate = -Math.toRadians(Mth.wrapDegrees(this.getYRot() - this.yRotO)) * Units.TICKS_PER_SECOND;
         if (!simulating) {
             this.roll = Mth.lerp(0.35f, this.roll, this.entityData.get(DATA_ROLL));
             Vec3 f = this.getViewVector(1.0f);
@@ -863,6 +1089,12 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
 
     private void updateWheelContact(boolean simulating) {
         System.arraycopy(this.wheelOffset, 0, this.wheelOffsetO, 0, Suspension.WHEELS);
+        if (this.joltDrivesPose()) {
+            for (int i = 0; i < Suspension.WHEELS; i++) {
+                this.wheelOffset[i] += (this.jolt.wheelOffset(i) - this.wheelOffset[i]) * 0.6;
+            }
+            return;
+        }
         if (this.level().getNearestPlayer(this, 64.0) == null) {
             return;
         }
@@ -898,6 +1130,9 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
     }
 
     public int getWheelContacts() {
+        if (this.joltDrivesPose() && this.jolt.vehicle() != null) {
+            return this.jolt.vehicle().wheelsOnGround();
+        }
         return this.wheelContacts;
     }
 
@@ -906,6 +1141,9 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
     }
 
     public boolean isAirborne() {
+        if (this.joltDrivesPose()) {
+            return this.jolt.vehicle() != null && this.jolt.vehicle().wheelsOnGround() == 0;
+        }
         return this.suspension.airborne;
     }
 
@@ -966,7 +1204,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
     }
 
     public double getSteerDegrees(float partialTick) {
-        return Mth.lerp(partialTick, this.steerO, this.engine.steerDegrees());
+        return Mth.lerp(partialTick, this.steerO, this.steerNow());
     }
 
     public float getSwayPitch(float partialTick) {
@@ -1207,6 +1445,13 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
 
         if (held.is(ModItems.ISKANDER.get()) && !client) {
             player.displayClientMessage(Component.translatable("message.ata.tel.load_from_cab"), true);
+        }
+
+        if (player.isShiftKeyDown() && held.is(Items.IRON_BLOCK) && this.isOverturned()) {
+            if (!client) {
+                this.rightWithIron(player, held);
+            }
+            return InteractionResult.sidedSuccess(client);
         }
 
         if (this.isRepairItem(held) && this.getHealth() < this.getMaxHealth()) {
@@ -1741,12 +1986,14 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
 
     @Override
     public void onRemovedFromLevel() {
+        this.dropJolt();
         super.onRemovedFromLevel();
         TelRegistry.remove(this.level(), this);
     }
 
     @Override
     public void remove(RemovalReason reason) {
+        this.dropJolt();
         TelRegistry.remove(this.level(), this);
         if (!this.level().isClientSide && !reason.shouldSave()) {
             this.returnPendingRound();

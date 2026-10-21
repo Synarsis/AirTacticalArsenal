@@ -36,8 +36,9 @@ public class TelEngineSoundInstance extends AbstractTickableSoundInstance {
         this.y = this.tel.getY() + 1.5;
         this.z = this.tel.getZ();
 
-        double load = Math.min(Math.abs(this.tel.engine.power), 1.3);
+        double load = Math.min(this.tel.getEngineLoad(), 1.3);
         this.volume = (float) (0.3 + 0.7 * load);
-        this.pitch = (float) (0.7 + 0.5 * Mth.clamp(this.tel.getSpeedKmh() / 60.0, 0.0, 1.5));
+        double revs = Mth.clamp((this.tel.getEngineRpm() - 600.0) / 1500.0, 0.0, 1.2);
+        this.pitch = (float) (0.7 + 0.5 * revs);
     }
 }

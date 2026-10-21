@@ -119,10 +119,32 @@ neoForge {
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    joltNatives {
+        canBeConsumed = false
+        transitive = false
+    }
 }
+
+def joltJniVersion = '6.2.0'
+def joltNativePlatforms = [
+        'Windows64'   : 'windows-x86_64',
+        'Linux64'     : 'linux-x86_64',
+        'Linux_ARM64' : 'linux-aarch64',
+        'MacOSX64'    : 'macos-x86_64',
+        'MacOSX_ARM64': 'macos-aarch64',
+]
 
 dependencies {
     implementation "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.4"
+
+    implementation "com.github.stephengold:jolt-jni-Windows64:${joltJniVersion}"
+    additionalRuntimeClasspath "com.github.stephengold:jolt-jni-Windows64:${joltJniVersion}"
+    jarJar("com.github.stephengold:jolt-jni-Windows64:[${joltJniVersion},7.0.0)") {
+        version { strictly "[${joltJniVersion},7.0.0)"; prefer joltJniVersion }
+    }
+    joltNativePlatforms.keySet().each { platform ->
+        joltNatives "com.github.stephengold:jolt-jni-${platform}:${joltJniVersion}:ReleaseDp@jar"
+    }
 
     // --- Regression tests -------------------------------------------------------
     // Test-only; does not enter the shipped jar and does not affect mod behaviour.
@@ -166,6 +188,21 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 // Include the output of "generateModMetadata" as an input directory for the build
 // this works with both building through Gradle and the IDE.
 sourceSets.main.resources.srcDir generateModMetadata
+var extractJoltNatives = tasks.register("extractJoltNatives", Sync) {
+    into layout.buildDirectory.dir("generated/sources/joltNatives")
+    from(resources.text.fromString(joltJniVersion)) {
+        rename { "version.txt" }
+        into "ata_natives"
+    }
+    joltNativePlatforms.each { platform, folder ->
+        from({ zipTree(configurations.joltNatives.files.find { it.name.startsWith("jolt-jni-${platform}-") }) }) {
+            include "**/*joltjni.*"
+            eachFile { it.relativePath = new RelativePath(true, "ata_natives", folder, it.file.name) }
+            includeEmptyDirs = false
+        }
+    }
+}
+sourceSets.main.resources.srcDir extractJoltNatives
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
 neoForge.ideSyncTask generateModMetadata
 

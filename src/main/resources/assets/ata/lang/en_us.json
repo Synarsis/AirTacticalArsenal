@@ -96,6 +96,8 @@
   "item.ata.iskander_tel.tooltip.place": "§7Use on the ground to deploy, facing where you look",
   "item.ata.iskander_tel.tooltip.health": "§7Hull: %s",
   "message.ata.tel.full": "§cAll seats are taken",
+  "message.ata.tel.overturned": "§eThe launcher is on its side: Shift + right click with an iron block puts it back on its wheels",
+  "message.ata.tel.righting": "§aThe launcher is being put back on its wheels",
   "message.ata.tel.no_room": "§cNot enough room for the launcher",
   "message.ata.tel.no_support": "§cThe launcher needs solid ground along its length",
   "message.ata.tel.repaired": "§aHull repaired: %s/%s",

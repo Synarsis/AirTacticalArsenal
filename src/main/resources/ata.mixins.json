@@ -7,7 +7,8 @@
   "mixins": [
     "ProjectileUtilMixin",
     "EntityMoveMixin",
-    "ServerVehicleMoveMixin"
+    "ServerVehicleMoveMixin",
+    "LevelChunkBlockChangedMixin"
   ],
   "client": [
     "ClientChunkCacheMixin",

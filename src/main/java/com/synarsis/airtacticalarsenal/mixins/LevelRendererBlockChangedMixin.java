@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.mixins;
 
 import com.synarsis.airtacticalarsenal.client.fx.light.OccupancyVolume;
+import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
@@ -17,5 +18,8 @@ public class LevelRendererBlockChangedMixin {
     private void ata$markOccupancy(BlockGetter level, BlockPos pos, BlockState oldState, BlockState newState, int flags,
             CallbackInfo ci) {
         OccupancyVolume.markChanged(pos);
+        if (level instanceof net.minecraft.world.level.Level world) {
+            PhysicsWorlds.blockChanged(world, pos.getX(), pos.getY(), pos.getZ());
+        }
     }
 }

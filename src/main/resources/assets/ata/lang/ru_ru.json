@@ -107,6 +107,8 @@
   "item.ata.iskander_tel.tooltip.place": "§7ПКМ по земле: поставить кабиной по направлению взгляда",
   "item.ata.iskander_tel.tooltip.health": "§7Корпус: %s",
   "message.ata.tel.full": "§cВсе места заняты",
+  "message.ata.tel.overturned": "§eПУ лежит на боку: Shift + ПКМ железным блоком поставит её на колёса",
+  "message.ata.tel.righting": "§aПУ ставят на колёса",
   "message.ata.tel.no_room": "§cНедостаточно места для ПУ",
   "message.ata.tel.no_support": "§cПУ нужна твёрдая земля по всей длине",
   "message.ata.tel.repaired": "§aКорпус отремонтирован: %s/%s",

@@ -14,6 +14,7 @@ import com.synarsis.airtacticalarsenal.network.NetworkHandler;
 import com.synarsis.airtacticalarsenal.particle.ModParticles;
 import com.synarsis.airtacticalarsenal.recipe.ModRecipes;
 import com.synarsis.airtacticalarsenal.sound.ModSounds;
+import com.synarsis.airtacticalarsenal.vehicle.physics.JoltRuntime;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -51,6 +52,7 @@ public class AirTacticalArsenal {
 
     private void commonSetup(FMLCommonSetupEvent event) {
         LOGGER.info("Air Tactical Arsenal common setup");
+        event.enqueueWork(JoltRuntime::available);
     }
 
     @SubscribeEvent
