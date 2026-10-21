@@ -35,15 +35,17 @@ public class NetworkHandler {
         registrar.playToClient(ShahedRemovePacket.TYPE, ShahedRemovePacket.STREAM_CODEC, ShahedRemovePacket::handle);
         registrar.playToClient(ShahedExplosionPacket.TYPE, ShahedExplosionPacket.STREAM_CODEC, ShahedExplosionPacket::handle);
         registrar.playToClient(HitboxDebugPacket.TYPE, HitboxDebugPacket.STREAM_CODEC, HitboxDebugPacket::handle);
+        registrar.playToClient(FxDebugPacket.TYPE, FxDebugPacket.STREAM_CODEC, FxDebugPacket::handle);
+        registrar.playToClient(TelTracePacket.TYPE, TelTracePacket.STREAM_CODEC, TelTracePacket::handle);
+        registrar.playToServer(TelImpactPacket.TYPE, TelImpactPacket.STREAM_CODEC, TelImpactPacket::handle);
+        registrar.playToServer(TelCommandPacket.TYPE, TelCommandPacket.STREAM_CODEC, TelCommandPacket::handle);
+        registrar.playToServer(TelSetTargetPacket.TYPE, TelSetTargetPacket.STREAM_CODEC, TelSetTargetPacket::handle);
         registrar.playToClient(DebugOverridesPacket.TYPE, DebugOverridesPacket.STREAM_CODEC, DebugOverridesPacket::handle);
         registrar.playToClient(ShahedHitPacket.TYPE, ShahedHitPacket.STREAM_CODEC, ShahedHitPacket::handle);
-        registrar.playToClient(LauncherStateUpdatePacket.TYPE, LauncherStateUpdatePacket.STREAM_CODEC, LauncherStateUpdatePacket::handle);
-        registrar.playToClient(RocketLaunchStatePacket.TYPE, RocketLaunchStatePacket.STREAM_CODEC, RocketLaunchStatePacket::handle);
         registrar.playToClient(RadarUpdatePacket.TYPE, RadarUpdatePacket.STREAM_CODEC, RadarUpdatePacket::handle);
         registrar.playToClient(WorldMapPacket.TYPE, WorldMapPacket.STREAM_CODEC, WorldMapPacket::handle);
         registrar.playToClient(SirenSoundPacket.TYPE, SirenSoundPacket.STREAM_CODEC, SirenSoundPacket::handle);
         registrar.playToClient(OpenTerminalScreenPacket.TYPE, OpenTerminalScreenPacket.STREAM_CODEC, OpenTerminalScreenPacket::handle);
-        registrar.playToClient(OpenUnifiedTerminalPacket.TYPE, OpenUnifiedTerminalPacket.STREAM_CODEC, OpenUnifiedTerminalPacket::handle);
         registrar.playToClient(OpenRadarScreenPacket.TYPE, OpenRadarScreenPacket.STREAM_CODEC, OpenRadarScreenPacket::handle);
         registrar.playToClient(OpenShahedTabletPacket.TYPE, OpenShahedTabletPacket.STREAM_CODEC, OpenShahedTabletPacket::handle);
         registrar.playToClient(OpenOrlanTabletPacket.TYPE, OpenOrlanTabletPacket.STREAM_CODEC, OpenOrlanTabletPacket::handle);
@@ -54,15 +56,10 @@ public class NetworkHandler {
 
         registrar.playToServer(RequestRadarUpdatePacket.TYPE, RequestRadarUpdatePacket.STREAM_CODEC, RequestRadarUpdatePacket::handle);
         registrar.playToServer(LaunchShahedFromTerminalPacket.TYPE, LaunchShahedFromTerminalPacket.STREAM_CODEC, LaunchShahedFromTerminalPacket::handle);
-        registrar.playToServer(LaunchFromUnifiedTerminalPacket.TYPE, LaunchFromUnifiedTerminalPacket.STREAM_CODEC, LaunchFromUnifiedTerminalPacket::handle);
-        registrar.playToServer(LaunchRocketPacket.TYPE, LaunchRocketPacket.STREAM_CODEC, LaunchRocketPacket::handle);
-        registrar.playToServer(InstallRocketPacket.TYPE, InstallRocketPacket.STREAM_CODEC, InstallRocketPacket::handle);
-        registrar.playToServer(RemoveRocketPacket.TYPE, RemoveRocketPacket.STREAM_CODEC, RemoveRocketPacket::handle);
         registrar.playToServer(ChangeShahedAltitudePacket.TYPE, ChangeShahedAltitudePacket.STREAM_CODEC, ChangeShahedAltitudePacket::handle);
         registrar.playToServer(OrlanAltitudePacket.TYPE, OrlanAltitudePacket.STREAM_CODEC, OrlanAltitudePacket::handle);
         registrar.playToServer(RequestWorldMapPacket.TYPE, RequestWorldMapPacket.STREAM_CODEC, RequestWorldMapPacket::handle);
 
-        registrar.playToServer(SetLauncherTargetPacket.TYPE, SetLauncherTargetPacket.STREAM_CODEC, SetLauncherTargetPacket::handle);
         registrar.playToServer(SaveShahedRoutePacket.TYPE, SaveShahedRoutePacket.STREAM_CODEC, SaveShahedRoutePacket::handle);
         registrar.playToServer(SaveOrlanRoutePacket.TYPE, SaveOrlanRoutePacket.STREAM_CODEC, SaveOrlanRoutePacket::handle);
         registrar.playToServer(LaunchShahedByRoutePacket.TYPE, LaunchShahedByRoutePacket.STREAM_CODEC, LaunchShahedByRoutePacket::handle);

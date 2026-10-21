@@ -30,6 +30,7 @@ public class ClientGameEvents {
     @SubscribeEvent
     public static void onClientDisconnect(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientPacketHandler.clearAll();
+        TelClientEffects.clear();
         OrlanCameraHandler.stopCameraView();
         RouteTerrainRenderer.clearCache();
         SurfaceHeightCache.clear();
@@ -104,6 +105,38 @@ public class ClientGameEvents {
                 && ModKeys.NIGHT_VISION.matches(event.getKey(), event.getScanCode())) {
             OrlanCameraHandler.toggleNvg();
         }
+        if (event.getAction() == GLFW.GLFW_PRESS
+                && ModKeys.TEL_FIRE_CONTROL.matches(event.getKey(), event.getScanCode())) {
+            openTelFireControl();
+        }
+        if (event.getAction() == GLFW.GLFW_PRESS
+                && ModKeys.TEL_HEADLIGHTS.matches(event.getKey(), event.getScanCode())) {
+            toggleTelHeadlights();
+        }
+    }
+
+    private static void toggleTelHeadlights() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null) {
+            return;
+        }
+        if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity tel
+                && tel.isCrewSeat(mc.player)) {
+            com.synarsis.airtacticalarsenal.network.NetworkHandler.sendToServer(
+                    new com.synarsis.airtacticalarsenal.network.TelCommandPacket(tel.getId(),
+                            com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity.CMD_HEADLIGHTS, (byte) 0, 0));
+        }
+    }
+
+    private static void openTelFireControl() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null) {
+            return;
+        }
+        if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity tel
+                && tel.isCrewSeat(mc.player)) {
+            mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.TelFireControlScreen(tel));
+        }
     }
 
     @SubscribeEvent
@@ -111,6 +144,7 @@ public class ClientGameEvents {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         NvgShaderHandler.processShader();
         com.synarsis.airtacticalarsenal.client.debug.HitboxDebugRenderer.render(event);
+        com.synarsis.airtacticalarsenal.client.fx.light.LightDebug.render(event);
     }
 
     @SubscribeEvent

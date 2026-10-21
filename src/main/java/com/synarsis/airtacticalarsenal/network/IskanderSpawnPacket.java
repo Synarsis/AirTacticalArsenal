@@ -15,7 +15,6 @@ public record IskanderSpawnPacket(
         BlockPos targetPos,
         int flightPhase,
         int flightTicks,
-        BlockPos launcherPos,
         Vec3 startPos,
         Vec3 launchEndPos,
         Vec3 finalTargetPos
@@ -33,10 +32,6 @@ public record IskanderSpawnPacket(
                 buf.writeBlockPos(p.targetPos);
                 buf.writeInt(p.flightPhase);
                 buf.writeInt(p.flightTicks);
-                buf.writeBoolean(p.launcherPos != null);
-                if (p.launcherPos != null) {
-                    buf.writeBlockPos(p.launcherPos);
-                }
                 buf.writeBoolean(p.startPos != null);
                 if (p.startPos != null) {
                     buf.writeDouble(p.startPos.x);
@@ -62,12 +57,11 @@ public record IskanderSpawnPacket(
                 BlockPos targetPos = buf.readBlockPos();
                 int flightPhase = buf.readInt();
                 int flightTicks = buf.readInt();
-                BlockPos launcherPos = buf.readBoolean() ? buf.readBlockPos() : null;
                 Vec3 startPos = buf.readBoolean() ? new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()) : null;
                 Vec3 launchEndPos = buf.readBoolean() ? new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()) : null;
                 Vec3 finalTargetPos = buf.readBoolean() ? new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()) : null;
                 return new IskanderSpawnPacket(entityId, position, targetPos, flightPhase, flightTicks,
-                        launcherPos, startPos, launchEndPos, finalTargetPos);
+                        startPos, launchEndPos, finalTargetPos);
             }
     );
 
@@ -81,7 +75,6 @@ public record IskanderSpawnPacket(
     public BlockPos getTargetPos() { return targetPos; }
     public int getFlightPhase() { return flightPhase; }
     public int getFlightTicks() { return flightTicks; }
-    public BlockPos getLauncherPos() { return launcherPos; }
     public Vec3 getFinalTargetPos() { return finalTargetPos; }
 
     public static void handle(IskanderSpawnPacket payload, IPayloadContext context) {
@@ -91,7 +84,7 @@ public record IskanderSpawnPacket(
         context.enqueueWork(() -> {
             ClientIskanderPacketHandler.handleIskanderSpawn(
                     payload.entityId(), payload.position(), payload.targetPos(),
-                    payload.flightPhase(), payload.flightTicks(), payload.launcherPos(),
+                    payload.flightPhase(), payload.flightTicks(),
                     payload.startPos(), payload.launchEndPos(), payload.finalTargetPos());
         });
     }

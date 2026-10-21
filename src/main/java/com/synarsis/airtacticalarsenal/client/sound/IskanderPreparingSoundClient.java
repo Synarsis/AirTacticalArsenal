@@ -22,6 +22,7 @@ public class IskanderPreparingSoundClient extends AbstractTickableSoundInstance 
     private static final float INITIAL_VOLUME = 1.0f;
 
     private Vec3 soundPos;
+    private java.util.function.BooleanSupplier keepPlaying = () -> true;
 
     public IskanderPreparingSoundClient(BlockPos pos) {
         super(ModSounds.ISKANDER_PREPARING.get(), SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
@@ -39,6 +40,22 @@ public class IskanderPreparingSoundClient extends AbstractTickableSoundInstance 
         this.x = this.soundPos.x;
         this.y = this.soundPos.y;
         this.z = this.soundPos.z;
+    }
+
+    public IskanderPreparingSoundClient(Vec3 pos, java.util.function.BooleanSupplier keepPlaying) {
+        this(BlockPos.containing(pos));
+        this.soundPos = pos;
+        this.x = pos.x;
+        this.y = pos.y;
+        this.z = pos.z;
+        this.keepPlaying = keepPlaying;
+    }
+
+    public void moveTo(Vec3 pos) {
+        this.soundPos = pos;
+        this.x = pos.x;
+        this.y = pos.y;
+        this.z = pos.z;
     }
 
     public void start() {
@@ -72,7 +89,9 @@ public class IskanderPreparingSoundClient extends AbstractTickableSoundInstance 
         if (this.stopped) {
             return;
         }
-
+        if (!this.keepPlaying.getAsBoolean()) {
+            this.stopSound();
+        }
     }
 
     public void stopSound() {

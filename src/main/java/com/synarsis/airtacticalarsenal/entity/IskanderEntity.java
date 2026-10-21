@@ -1,22 +1,16 @@
 package com.synarsis.airtacticalarsenal.entity;
 
-import com.synarsis.airtacticalarsenal.block.LauncherBlock;
 import com.synarsis.airtacticalarsenal.chunk.MissileChunkManager;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.network.IskanderExplosionPacket;
 import com.synarsis.airtacticalarsenal.network.IskanderRemovePacket;
 import com.synarsis.airtacticalarsenal.network.IskanderSpawnPacket;
-import com.synarsis.airtacticalarsenal.network.LauncherStateUpdatePacket;
-import com.synarsis.airtacticalarsenal.particle.ModParticles;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -116,8 +110,8 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     private float lerpYRot, lerpXRot;
     private int lerpSteps = 0;
 
-    private BlockPos launcherPos = null;
-    private boolean launcherReleased = false;
+    @javax.annotation.Nullable
+    private java.util.UUID launcherVehicle;
 
     private boolean clientFirstSync = true;
     private int clientSyncTicks = 0;
@@ -137,6 +131,15 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     }
 
     public boolean isLegitSpawn = false;
+
+    @FunctionalInterface
+    public interface FlightFx {
+        void tick(IskanderEntity missile, int phase, int climbAge, Vec3 motion, Vec3 from, Vec3 to, Vec3 nose,
+                BlockPos target);
+    }
+
+    public static FlightFx clientFx = (missile, phase, climbAge, motion, from, to, nose, target) -> {
+    };
 
     public IskanderEntity(Level level, Vec3 startPos, BlockPos targetPos) {
         this(ModEntities.ISKANDER.get(), level);
@@ -184,24 +187,26 @@ public class IskanderEntity extends Projectile implements GeoEntity {
         calculateTrajectoryParameters(startPos, targetPos);
     }
 
-    public void setLauncherPos(BlockPos pos) {
-        this.launcherPos = pos;
+    public void setLauncherVehicle(@javax.annotation.Nullable java.util.UUID vehicle) {
+        this.launcherVehicle = vehicle;
     }
 
-    private void releaseLauncher() {
-        if (!launcherReleased && launcherPos != null && !this.level().isClientSide) {
-            BlockState state = this.level().getBlockState(launcherPos);
-            if (state.getBlock() instanceof LauncherBlock launcher) {
-                launcher.setLoaded(this.level(), launcherPos, false);
-                launcher.setLaunching(this.level(), launcherPos, false);
-            }
+    @javax.annotation.Nullable
+    public java.util.UUID getLauncherVehicle() {
+        return this.launcherVehicle;
+    }
 
-            net.minecraft.world.level.block.entity.BlockEntity be = this.level().getBlockEntity(launcherPos);
-            if (be instanceof com.synarsis.airtacticalarsenal.block.entity.LauncherBlockEntity launcherEntity) {
-                launcherEntity.setInFlight(false);
-            }
-            launcherReleased = true;
+    private boolean isOwnLauncher(Entity entity) {
+        if (this.launcherVehicle == null) {
+            return false;
         }
+        Entity root = entity instanceof net.neoforged.neoforge.entity.PartEntity<?> part ? part.getParent() : entity;
+        return this.launcherVehicle.equals(root.getUUID());
+    }
+
+    @Override
+    protected boolean canHitEntity(Entity target) {
+        return !this.isOwnLauncher(target) && super.canHitEntity(target);
     }
 
     private void calculateTrajectoryParameters(Vec3 start, BlockPos target) {
@@ -624,14 +629,10 @@ public class IskanderEntity extends Projectile implements GeoEntity {
 
         this.setPos(exactPos.x, exactPos.y, exactPos.z);
 
-        if (phase >= PHASE_LAUNCH) {
-            spawnFlightParticles(phase);
-        }
-
         if (!this.initialPacketSent) {
             this.initialPacketSent = true;
             PacketDistributor.sendToAllPlayers(
-                    new IskanderSpawnPacket(this.getId(), this.position(), target, phase, flightTicks, launcherPos,
+                    new IskanderSpawnPacket(this.getId(), this.position(), target, phase, flightTicks,
                             this.startPos, this.launchEndPos, this.finalTargetPos));
         }
 
@@ -639,15 +640,9 @@ public class IskanderEntity extends Projectile implements GeoEntity {
         if (this.syncTickCounter >= SYNC_INTERVAL) {
             this.syncTickCounter = 0;
             PacketDistributor.sendToAllPlayers(
-                    new IskanderSpawnPacket(this.getId(), this.position(), target, phase, flightTicks, launcherPos,
+                    new IskanderSpawnPacket(this.getId(), this.position(), target, phase, flightTicks,
                             this.startPos, this.launchEndPos, this.finalTargetPos));
 
-            if (launcherPos != null && phase >= PHASE_LAUNCH) {
-                PacketDistributor.sendToAllPlayers(new LauncherStateUpdatePacket(
-                        launcherPos,
-                        LauncherStateUpdatePacket.LauncherState.IN_FLIGHT,
-                        0, 0, flightTicks));
-            }
         }
     }
 
@@ -719,71 +714,11 @@ public class IskanderEntity extends Projectile implements GeoEntity {
             this.setDeltaMovement(Vec3.ZERO);
         }
 
-        spawnClientParticles(phase, motionForParticles);
-    }
-
-    private void spawnClientParticles(int phase, Vec3 motion) {
-        if (phase == PHASE_PREPARING)
-            return;
-
-        Vec3 visualPos = new Vec3(this.xo, this.yo, this.zo);
-
-        Vec3 enginePos = getEngineOffset(visualPos, motion);
-        Vec3 nosePos = getNoseOffset(visualPos, motion);
-
-        if (phase == PHASE_LAUNCH || phase == PHASE_ACTIVE) {
-            for (int i = 0; i < 5; i++) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.FLAME, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 0.3,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 0.3,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 0.3,
-                        -motion.x * 0.05, -motion.y * 0.05, -motion.z * 0.05);
-            }
-            for (int i = 0; i < 3; i++) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 0.4,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 0.4,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 0.4,
-                        -motion.x * 0.02, -motion.y * 0.02, -motion.z * 0.02);
-            }
-            if (this.tickCount % 2 == 0) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.LAVA, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 0.2,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 0.2,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 0.2,
-                        0, 0, 0);
-            }
-        } else if (phase == PHASE_BALLISTIC) {
-            this.level().addAlwaysVisibleParticle(ParticleTypes.CLOUD, true,
-                    enginePos.x, enginePos.y, enginePos.z, 0, 0, 0);
-            if (this.tickCount % 2 == 0) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.CLOUD, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 0.3,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 0.3,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 0.3,
-                        0, 0, 0);
-            }
-        } else if (phase == PHASE_TERMINAL) {
-
-            for (int i = 0; i < 30; i++) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.CLOUD, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 0.8,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 0.8,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 0.8,
-                        -motion.x * 0.005, -motion.y * 0.005, -motion.z * 0.005);
-            }
-            for (int i = 0; i < 20; i++) {
-                this.level().addAlwaysVisibleParticle(ParticleTypes.CLOUD, true,
-                        enginePos.x + (this.random.nextDouble() - 0.5) * 1.5,
-                        enginePos.y + (this.random.nextDouble() - 0.5) * 1.5,
-                        enginePos.z + (this.random.nextDouble() - 0.5) * 1.5,
-                        0, 0, 0);
-            }
-        }
-    }
-
-    private void spawnFlightParticles(int phase) {
-
+        Vec3 now = this.position();
+        Vec3 before = new Vec3(this.xo, this.yo, this.zo);
+        clientFx.tick(this, phase, flightTicks - ShahedConfig.getIskanderPrepareTicks(), motionForParticles,
+                getEngineOffset(before, motionForParticles), getEngineOffset(now, motionForParticles),
+                getNoseOffset(now, motionForParticles), target);
     }
 
     private Vec3 getEngineOffset(Vec3 pos, Vec3 motion) {
@@ -997,15 +932,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
             BlockPos checkPos = new BlockPos((int) Math.floor(checkX), (int) Math.floor(checkY),
                     (int) Math.floor(checkZ));
 
-            if (launcherPos != null) {
-                int dx = Math.abs(checkPos.getX() - launcherPos.getX());
-                int dy = checkPos.getY() - launcherPos.getY();
-                int dz = Math.abs(checkPos.getZ() - launcherPos.getZ());
-                if (dx <= 1 && dz <= 1 && dy >= 0 && dy <= 2) {
-                    continue;
-                }
-            }
-
             if (!this.level().getBlockState(checkPos).isAir()) {
                 return true;
             }
@@ -1013,14 +939,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
                     BlockPos nearPos = checkPos.offset(offsetX, 0, offsetZ);
-                    if (launcherPos != null) {
-                        int dx = Math.abs(nearPos.getX() - launcherPos.getX());
-                        int dy = nearPos.getY() - launcherPos.getY();
-                        int dz = Math.abs(nearPos.getZ() - launcherPos.getZ());
-                        if (dx <= 1 && dz <= 1 && dy >= 0 && dy <= 2) {
-                            continue;
-                        }
-                    }
                     if (!this.level().getBlockState(nearPos).isAir()) {
                         double blockCenterX = nearPos.getX() + 0.5;
                         double blockCenterZ = nearPos.getZ() + 0.5;
@@ -1132,49 +1050,9 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     private void explode() {
         if (!this.level().isClientSide) {
 
-            releaseLauncher();
-
-            if (launcherPos != null) {
-                PacketDistributor.sendToAllPlayers(new LauncherStateUpdatePacket(
-                        launcherPos,
-                        LauncherStateUpdatePacket.LauncherState.EMPTY,
-                        0, 0, 0));
-            }
 
             Vec3 pos = this.position();
             PacketDistributor.sendToAllPlayers(new IskanderExplosionPacket(pos));
-
-            if (this.level() instanceof ServerLevel serverLevel && ShahedConfig.areExplosionParticlesEnabled()) {
-                float mult = ShahedConfig.getParticleMultiplier() / 100.0f;
-
-                sendParticlesForced(serverLevel, ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y, pos.z, 2, 0, 0, 0, 0);
-
-                int debrisCount = (int) (500 * mult);
-                for (int i = 0; i < debrisCount; i++) {
-                    double angle1 = this.random.nextDouble() * Math.PI * 2;
-                    double angle2 = (this.random.nextDouble() - 0.5) * Math.PI;
-                    double speed = 0.6 + this.random.nextDouble() * 2.0;
-                    double vx = Math.cos(angle2) * Math.cos(angle1) * speed;
-                    double vy = Math.sin(angle2) * speed + 0.4;
-                    double vz = Math.cos(angle2) * Math.sin(angle1) * speed;
-                    sendParticlesForced(serverLevel, ModParticles.DEBRIS.get(), pos.x, pos.y + 1, pos.z, 1, vx, vy, vz,
-                            1.0);
-                }
-
-                int flameCount = (int) (300 * mult);
-                for (int i = 0; i < flameCount; i++) {
-                    double angle = this.random.nextDouble() * Math.PI * 2;
-                    double speed = 0.4 + this.random.nextDouble() * 1.0;
-                    sendParticlesForced(serverLevel, ParticleTypes.FLAME, pos.x, pos.y, pos.z, 1,
-                            Math.cos(angle) * speed, 0.3 + this.random.nextDouble() * 0.7, Math.sin(angle) * speed,
-                            0.15);
-                }
-
-                sendParticlesForced(serverLevel, ParticleTypes.LARGE_SMOKE, pos.x, pos.y + 3, pos.z, (int) (120 * mult),
-                        15, 10, 15, 0.04);
-                sendParticlesForced(serverLevel, ParticleTypes.CAMPFIRE_COSY_SMOKE, pos.x, pos.y + 5, pos.z,
-                        (int) (80 * mult), 8, 5, 8, 0.03);
-            }
 
             Entity owner = this.getOwner();
 
@@ -1277,7 +1155,6 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     @Override
     public void remove(RemovalReason reason) {
         if (!this.level().isClientSide) {
-            releaseLauncher();
             MissileChunkManager.unregisterMissile(this);
             PacketDistributor.sendToAllPlayers(new IskanderRemovePacket(this.getId()));
         }
@@ -1322,12 +1199,9 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("LegitSpawn", this.isLegitSpawn);
-        if (this.launcherPos != null) {
-            tag.putInt("LauncherX", this.launcherPos.getX());
-            tag.putInt("LauncherY", this.launcherPos.getY());
-            tag.putInt("LauncherZ", this.launcherPos.getZ());
+        if (this.launcherVehicle != null) {
+            tag.putUUID("LauncherVehicle", this.launcherVehicle);
         }
-        tag.putBoolean("LauncherReleased", this.launcherReleased);
         BlockPos target = this.entityData.get(TARGET_POS);
         tag.putInt("TargetX", target.getX());
         tag.putInt("TargetY", target.getY());
@@ -1388,13 +1262,7 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.isLegitSpawn = tag.getBoolean("LegitSpawn");
-        if (tag.contains("LauncherX")) {
-            this.launcherPos = new BlockPos(
-                    tag.getInt("LauncherX"), tag.getInt("LauncherY"), tag.getInt("LauncherZ"));
-        } else {
-            this.launcherPos = null;
-        }
-        this.launcherReleased = tag.getBoolean("LauncherReleased");
+        this.launcherVehicle = tag.hasUUID("LauncherVehicle") ? tag.getUUID("LauncherVehicle") : null;
         BlockPos target = new BlockPos(tag.getInt("TargetX"), tag.getInt("TargetY"), tag.getInt("TargetZ"));
         this.entityData.set(TARGET_POS, target);
         this.entityData.set(FLIGHT_PHASE, tag.getInt("FlightPhase"));
@@ -1476,105 +1344,5 @@ public class IskanderEntity extends Projectile implements GeoEntity {
     @Override
     public AABB getBoundingBoxForCulling() {
         return super.getBoundingBoxForCulling().inflate(4.0, 8.0, 4.0);
-    }
-
-    private <T extends ParticleOptions> void sendParticlesForced(ServerLevel level, T particle, double x, double y,
-            double z, int count, double xOffset, double yOffset, double zOffset, double speed) {
-        for (ServerPlayer player : level.players()) {
-            level.sendParticles(player, particle, true, x, y, z, count, xOffset, yOffset, zOffset, speed);
-        }
-
-        com.synarsis.airtacticalarsenal.event.OrlanCameraExplosionHelper.sendParticleToFarCameraPlayers(
-                level, particle, x, y, z, count, xOffset, yOffset, zOffset, speed);
-    }
-
-    private void spawnPreparingParticles(ServerLevel level, Vec3 pos) {
-        if (this.tickCount % 3 == 0) {
-            for (ServerPlayer player : level.players()) {
-                level.sendParticles(player, ParticleTypes.CAMPFIRE_COSY_SMOKE, true,
-                        pos.x, pos.y - 0.5 - MODEL_Y_OFFSET, pos.z,
-                        2, 0.3, 0.1, 0.3, 0.01);
-                level.sendParticles(player, ParticleTypes.SMOKE, true,
-                        pos.x, pos.y - 0.3 - MODEL_Y_OFFSET, pos.z,
-                        3, 0.4, 0.2, 0.4, 0.02);
-            }
-        }
-    }
-
-    private void spawnIskanderLaunchParticles(ServerLevel level, Vec3 pos, Vec3 motion) {
-        Vec3 enginePos = getEngineOffset(pos, motion);
-
-        sendParticlesForced(level, ParticleTypes.FLAME,
-                enginePos.x, enginePos.y, enginePos.z,
-                6, 0.25, 0.25, 0.25, 0.1);
-
-        sendParticlesForced(level, ParticleTypes.LAVA,
-                enginePos.x, enginePos.y, enginePos.z,
-                3, 0.2, 0.2, 0.2, 0.08);
-
-        Vec3 smokePos = getEngineOffset(pos, motion);
-        if (motion.lengthSqr() > 0.001) {
-            smokePos = smokePos.subtract(motion.normalize().scale(0.5));
-        }
-        sendParticlesForced(level, ParticleTypes.LARGE_SMOKE,
-                smokePos.x, smokePos.y, smokePos.z,
-                5, 0.4, 0.4, 0.4, 0.03);
-
-        if (this.tickCount % 2 == 0) {
-            sendParticlesForced(level, ParticleTypes.FIREWORK,
-                    enginePos.x, enginePos.y, enginePos.z,
-                    3, 0.15, 0.15, 0.15, 0.2);
-        }
-    }
-
-    private void spawnIskanderContrailParticles(ServerLevel level, Vec3 pos, Vec3 motion, double currentY) {
-        Vec3 trailPos = getEngineOffset(pos, motion);
-        double heightFactor = Math.min(1.0, Math.max(0, (currentY - 100) / 100.0));
-
-        if (currentY >= 200) {
-            sendParticlesForced(level, ParticleTypes.CLOUD,
-                    trailPos.x, trailPos.y, trailPos.z,
-                    4, 0.2, 0.2, 0.2, 0.001);
-
-            if (this.tickCount % 2 == 0) {
-                sendParticlesForced(level, ParticleTypes.SNOWFLAKE,
-                        trailPos.x, trailPos.y, trailPos.z,
-                        2, 0.25, 0.25, 0.25, 0.001);
-            }
-        } else if (currentY >= 100) {
-            int cloudCount = (int) (2 + 3 * heightFactor);
-            sendParticlesForced(level, ParticleTypes.CLOUD,
-                    trailPos.x, trailPos.y, trailPos.z,
-                    cloudCount, 0.15, 0.15, 0.15, 0.005);
-        } else {
-            if (this.tickCount % 3 == 0) {
-                sendParticlesForced(level, ParticleTypes.SMOKE,
-                        trailPos.x, trailPos.y, trailPos.z,
-                        2, 0.1, 0.1, 0.1, 0.01);
-            }
-        }
-    }
-
-    private void spawnIskanderTerminalParticles(ServerLevel level, Vec3 pos, Vec3 motion) {
-        Vec3 nosePos = getNoseOffset(pos, motion);
-        Vec3 enginePos = getEngineOffset(pos, motion);
-
-        sendParticlesForced(level, ParticleTypes.FLAME,
-                nosePos.x, nosePos.y, nosePos.z,
-                3, 0.15, 0.15, 0.15, 0.05);
-
-        sendParticlesForced(level, ParticleTypes.FIREWORK,
-                pos.x, pos.y - MODEL_Y_OFFSET, pos.z,
-                4, 0.3, 0.3, 0.3, 0.15);
-
-        sendParticlesForced(level, ParticleTypes.SMOKE,
-                enginePos.x, enginePos.y, enginePos.z,
-                3, 0.2, 0.2, 0.2, 0.02);
-
-        if (this.tickCount % 3 == 0) {
-            sendParticlesForced(level, ParticleTypes.LAVA,
-                    nosePos.x, nosePos.y, nosePos.z,
-                    2, 0.1, 0.1, 0.1, 0.1);
-        }
     }
 }

@@ -27,7 +27,7 @@ public class ClientIskanderPacketHandler {
     private static final Random random = new Random();
 
     public static void handleIskanderSpawn(int entityId, Vec3 currentPos, BlockPos targetPos, int flightPhase,
-            int flightTicks, BlockPos launcherPos, Vec3 startPos, Vec3 launchEndPos, Vec3 finalTargetPos) {
+            int flightTicks, Vec3 startPos, Vec3 launchEndPos, Vec3 finalTargetPos) {
         cleanupStoppedSounds();
 
         Minecraft mc = Minecraft.getInstance();
@@ -54,8 +54,6 @@ public class ClientIskanderPacketHandler {
             if (!launchSoundPlayed.contains(entityId)) {
                 launchSoundPlayed.add(entityId);
 
-                ClientRocketPacketHandler.stopPreparingSound(launcherPos);
-
                 IskanderLaunchSoundClient sound = new IskanderLaunchSoundClient(entityId, currentPos, targetPos);
                 activeSounds.put(entityId, sound);
                 mc.execute(sound::start);
@@ -64,6 +62,7 @@ public class ClientIskanderPacketHandler {
     }
 
     public static void handleIskanderRemove(int entityId) {
+        com.synarsis.airtacticalarsenal.client.fx.TrailFx.forget(entityId);
         launchSoundPlayed.remove(entityId);
         IskanderLaunchSoundClient sound = activeSounds.remove(entityId);
         if (sound != null && !sound.isStopped()) {
@@ -85,6 +84,10 @@ public class ClientIskanderPacketHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) {
             return;
+        }
+
+        if (!com.synarsis.airtacticalarsenal.compat.ExplosionOverhaulCompat.leadsVisuals()) {
+            com.synarsis.airtacticalarsenal.client.fx.ImpactFx.blast(explosionPos, 1.0, true);
         }
 
         Vec3 listenerPos = (mc.cameraEntity != null) ? mc.cameraEntity.position() : mc.player.position();
