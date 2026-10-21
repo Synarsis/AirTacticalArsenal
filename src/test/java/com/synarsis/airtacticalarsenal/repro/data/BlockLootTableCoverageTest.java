@@ -59,13 +59,12 @@ class BlockLootTableCoverageTest {
         Set<String> registered = registeredBlockNames(source);
 
         assertFalse(registered.isEmpty(), "no block registrations parsed out of " + MOD_BLOCKS);
-        assertTrue(registered.contains("launcher"),
-                "expected 'launcher' among parsed registrations, got " + registered);
-        assertTrue(droplessByDeclaration(source).contains("iskander_rocket"),
-                "expected iskander_rocket to be the block declared .noLootTable(); parsed: "
-                        + droplessByDeclaration(source));
-        assertTrue(Files.exists(LOOT_TABLE_DIR.resolve("launcher.json")),
-                "expected the shipped launcher loot table at " + LOOT_TABLE_DIR);
+        assertTrue(registered.containsAll(Set.of("shahed_radar", "siren", "shahed_terminal")),
+                "expected the three blocks among parsed registrations, got " + registered);
+        for (String name : Set.of("shahed_radar", "siren", "shahed_terminal")) {
+            assertTrue(Files.exists(LOOT_TABLE_DIR.resolve(name + ".json")),
+                    "expected the shipped " + name + " loot table at " + LOOT_TABLE_DIR);
+        }
     }
 
     @Test

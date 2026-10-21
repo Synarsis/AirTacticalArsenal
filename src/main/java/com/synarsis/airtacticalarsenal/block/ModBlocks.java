@@ -2,6 +2,7 @@ package com.synarsis.airtacticalarsenal.block;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.item.ModItems;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -20,18 +21,13 @@ public class ModBlocks {
             () -> new ShahedRadarBlock(BlockBehaviour.Properties.of().strength(3.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
     public static final DeferredBlock<Block> SIREN = registerBlock("siren",
             () -> new SirenBlock(BlockBehaviour.Properties.of().strength(2.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
-    public static final DeferredBlock<Block> UNIFIED_TERMINAL = registerBlock("unified_terminal",
-            () -> new UnifiedTerminalBlock(BlockBehaviour.Properties.of().strength(3.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
     public static final DeferredBlock<Block> SHAHED_TERMINAL = registerBlock("shahed_terminal",
             () -> new ShahedTerminalBlock(BlockBehaviour.Properties.of().strength(3.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
-    public static final DeferredBlock<Block> LAUNCHER = registerBlock("launcher",
-            () -> new LauncherBlock(BlockBehaviour.Properties.of().strength(4.0f).sound(SoundType.METAL).requiresCorrectToolForDrops().noOcclusion()));
 
-    public static final DeferredBlock<Block> ISKANDER_ROCKET = registerBlockNoItem("iskander_rocket",
-            () -> new IskanderRocketBlock(BlockBehaviour.Properties.of().strength(2.0f).sound(SoundType.METAL).noOcclusion().noLootTable()));
-
-    public static final DeferredBlock<Block> LOADING_HATCH = registerBlock("loading_hatch",
-            () -> new LoadingHatchBlock(BlockBehaviour.Properties.of().strength(4.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    static {
+        BLOCKS.addAlias(ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "unified_terminal"),
+                ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "shahed_terminal"));
+    }
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
@@ -41,10 +37,6 @@ public class ModBlocks {
 
     private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
-    }
-
-    private static <T extends Block> DeferredBlock<T> registerBlockNoItem(String name, Supplier<T> block) {
-        return BLOCKS.register(name, block);
     }
 
     public static void register(IEventBus eventBus) {

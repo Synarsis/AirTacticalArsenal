@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import com.synarsis.airtacticalarsenal.block.ModBlocks;
 import com.synarsis.airtacticalarsenal.chunk.MissileChunkManager;
-import com.synarsis.airtacticalarsenal.block.entity.ModBlockEntities;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.ModEntities;
 import com.synarsis.airtacticalarsenal.item.ModCreativeTabs;
@@ -35,7 +34,6 @@ public class AirTacticalArsenal {
         ModItems.register(modEventBus);
         ModDataComponents.register(modEventBus);
         ModEntities.register(modEventBus);
-        ModBlockEntities.register(modEventBus);
         ModSounds.register(modEventBus);
         ModParticles.register(modEventBus);
         ModCreativeTabs.register(modEventBus);

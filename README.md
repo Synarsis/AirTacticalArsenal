@@ -24,17 +24,19 @@ branch.
 - [Requirements](#requirements)
 - [Build](#build)
 - [How to play](#how-to-play)
+- [Effects and light](#effects-and-light)
 - [Commands](#commands)
 - [Config](#config)
 - [Project layout](#project-layout)
 - [Mod compat](#mod-compat)
 - [License](#license)
+- [Credits](#credits)
 
 ## About
 
-Adds long-range strike systems and recon UAVs to Minecraft 1.21.1. Strikes are
-launched from terminals against coordinates, fly across loaded chunks and
-explode on arrival. The recon drone has its own camera view with a night vision
+Adds long-range strike systems and recon UAVs to Minecraft 1.21.1. Shaheds are
+launched from a terminal and the Iskander-M from its own launcher vehicle,
+against coordinates; both fly across loaded chunks and explode on arrival. The recon drone has its own camera view with a night vision
 shader. Drones can be shot down, and where you hit one decides what it does
 next.
 
@@ -43,9 +45,12 @@ next.
 ### Strike
 
 - **Shahed-136** — kamikaze UAV, two attack profiles (low dive and high dive)
-- **Iskander-M** — ballistic missile, needs a 5x5 launch pad, 7-second
-  countdown
+- **Iskander-M on the 9P78-1 launcher** — a drivable vehicle with two missiles
+  under roof covers. You drive it, open the covers, load, prepare, aim from a
+  console in the cab and fire one missile or a salvo of two
 - chunk-aware flight: chunks along the flight path stay loaded
+- launch and impact effects: smoke, dust, flash, shock wave, camera shake and
+  real light on the world (see [Effects and light](#effects-and-light))
 
 ### Recon
 
@@ -56,10 +61,7 @@ next.
 ### Control and detection
 
 - **Shahed Control Terminal** — pick coordinates, see cost, launch
-- **Iskander Control Terminal** — unified launcher control, can manage several
-  pads, shows ETA and status
 - **Air Defense Radar** — tactical map with zoom, pan and target markers
-- **Launch Interface Cable** — links launcher to terminal, up to 60 blocks
 - **Alert Siren** — alarm block with sound
 
 ### Other
@@ -136,18 +138,39 @@ Unit tests run as part of `build`, or on their own:
 
 ### Shahed-136
 
-1. Place a Shahed Control Terminal and a launch pad.
-2. Use the Launch Interface Cable: right-click the pad, then right-click the
-   terminal to link them.
-3. Open the terminal, type X and Z, set target height.
-4. Make sure you have enough coins, then hit LAUNCH.
+1. Place a Shahed Control Terminal.
+2. Open it, type X and Z, set target height.
+3. Make sure you have enough coins, then hit LAUNCH.
 
-### Iskander-M
+### Iskander-M (9P78-1 launcher vehicle)
 
-1. Build a 5x5 launch pad on flat ground with open sky above.
-2. Install the Iskander rocket on the pad.
-3. Open the Iskander Control Terminal, pick the pad and the target.
-4. Confirm — 7 second countdown starts.
+Craft and place the **Iskander-M launcher** (the item `ata:iskander_tel`) on flat
+ground, then get in.
+
+- **Driving.** Move with the usual movement keys, Space is the handbrake, Ctrl
+  the afterburner. It has a driver and a commander seat. It cannot work in water
+  or on a steep slope.
+- **Console (`G`).** The fire-control panel opens from the cab. Top to bottom:
+  - **Covers.** Open the roof covers; missiles can only be loaded while the
+    covers are open. Load an Iskander missile into each bay from your inventory.
+  - **Prepare.** Raise one missile, or both at once ("prepare both", from the
+    travel position). Raising takes a few seconds and the machine puts its jacks
+    down.
+  - **Checks.** Before a launch the vehicle checks its surroundings: standing
+    still, on the ground, not in water, level enough, room for the covers and
+    for the missile to stand up, a clear sky above the launch, and a valid
+    target. Each check shows ✔ or ✖ and the tooltip says which block is in the
+    way.
+  - **Targets per missile.** Each missile has its own X and Z. Targets can be
+    copied from missile 1 to missile 2 or taken from the Control Tablet.
+  - **Salvo.** Set the interval between the two missiles, 5 to 30 seconds. The
+    first leaves after the countdown and the second after the interval.
+  - **Fire** (press twice to confirm), **abort** during the countdown, then
+    **lower** the missiles and **stow** the machine to drive off.
+- **Headlights (`H`).** Switch the launcher's headlights and tail lights on and
+  off. Everyone nearby sees them.
+
+Missiles can also be spawned directly with `/ata attack iskander`.
 
 ### Orlan-10
 
@@ -165,6 +188,29 @@ All rebindable under Controls, in the **Air Tactical Arsenal** category.
 | `Left Alt` | Leave the drone camera |
 | `R` | Lock on target |
 | `N` | Night vision |
+| `G` | Launcher console (in the cab of the Iskander launcher) |
+| `H` | Launcher headlights (in the cab) |
+
+## Effects and light
+
+Launches, flight and impacts have their own effects: smoke that drifts with the
+wind, dust rings, flash, shock wave, camera shake. The mod also lights the world
+itself, so headlights lay a cone on the grass, a launch lights up the pad and an
+impact lights the surroundings, with shadows from blocks and heat haze over
+flames. Light is eased so that nothing burns out to white.
+
+Four client settings in `config/ata-client.toml`:
+
+| Setting | Values | What it does |
+|---|---|---|
+| `fxQuality` | LOW / MEDIUM / HIGH | how many particles are drawn |
+| `fxLighting` | OFF / LOW / MEDIUM / HIGH | how many lights, shadows from blocks, contact shadows and haze |
+| `fxLightIntensity` | 0.0 – 2.0 | strength of all light |
+| `fxHeatHaze` | true / false | heat haze (only with `fxLighting` HIGH) |
+
+With an **Iris / Oculus shader pack** active, the mod's own light is switched
+off, because the pack does its own lighting. Particles and everything else work
+as usual.
 
 ## Commands
 
@@ -173,7 +219,7 @@ permission level 2 — a player without operator rights sees nothing.
 
 ```
 /ata attack shahed <start> <target> low|high
-/ata attack iskander <start> <target>
+/ata attack iskander <start> <target>   spawn a missile straight in the air
 /ata config                        show current settings
 /ata config <setting> ...          change one
 /ata map rescan | status
@@ -198,6 +244,18 @@ For testing the shootdown model without hunting for a live drone:
 `break`, `damage`, `heal`, `fuze` and `release` act on the drone you are looking
 at, resolved against the real geometry, falling back to the nearest one.
 
+For looking at the effects and the light without firing anything:
+
+```
+/ata debug fx <launch|impact|shahed|wreck|flash> [power]   play a scene where you look
+/ata debug lights on|off                list of lights, wireframes, pass time
+/ata debug lights buffer                show the light buffer instead of the picture (toggle)
+/ata debug lights voxels                outline the blocks that cast shadows (toggle)
+```
+
+The scenes are the very ones the battle plays, only for you, with no damage and
+no change to the world.
+
 ## Config
 
 - `config/ata-server.toml` — the rules: spawn coordinates, launch cost, block
@@ -215,10 +273,10 @@ mod list, or the settings key.
 src/main/java/com/synarsis/airtacticalarsenal
 ├── AirTacticalArsenal.java     entry point, @Mod("ata")
 ├── AirTacticalArsenalClient.java
-├── block/                      terminals, launcher, radar, siren
-│   └── entity/                 block entities
+├── block/                      Shahed terminal, radar, siren
 ├── entity/                     Shahed, Iskander, Orlan, paint stand
-├── item/                       coins, rockets, drones, tablets, cable
+│   └── tel/                    the 9P78-1 launcher vehicle: state machine, driving, checks
+├── item/                       coins, rockets, drones, tablets
 ├── combat/
 │   ├── hitbox/                 oriented boxes traced from the model
 │   ├── sweep/                  swept detection for TacZ rounds
@@ -226,7 +284,9 @@ src/main/java/com/synarsis/airtacticalarsenal
 │   ├── outcome/                fall modes, fuze, impact
 │   └── effect/                 debris and trails
 ├── client/
-│   ├── gui/                    terminal, radar, route, settings screens
+│   ├── gui/                    terminal, radar, route, settings, launcher console
+│   ├── fx/                     launch and impact effects, smoke, screen flash
+│   │   └── light/              the lighting engine: lights, light pass, block shadows
 │   ├── hud/                    hit marker
 │   ├── debug/                  hitbox wireframe
 │   ├── radar/ shader/ model/ renderer/ sound/
@@ -238,7 +298,7 @@ src/main/java/com/synarsis/airtacticalarsenal
 src/main/resources
 ├── assets/ata/                 textures, lang, models, shaders, sounds
 └── data/ata/                   loot tables, recipes
-src/test/java                   unit tests for the geometry and outcome model
+src/test/java                   unit tests for the geometry, the outcome model, the launcher and the light
 ```
 
 ## Mod compat
@@ -264,3 +324,7 @@ Short version:
 - commercial use: needs written permission
 - third-party libraries, fonts, sounds and textures stay under their upstream
   licenses
+
+## Credits
+
+- Iskander-M missile and 9P78-1 launcher — Model by Zinaida

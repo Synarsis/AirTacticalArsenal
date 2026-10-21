@@ -27,14 +27,6 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> HAS_WATER =
             register("has_water", b -> b.persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlockPos>> REGISTERED_LAUNCHER =
-            register("registered_launcher",
-                    b -> b.persistent(BlockPos.CODEC).networkSynchronized(BlockPos.STREAM_CODEC));
-
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> REGISTERED_LAUNCHER_DIMENSION =
-            register("registered_launcher_dimension",
-                    b -> b.persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8));
-
     private static final StreamCodec<ByteBuf, List<BlockPos>> BLOCK_POS_LIST_STREAM_CODEC =
             BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list());
 

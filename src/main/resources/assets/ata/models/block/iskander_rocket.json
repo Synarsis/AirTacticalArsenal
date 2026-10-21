@@ -1,8 +1,0 @@
-{
-  "credit": "Made with Blockbench",
-  "parent": "minecraft:block/block",
-  "textures": {
-    "0": "ata:entity/iskander",
-    "particle": "ata:entity/iskander"
-  }
-}

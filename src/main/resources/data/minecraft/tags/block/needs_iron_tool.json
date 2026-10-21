@@ -1,8 +1,0 @@
-{
-  "replace": false,
-  "values": [
-    "ata:launcher",
-    "ata:loading_hatch",
-    "ata:unified_terminal"
-  ]
-}
