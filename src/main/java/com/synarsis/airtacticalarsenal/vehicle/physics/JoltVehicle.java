@@ -44,6 +44,11 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     public record Controls(double throttle, double steer, double brake, double handbrake, boolean boost) {
         public static final Controls IDLE = new Controls(0.0, 0.0, 0.0, 0.0, false);
 
+        public static Controls driving(double throttle, double toTheRight, double brake, double handbrake,
+                boolean boost) {
+            return new Controls(throttle, -toTheRight, brake, handbrake, boost);
+        }
+
         public Controls(double throttle, double steer, double brake, double handbrake) {
             this(throttle, steer, brake, handbrake, false);
         }
@@ -741,7 +746,7 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         if (a.yawStabilisation > 0.0 && Math.abs(forward) > 4.0 && upY > 0.5) {
             double yawRate = s.wy();
             double steerAngle = this.smoothSteer * this.maxFrontSteerRadians();
-            double target = -forward * Math.tan(steerAngle) / this.wheelbase * 0.6;
+            double target = forward * Math.tan(steerAngle) / this.wheelbase;
             double error = target - yawRate;
             double torque = a.yawStabilisation * this.inertiaYaw * error * 2.0;
             this.bodies.addTorque(this.bodyId, new Vec3((float) (upX * torque), (float) (upY * torque), (float) (upZ * torque)));

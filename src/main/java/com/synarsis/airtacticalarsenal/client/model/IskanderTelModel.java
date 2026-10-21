@@ -26,6 +26,10 @@ public class IskanderTelModel extends GeoModel<IskanderTelEntity> {
     private static final double WHEEL_SPIN_SIGN = -1.0;
     private static final double STEER_SIGN = -1.0;
 
+    public static double steerRotationY(double steerDegrees) {
+        return Math.toRadians(steerDegrees) * STEER_SIGN;
+    }
+
     @Override
     public ResourceLocation getModelResource(IskanderTelEntity entity) {
         return MODEL;
@@ -89,7 +93,7 @@ public class IskanderTelModel extends GeoModel<IskanderTelEntity> {
     }
 
     private void applyProceduralBones(IskanderTelEntity entity, float partialTick) {
-        double steer = Math.toRadians(entity.getSteerDegrees(partialTick)) * STEER_SIGN;
+        double steer = steerRotationY(entity.getSteerDegrees(partialTick));
         double spinLeft = entity.getWheelRot(true, partialTick) * WHEEL_SPIN_SIGN;
         double spinRight = entity.getWheelRot(false, partialTick) * WHEEL_SPIN_SIGN;
         for (int axle = 0; axle < 4; axle++) {

@@ -34,14 +34,14 @@ public final class TelGeometry {
 
     public static final int SEAT_COUNT = 3;
     public static final Vec3[] SEATS = {
-            new Vec3(1.0625, 2.08, 5.45),
-            new Vec3(0.0, 2.08, 5.45),
             new Vec3(-1.0625, 2.08, 5.45),
+            new Vec3(0.0, 2.08, 5.45),
+            new Vec3(1.0625, 2.08, 5.45),
     };
     public static final Vec3[] DISMOUNTS = {
+            new Vec3(-2.8, 0.0, 6.2),
             new Vec3(2.8, 0.0, 6.2),
-            new Vec3(-2.8, 0.0, 6.2),
-            new Vec3(-2.8, 0.0, 6.2),
+            new Vec3(2.8, 0.0, 6.2),
     };
 
     public static final Vec3[] MISSILE_BASE = {

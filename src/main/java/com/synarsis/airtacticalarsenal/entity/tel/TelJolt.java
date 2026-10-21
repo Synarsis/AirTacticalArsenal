@@ -96,14 +96,11 @@ public final class TelJolt implements PhysicsWorlds.Participant {
         return jacked ? Role.HOLD : Role.SIMULATE;
     }
 
-    static JoltVehicle.Controls controlsFor(int keys, boolean stowed) {
+    public static JoltVehicle.Controls controlsFor(int keys, boolean stowed) {
         if (!stowed) {
             return new JoltVehicle.Controls(0.0, 0.0, 1.0, 1.0, false);
         }
-        double throttle = ((keys & TelInput.FWD) != 0 ? 1.0 : 0.0) - ((keys & TelInput.BACK) != 0 ? 1.0 : 0.0);
-        double steer = ((keys & TelInput.RIGHT) != 0 ? 1.0 : 0.0) - ((keys & TelInput.LEFT) != 0 ? 1.0 : 0.0);
-        double handbrake = (keys & TelInput.BRAKE) != 0 ? 1.0 : 0.0;
-        return new JoltVehicle.Controls(throttle, steer, 0.0, handbrake, (keys & TelInput.BOOST) != 0);
+        return TelDriving.controls(keys);
     }
 
     static boolean overturned(double pitchDeg, double rollDeg) {

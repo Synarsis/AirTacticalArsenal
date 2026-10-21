@@ -31,8 +31,8 @@ class TelJoltRulesTest {
         assertEquals(0.0, forward.steer(), 0.0);
         assertEquals(-1.0, TelJolt.controlsFor(TelInput.BACK, true).throttle(), 0.0);
         assertEquals(0.0, TelJolt.controlsFor(TelInput.FWD | TelInput.BACK, true).throttle(), 0.0);
-        assertEquals(1.0, TelJolt.controlsFor(TelInput.RIGHT, true).steer(), 0.0);
-        assertEquals(-1.0, TelJolt.controlsFor(TelInput.LEFT, true).steer(), 0.0);
+        assertEquals(-1.0, TelJolt.controlsFor(TelInput.RIGHT, true).steer(), 0.0);
+        assertEquals(1.0, TelJolt.controlsFor(TelInput.LEFT, true).steer(), 0.0);
         assertEquals(0.0, TelJolt.controlsFor(TelInput.LEFT | TelInput.RIGHT, true).steer(), 0.0);
         assertEquals(1.0, TelJolt.controlsFor(TelInput.BRAKE, true).handbrake(), 0.0);
         assertTrue(TelJolt.controlsFor(TelInput.BOOST, true).boost());

@@ -2,7 +2,7 @@ package com.synarsis.airtacticalarsenal.entity.patriot;
 
 import com.mojang.logging.LogUtils;
 import com.synarsis.airtacticalarsenal.entity.tel.RollbackLog;
-import com.synarsis.airtacticalarsenal.entity.tel.TelInput;
+import com.synarsis.airtacticalarsenal.entity.tel.TelDriving;
 import com.synarsis.airtacticalarsenal.entity.tel.TelWorld;
 import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatch;
 import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatchBuilder;
@@ -102,10 +102,7 @@ public final class PatriotJolt implements PhysicsWorlds.Participant {
     }
 
     public static JoltVehicle.Controls controlsFor(int keys) {
-        double throttle = ((keys & TelInput.FWD) != 0 ? 1.0 : 0.0) - ((keys & TelInput.BACK) != 0 ? 1.0 : 0.0);
-        double toTheRight = ((keys & TelInput.RIGHT) != 0 ? 1.0 : 0.0) - ((keys & TelInput.LEFT) != 0 ? 1.0 : 0.0);
-        double handbrake = (keys & TelInput.BRAKE) != 0 ? 1.0 : 0.0;
-        return new JoltVehicle.Controls(throttle, -toTheRight, 0.0, handbrake, (keys & TelInput.BOOST) != 0);
+        return TelDriving.controls(keys);
     }
 
     public static boolean overturned(double pitchDeg, double rollDeg) {
