@@ -83,6 +83,12 @@ public final class PatriotJolt implements PhysicsWorlds.Participant {
     private double rightingFromRoll;
     private double[] rightingFromArticulation = new double[3];
 
+    private StagedPose staged;
+
+    private record StagedPose(double x, double y, double z, float yaw, float pitch, float roll, float artYaw,
+            float artPitch, float artRoll, Vec3 velocity, boolean grounded) {
+    }
+
     PatriotJolt(PatriotVehicleEntity entity) {
         this.entity = entity;
         this.level = entity.level();
@@ -292,6 +298,7 @@ public final class PatriotJolt implements PhysicsWorlds.Participant {
     }
 
     private void releaseAll() {
+        this.staged = null;
         if (this.ground != null) {
             this.ground.close();
             this.ground = null;
@@ -415,14 +422,14 @@ public final class PatriotJolt implements PhysicsWorlds.Participant {
         }
         double[] art = this.train.linked() ? this.train.articulation() : new double[] {
                 this.entity.getArticulationYaw(), this.entity.getArticulationPitch(), this.entity.getArticulationRoll()};
-        this.entity.applyJoltPose(s.x(), s.y(), s.z(), (float) s.yawDeg(), (float) s.pitchDeg(), (float) s.rollDeg(),
+        this.stage(s.x(), s.y(), s.z(), (float) s.yawDeg(), (float) s.pitchDeg(), (float) s.rollDeg(),
                 (float) art[0], (float) art[1], (float) art[2],
                 new Vec3(s.vx() / Units.TICKS_PER_SECOND, s.vy() / Units.TICKS_PER_SECOND,
                         s.vz() / Units.TICKS_PER_SECOND), this.train.tractor().wheelsOnGround() > 0);
-        this.writtenX = this.entity.getX();
-        this.writtenY = this.entity.getY();
-        this.writtenZ = this.entity.getZ();
-        this.writtenYaw = this.entity.getYRot();
+        this.writtenX = s.x();
+        this.writtenY = s.y();
+        this.writtenZ = s.z();
+        this.writtenYaw = (float) s.yawDeg();
         this.hasWritten = true;
         this.readGauges(s);
         this.reportImpacts();
@@ -540,13 +547,29 @@ public final class PatriotJolt implements PhysicsWorlds.Participant {
         double ar = this.rightingFromArticulation[2] * (1.0 - smooth);
         this.train.moveKinematic(this.entity.getX(), y, this.entity.getZ(), this.entity.getYRot(), pitch, roll, ay, ap,
                 ar, TICK_SECONDS);
-        this.entity.applyJoltPose(this.entity.getX(), y, this.entity.getZ(), this.entity.getYRot(), (float) pitch,
-                (float) roll, (float) ay, (float) ap, (float) ar, Vec3.ZERO, false);
+        this.stage(this.entity.getX(), y, this.entity.getZ(), this.entity.getYRot(), (float) pitch, (float) roll,
+                (float) ay, (float) ap, (float) ar, Vec3.ZERO, false);
         this.rightingTicks--;
         if (this.rightingTicks == 0) {
             this.train.setVelocity(0, 0, 0, 0, 0, 0);
             this.train.setMode(JoltVehicle.Mode.DYNAMIC);
         }
+    }
+
+    private void stage(double x, double y, double z, float yaw, float pitch, float roll, float artYaw, float artPitch,
+            float artRoll, Vec3 velocity, boolean grounded) {
+        this.staged = new StagedPose(x, y, z, yaw, pitch, roll, artYaw, artPitch, artRoll, velocity, grounded);
+    }
+
+    boolean applyStagedPose() {
+        StagedPose pose = this.staged;
+        if (pose == null) {
+            return false;
+        }
+        this.staged = null;
+        this.entity.applyJoltPose(pose.x(), pose.y(), pose.z(), pose.yaw(), pose.pitch(), pose.roll(), pose.artYaw(),
+                pose.artPitch(), pose.artRoll(), pose.velocity(), pose.grounded());
+        return true;
     }
 
     private void readGauges(JoltVehicle.Snapshot s) {

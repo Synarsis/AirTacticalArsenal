@@ -71,7 +71,7 @@ public final class PatriotGameTests {
         return (vehicle.currentMask() & bit) != 0;
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 200)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 200)
     public static void placesLauncherAndRadar(GameTestHelper helper) {
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         BlockPos floor = helper.absolutePos(new BlockPos(24, 1, 6));
@@ -125,7 +125,36 @@ public final class PatriotGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 500)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 200,
+            batch = "physicsFixes")
+    public static void riderStaysOnTheSeat(GameTestHelper helper) {
+        PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
+        vehicle.setPos(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
+        net.minecraft.world.entity.decoration.ArmorStand first = new net.minecraft.world.entity.decoration.ArmorStand(
+                net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
+        net.minecraft.world.entity.decoration.ArmorStand second = new net.minecraft.world.entity.decoration.ArmorStand(
+                net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
+        helper.runAfterDelay(3, () -> {
+            first.moveTo(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
+            helper.getLevel().addFreshEntity(first);
+            helper.assertTrue(first.startRiding(vehicle, true), "the first rider could not board");
+            second.moveTo(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
+            helper.getLevel().addFreshEntity(second);
+            helper.assertTrue(second.startRiding(vehicle, true), "the second rider could not board");
+        });
+        helper.runAfterDelay(18, () -> {
+            Vec3 seat = vehicle.getPassengerRidingPosition(second);
+            double gap = second.position().distanceTo(seat);
+            helper.assertTrue(vehicle.getPassengers().indexOf(second) == 1, "the rider is not on seat 1");
+            helper.assertTrue(gap < 0.05, "the rider is " + gap + " blocks behind the seat");
+            second.discard();
+            first.discard();
+            vehicle.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 500)
     public static void deployFinishesInTheRightTime(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         Player[] driver = new Player[1];
@@ -172,7 +201,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void detachRefusedWithAWallAhead(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
         Player[] driver = new Player[1];
@@ -200,7 +229,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 900)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 900)
     public static void detachAndAttachOnTheFlat(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         Player[] driver = new Player[1];
@@ -279,7 +308,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 400)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 400)
     public static void driverlessTrainFollowsItsTractor(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         Vec3[] start = new Vec3[1];
@@ -306,7 +335,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 400)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 400)
     public static void savesAndLoadsInTheMiddleOfAnOperation(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
         Player[] driver = new Player[1];
@@ -336,7 +365,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void zonesScaleTheDamageAndTheVehicleDies(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         helper.runAfterDelay(SETTLE, () -> {
@@ -360,7 +389,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void ironRepairsIt(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
         helper.runAfterDelay(20, () -> {
@@ -376,7 +405,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void explosionPushesIt(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         Vec3 start = helper.absoluteVec(new Vec3(24.5, 2.1, 7.0));
@@ -393,7 +422,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 200)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 200)
     public static void theDriversPoseIsChecked(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         helper.runAfterDelay(10, () -> {
@@ -410,7 +439,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void givesItsBodiesBack(GameTestHelper helper) {
         int before = com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds.bodyCount(helper.getLevel());
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
@@ -426,7 +455,7 @@ public final class PatriotGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 500)
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 500)
     public static void anIronBlockPutsItBackOnItsWheels(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         helper.runAfterDelay(SETTLE, () -> {

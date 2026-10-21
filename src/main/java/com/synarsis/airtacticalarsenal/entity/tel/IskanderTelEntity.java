@@ -464,6 +464,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
             this.dropJolt();
             return;
         }
+        this.jolt.applyStagedPose();
         if (client && !simulating) {
             this.setDeltaMovement(Vec3.ZERO);
         }
@@ -1073,7 +1074,9 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
         this.lastClientVelocity = vel;
         this.sway.tick(accel.x * fwdX + accel.z * fwdZ, accel.x * -fwdZ + accel.z * fwdX, this.inertiaRate());
 
-        float kmh = (float) (Math.hypot(vel.x, vel.z) * 20.0 * 3.6);
+        float kmh = this.joltDrivesPose()
+                ? (float) Units.msToKmh(this.jolt.speedMs())
+                : (float) (Math.hypot(vel.x, vel.z) * 20.0 * 3.6);
         this.speedKmh += (kmh - this.speedKmh) * 0.3f;
 
         this.updateWheelContact(simulating);
@@ -1189,6 +1192,9 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
     }
 
     public float getSpeedKmh() {
+        if (!this.level().isClientSide && this.joltDrivesPose()) {
+            return (float) Units.msToKmh(this.jolt.speedMs());
+        }
         return this.speedKmh;
     }
 

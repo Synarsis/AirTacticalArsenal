@@ -78,6 +78,12 @@ public final class TelJolt implements PhysicsWorlds.Participant {
     private double rightingFromPitch;
     private double rightingFromRoll;
 
+    private StagedPose staged;
+
+    private record StagedPose(double x, double y, double z, float yaw, float pitch, float roll, Vec3 velocity,
+            boolean grounded) {
+    }
+
     TelJolt(IskanderTelEntity tel) {
         this.tel = tel;
         this.level = tel.level();
@@ -266,6 +272,7 @@ public final class TelJolt implements PhysicsWorlds.Participant {
     }
 
     private void releaseAll() {
+        this.staged = null;
         if (this.ground != null) {
             this.ground.close();
             this.ground = null;
@@ -370,13 +377,13 @@ public final class TelJolt implements PhysicsWorlds.Participant {
             this.fail(new IllegalStateException("the body left the numbers"));
             return;
         }
-        this.tel.applyJoltPose(s.x(), s.y(), s.z(), (float) s.yawDeg(), (float) s.pitchDeg(), (float) s.rollDeg(),
+        this.stage(s.x(), s.y(), s.z(), (float) s.yawDeg(), (float) s.pitchDeg(), (float) s.rollDeg(),
                 new Vec3(s.vx() / Units.TICKS_PER_SECOND, s.vy() / Units.TICKS_PER_SECOND,
                         s.vz() / Units.TICKS_PER_SECOND), this.vehicle.wheelsOnGround() > 0);
-        this.writtenX = this.tel.getX();
-        this.writtenY = this.tel.getY();
-        this.writtenZ = this.tel.getZ();
-        this.writtenYaw = this.tel.getYRot();
+        this.writtenX = s.x();
+        this.writtenY = s.y();
+        this.writtenZ = s.z();
+        this.writtenYaw = (float) s.yawDeg();
         this.hasWritten = true;
         this.readGauges(s);
         double hit = this.vehicle.takeImpactSpeed();
@@ -477,13 +484,29 @@ public final class TelJolt implements PhysicsWorlds.Participant {
         double pitch = this.rightingFromPitch * (1.0 - smooth);
         double roll = this.rightingFromRoll * (1.0 - smooth);
         this.vehicle.moveKinematic(this.tel.getX(), y, this.tel.getZ(), this.tel.getYRot(), pitch, roll, TICK_SECONDS);
-        this.tel.applyJoltPose(this.tel.getX(), y, this.tel.getZ(), this.tel.getYRot(), (float) pitch, (float) roll,
-                Vec3.ZERO, false);
+        this.stage(this.tel.getX(), y, this.tel.getZ(), this.tel.getYRot(), (float) pitch, (float) roll, Vec3.ZERO,
+                false);
         this.rightingTicks--;
         if (this.rightingTicks == 0) {
             this.vehicle.setVelocity(0, 0, 0, 0, 0, 0);
             this.vehicle.setMode(JoltVehicle.Mode.DYNAMIC);
         }
+    }
+
+    private void stage(double x, double y, double z, float yaw, float pitch, float roll, Vec3 velocity,
+            boolean grounded) {
+        this.staged = new StagedPose(x, y, z, yaw, pitch, roll, velocity, grounded);
+    }
+
+    boolean applyStagedPose() {
+        StagedPose pose = this.staged;
+        if (pose == null) {
+            return false;
+        }
+        this.staged = null;
+        this.tel.applyJoltPose(pose.x(), pose.y(), pose.z(), pose.yaw(), pose.pitch(), pose.roll(), pose.velocity(),
+                pose.grounded());
+        return true;
     }
 
     private void readGauges(JoltVehicle.Snapshot s) {

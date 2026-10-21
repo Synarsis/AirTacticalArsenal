@@ -335,8 +335,13 @@ public final class LightPass {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, floating ? GL30.GL_RGBA16F : GL11.GL_RGBA8, w, h, 0, GL11.GL_RGBA,
-                floating ? GL11.GL_FLOAT : GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        TexUpload.Store store = TexUpload.begin();
+        try {
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, floating ? GL30.GL_RGBA16F : GL11.GL_RGBA8, w, h, 0,
+                    GL11.GL_RGBA, floating ? GL11.GL_FLOAT : GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        } finally {
+            TexUpload.end(store);
+        }
         int fbo = GL30.glGenFramebuffers();
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, tex, 0);

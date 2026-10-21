@@ -214,7 +214,13 @@ public final class OccupancyVolume {
             GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
             int size = OccupancyGrid.TEXTURE_SIZE;
             ByteBuffer zeros = BufferUtils.createByteBuffer(size * size);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_R8, size, size, 0, GL11.GL_RED, GL11.GL_UNSIGNED_BYTE, zeros);
+            TexUpload.Store store = TexUpload.begin();
+            try {
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_R8, size, size, 0, GL11.GL_RED,
+                        GL11.GL_UNSIGNED_BYTE, zeros);
+            } finally {
+                TexUpload.end(store);
+            }
             GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
             GlStateManager._bindTexture(previous);
             texture = tex;
@@ -238,8 +244,18 @@ public final class OccupancyVolume {
         grid.writeSection(sx, sy, sz, SECTION, SINK);
     }
 
-    private static final OccupancyGrid.TextureSink SINK = (u, v, pixels) ->
+    private static final OccupancyGrid.TextureSink SINK = (u, v, pixels) -> {
+        if (!TexUpload.fits(pixels, 16, 16)) {
+            AirTacticalArsenal.LOGGER.warn("The light grid layer is not a direct 16x16 buffer; it is skipped");
+            return;
+        }
+        TexUpload.Store store = TexUpload.begin();
+        try {
             GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, u, v, 16, 16, GL11.GL_RED, GL11.GL_UNSIGNED_BYTE, pixels);
+        } finally {
+            TexUpload.end(store);
+        }
+    };
 
     private static boolean read(ClientLevel level, int sx, int sy, int sz) {
         java.util.Arrays.fill(SECTION, (byte) 0);

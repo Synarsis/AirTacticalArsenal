@@ -31,15 +31,34 @@ public final class TelPhysicsTests {
     }
 
     private static IskanderTelEntity spawn(GameTestHelper helper, double height) {
+        return spawnAt(helper, 12.0, 2.0 + height, 12.0);
+    }
+
+    private static IskanderTelEntity spawnAt(GameTestHelper helper, double x, double y, double z) {
         IskanderTelEntity tel = new IskanderTelEntity(ModEntities.ISKANDER_TEL.get(), helper.getLevel());
         tel.isLegitSpawn = true;
-        Vec3 at = helper.absoluteVec(new Vec3(12.0, 2.0 + height, 12.0));
+        Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
         tel.setPos(at.x, at.y, at.z);
         helper.getLevel().addFreshEntity(tel);
         return tel;
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    private static void ramp(GameTestHelper helper) {
+        for (int x = 6; x <= 18; x++) {
+            for (int z = 2; z <= 22; z++) {
+                double top = Math.max(1.0, 3.5 - Math.floor((z - 2) / 3.0) * 0.5);
+                int whole = (int) Math.floor(top);
+                for (int y = 0; y < whole; y++) {
+                    helper.setBlock(x, y, z, net.minecraft.world.level.block.Blocks.STONE);
+                }
+                if (top > whole) {
+                    helper.setBlock(x, whole, z, net.minecraft.world.level.block.Blocks.STONE_SLAB);
+                }
+            }
+        }
+    }
+
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 300)
     public static void parkedStaysOnTheGround(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 0.1);
         helper.runAfterDelay(120, () -> {
@@ -58,7 +77,7 @@ public final class TelPhysicsTests {
         });
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 300)
     public static void dropsAndLands(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 5.0);
         helper.runAfterDelay(160, () -> {
@@ -70,7 +89,52 @@ public final class TelPhysicsTests {
         });
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 400,
+            batch = "physicsFixes")
+    public static void rollsDownASlope(GameTestHelper helper) {
+        ramp(helper);
+        IskanderTelEntity tel = spawnAt(helper, 12.0, 3.8, 9.0);
+        double[] start = new double[1];
+        helper.runAfterDelay(5, () -> start[0] = tel.getZ());
+        helper.runAfterDelay(20, () -> {
+            double moved = tel.getZ() - start[0];
+            helper.assertTrue(tel.getSpeedKmh() > 0.1f,
+                    "speed at the end of the tick: " + tel.getSpeedKmh() + " after " + moved + " blocks");
+            helper.assertTrue(moved > 0.2, "it only moved " + moved + " blocks downhill");
+            tel.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 200,
+            batch = "physicsFixes")
+    public static void riderStaysOnTheSeat(GameTestHelper helper) {
+        IskanderTelEntity tel = spawn(helper, 3.0);
+        net.minecraft.world.entity.decoration.ArmorStand first = new net.minecraft.world.entity.decoration.ArmorStand(
+                net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
+        net.minecraft.world.entity.decoration.ArmorStand second = new net.minecraft.world.entity.decoration.ArmorStand(
+                net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
+        helper.runAfterDelay(3, () -> {
+            first.moveTo(tel.getX(), tel.getY() + 2.0, tel.getZ());
+            helper.getLevel().addFreshEntity(first);
+            helper.assertTrue(first.startRiding(tel, true), "the first rider could not board");
+            second.moveTo(tel.getX(), tel.getY() + 2.0, tel.getZ());
+            helper.getLevel().addFreshEntity(second);
+            helper.assertTrue(second.startRiding(tel, true), "the second rider could not board");
+        });
+        helper.runAfterDelay(18, () -> {
+            Vec3 seat = tel.getPassengerRidingPosition(second);
+            double gap = second.position().distanceTo(seat);
+            helper.assertTrue(tel.getPassengers().indexOf(second) == 1, "the rider is not on seat 1");
+            helper.assertTrue(gap < 0.05, "the rider is " + gap + " blocks behind the seat");
+            second.discard();
+            first.discard();
+            tel.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 300)
     public static void explosionPushesIt(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 0.1);
         Vec3 start = helper.absoluteVec(new Vec3(12.0, 2.0, 12.0));
@@ -86,7 +150,7 @@ public final class TelPhysicsTests {
         });
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 400)
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 400)
     public static void boardingHandsControlOver(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 0.1);
         net.minecraft.world.entity.player.Player driver = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
@@ -109,7 +173,7 @@ public final class TelPhysicsTests {
         });
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 400)
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 400)
     public static void groundFollowsBlockChanges(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 0.1);
         helper.runAfterDelay(80, () -> {
@@ -152,7 +216,7 @@ public final class TelPhysicsTests {
         });
     }
 
-    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, batch = "telPhysics", timeoutTicks = 300)
     public static void harmlessBlocksDoNotRebuildTheGround(GameTestHelper helper) {
         IskanderTelEntity tel = spawn(helper, 0.1);
         int[] before = new int[2];

@@ -419,6 +419,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
             this.dropJolt();
             return;
         }
+        this.jolt.applyStagedPose();
         if (client && !simulating) {
             this.setDeltaMovement(Vec3.ZERO);
         }
@@ -758,7 +759,9 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
         this.traverseNow = Mth.lerp(0.5f, this.traverseNow, this.entityData.get(DATA_TRAVERSE));
 
-        float kmh = (float) (Math.hypot(vel.x, vel.z) * 20.0 * 3.6);
+        float kmh = this.joltDrivesPose()
+                ? (float) Units.msToKmh(this.jolt.speedMs())
+                : (float) (Math.hypot(vel.x, vel.z) * 20.0 * 3.6);
         this.speedKmh += (kmh - this.speedKmh) * 0.3f;
 
         Vec3 f = this.getViewVector(1.0f);
@@ -813,6 +816,9 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     }
 
     public float getSpeedKmh() {
+        if (!this.level().isClientSide && this.joltDrivesPose()) {
+            return (float) Units.msToKmh(this.jolt.speedMs());
+        }
         return this.speedKmh;
     }
 

@@ -146,6 +146,7 @@ public class ClientGameEvents {
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         NvgShaderHandler.processShader();
+        com.synarsis.airtacticalarsenal.client.fx.light.HeadlightFx.render(event);
         com.synarsis.airtacticalarsenal.client.debug.HitboxDebugRenderer.render(event);
         com.synarsis.airtacticalarsenal.client.debug.PhysicsDebugRenderer.render(event);
         com.synarsis.airtacticalarsenal.client.fx.light.LightDebug.render(event);

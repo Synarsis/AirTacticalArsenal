@@ -14,7 +14,7 @@ public final class PhysicsEvents {
     }
 
     @SubscribeEvent
-    public static void onLevelTick(LevelTickEvent.Post event) {
+    public static void onLevelTick(LevelTickEvent.Pre event) {
         PhysicsWorlds.tick(event.getLevel());
     }
 
