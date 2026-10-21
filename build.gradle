@@ -138,7 +138,9 @@ dependencies {
     implementation "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.4"
 
     implementation "com.github.stephengold:jolt-jni-Windows64:${joltJniVersion}"
-    additionalRuntimeClasspath "com.github.stephengold:jolt-jni-Windows64:${joltJniVersion}"
+    if (!project.hasProperty("jarJarProbe")) {
+        additionalRuntimeClasspath "com.github.stephengold:jolt-jni-Windows64:${joltJniVersion}"
+    }
     jarJar("com.github.stephengold:jolt-jni-Windows64:[${joltJniVersion},7.0.0)") {
         version { strictly "[${joltJniVersion},7.0.0)"; prefer joltJniVersion }
     }
@@ -203,6 +205,30 @@ var extractJoltNatives = tasks.register("extractJoltNatives", Sync) {
     }
 }
 sourceSets.main.resources.srcDir extractJoltNatives
+tasks.register("buildJarJarProbe", Zip) {
+    dependsOn tasks.named("jar")
+    archiveFileName = "jolt_probe.jar"
+    destinationDirectory = layout.projectDirectory.dir("run/mods")
+    from({ zipTree(tasks.named("jar", Jar).get().archiveFile) }) {
+        include "META-INF/jarjar/**"
+    }
+    from(resources.text.fromString('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n[[mods]]\nmodId="joltprobe"\nversion="1.0"\n')) {
+        rename { "neoforge.mods.toml" }
+        into "META-INF"
+    }
+}
+
+tasks.register("removeJarJarProbe", Delete) {
+    delete layout.projectDirectory.file("run/mods/jolt_probe.jar")
+}
+
+tasks.configureEach { task ->
+    if (task.name == "runGameTestServer" && project.hasProperty("jarJarProbe")) {
+        task.dependsOn "buildJarJarProbe"
+        task.finalizedBy "removeJarJarProbe"
+    }
+}
+
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
 neoForge.ideSyncTask generateModMetadata
 

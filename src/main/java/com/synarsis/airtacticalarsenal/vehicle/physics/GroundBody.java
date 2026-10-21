@@ -88,6 +88,7 @@ public final class GroundBody implements AutoCloseable {
         values.position(0);
         HeightFieldShape field = (HeightFieldShape) this.shape.getPtr();
         field.setHeights(startX, startZ, sizeX, sizeZ, values, sizeX, this.world.tempAllocator());
+        this.world.bodies().notifyShapeChanged(this.bodyId, new Vec3(0f, 0f, 0f), false, EActivation.DontActivate);
     }
 
     @Override

@@ -45,13 +45,17 @@ public final class JoltRuntime {
             String platform = platformFolder();
             String library = libraryFileName();
             String wrapperVersion = readVersion();
-            String classes = JoltClassesVersion.ofLoadedClasses();
+            JoltClassesVersion.Evidence evidence = JoltClassesVersion.gather();
+            String classes = JoltClassesVersion.choose(evidence);
             if (!JoltClassesVersion.agrees(classes, wrapperVersion)) {
                 throw new JoltUnavailable("the Jolt classes in the game are jolt-jni " + classes
                         + " (probably from another mod) but the bundled native library is " + wrapperVersion);
             }
             if (classes == null) {
-                LOGGER.warn("The version of the Jolt classes in the game could not be read, assuming jolt-jni {}", wrapperVersion);
+                LOGGER.warn("The version of the Jolt classes in the game could not be read, assuming jolt-jni {} ({})",
+                        wrapperVersion, evidence.describe());
+            } else {
+                LOGGER.info("Jolt classes in the game: jolt-jni {} ({})", classes, evidence.describe());
             }
             if (nativesAlreadyLinked()) {
                 throw new JoltUnavailable("the Jolt native library was already loaded by another mod");

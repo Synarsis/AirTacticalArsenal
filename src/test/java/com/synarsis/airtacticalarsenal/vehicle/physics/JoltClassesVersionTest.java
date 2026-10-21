@@ -48,4 +48,35 @@ class JoltClassesVersionTest {
         assertEquals("6.2.0", found);
         assertTrue(JoltClassesVersion.agrees(found, "6.2.0"));
     }
+
+    @Test
+    @DisplayName("the version of a named module wins, then the code source, then the class resource")
+    void order() {
+        JoltClassesVersion.Evidence all = new JoltClassesVersion.Evidence("com.github.stephengold.joltjni", "6.3.0",
+                "union:/mods/ata.jar%2312!/META-INF/jarjar/jolt-jni-Windows64-6.2.0.jar!/",
+                "union:/mods/ata.jar%2312!/META-INF/jarjar/jolt-jni-Windows64-6.1.0.jar!/com/x/Jolt.class");
+        assertEquals("6.3.0", JoltClassesVersion.choose(all));
+
+        JoltClassesVersion.Evidence noModuleVersion = new JoltClassesVersion.Evidence("com.github.stephengold.joltjni", null,
+                all.sourceLocation(), all.resourceUrl());
+        assertEquals("6.2.0", JoltClassesVersion.choose(noModuleVersion));
+
+        JoltClassesVersion.Evidence onlyResource = new JoltClassesVersion.Evidence(null, null, "union:/mods/neoforge-21.1.230.jar%23127!/",
+                all.resourceUrl());
+        assertEquals("6.1.0", JoltClassesVersion.choose(onlyResource));
+
+        JoltClassesVersion.Evidence nothing = new JoltClassesVersion.Evidence("jolt.jni", null, "union:/mods/neoforge-21.1.230.jar%23127!/", null);
+        assertNull(JoltClassesVersion.choose(nothing));
+        assertTrue(nothing.describe().contains("union:/mods/neoforge-21.1.230.jar%23127!/"));
+    }
+
+    @Test
+    @DisplayName("a module version is read from its start, whatever follows")
+    void moduleVersions() {
+        assertEquals("6.2.0", JoltClassesVersion.moduleVersionIn("6.2.0"));
+        assertEquals("6.2.0", JoltClassesVersion.moduleVersionIn("6.2.0-SNAPSHOT"));
+        assertEquals("6.2", JoltClassesVersion.moduleVersionIn(" 6.2 "));
+        assertNull(JoltClassesVersion.moduleVersionIn("snapshot"));
+        assertNull(JoltClassesVersion.moduleVersionIn(null));
+    }
 }
