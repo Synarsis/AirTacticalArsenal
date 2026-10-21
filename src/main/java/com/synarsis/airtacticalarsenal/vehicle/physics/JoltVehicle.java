@@ -80,7 +80,6 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     private int previousWheelsOnGround;
     private double smoothThrottle;
     private double smoothSteer;
-    private double gravity;
     private double inertiaRoll = 1.0;
     private double inertiaYaw = 1.0;
     private double wheelbase = 1.0;
@@ -117,7 +116,6 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         this.wheelContact = new boolean[wheels];
         this.wheelLoad = new double[wheels];
         this.wheelSlip = new double[wheels];
-        this.gravity = Math.abs(world.system().getGravity().getY());
         try {
             this.build(x, y, z, yawDeg, pitchDeg, rollDeg);
         } catch (RuntimeException error) {
@@ -395,6 +393,7 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     public double takeLanding() {
         double speed = this.landed ? this.impactApproachY : 0.0;
         this.landed = false;
+        this.impactApproachY = 0.0;
         return speed;
     }
 
@@ -630,6 +629,10 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         return Math.max(value - step, target);
     }
 
+    private double gravity() {
+        return Math.abs(this.world.system().getGravity().getY());
+    }
+
     private void applySlopeRelief() {
         if (!this.driven) {
             return;
@@ -640,7 +643,7 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         }
         Quat q = this.bodies.getRotation(this.bodyId);
         double[][] r = PoseMath.rotation(q.getX(), q.getY(), q.getZ(), q.getW());
-        double along = relief * this.spec.body.massKg * this.gravity * r[1][2];
+        double along = relief * this.spec.body.massKg * this.gravity() * r[1][2];
         this.bodies.addForce(this.bodyId, new Vec3((float) (r[0][2] * along), (float) (r[1][2] * along),
                 (float) (r[2][2] * along)));
     }
@@ -651,7 +654,7 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
             return;
         }
         double drag = this.spec.dragForce(speed);
-        double rolling = this.wheelsOnGround() > 0 ? this.spec.rollingForce(this.gravity) * Math.min(1.0, speed / 0.5) : 0.0;
+        double rolling = this.wheelsOnGround() > 0 ? this.spec.rollingForce(this.gravity()) * Math.min(1.0, speed / 0.5) : 0.0;
         double total = drag + rolling;
         this.bodies.addForce(this.bodyId, new Vec3((float) (-s.vx() / speed * total), (float) (-s.vy() / speed * total),
                 (float) (-s.vz() / speed * total)));

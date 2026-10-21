@@ -45,8 +45,13 @@ public class TelHud implements LayeredDraw.Layer {
         boolean clear = x + width + MARGIN <= g.guiWidth() / 2 - HOTBAR_HALF;
         int y = g.guiHeight() - height - MARGIN - (clear ? 0 : HOTBAR_HEIGHT);
 
+        int stacked = 0;
         if (TelInput.traceEnabled) {
             this.renderTrace(g, font, tel, x, y - 52, width + 20);
+            stacked = 52;
+        }
+        if (com.synarsis.airtacticalarsenal.client.debug.PhysicsDebugRenderer.isEnabled() && tel.joltSimulating()) {
+            this.renderPhysics(g, font, tel, x, y - 40 - stacked, width + 60);
         }
 
         g.fill(x, y, x + width, y + height, TelUi.PANEL);
@@ -158,6 +163,24 @@ public class TelHud implements LayeredDraw.Layer {
         }
         TelUi.text(g, font, status, new Rect(labelX, box.y(), box.right() - labelX - distW - (distW > 0 ? 4 : 0), 10),
                 colour);
+    }
+
+    private void renderPhysics(GuiGraphics g, Font font, IskanderTelEntity tel, int x, int y, int width) {
+        com.synarsis.airtacticalarsenal.entity.tel.TelJolt jolt = tel.joltView();
+        if (jolt == null || jolt.ground() == null) {
+            return;
+        }
+        g.fill(x, y, x + width, y + 36, TelUi.PANEL);
+        TelUi.frame(g, new Rect(x, y, width, 36), TelUi.CARD_BORDER);
+        int tx = x + 5;
+        int ty = y + 4;
+        g.drawString(font, String.format(java.util.Locale.ROOT, "ground patch rebuilds %d (full %d)   last %.2f ms",
+                jolt.ground().rebuilds(), jolt.ground().fullRebuilds(), jolt.ground().lastBuildMillis()), tx, ty,
+                TelUi.YELLOW, false);
+        g.drawString(font, String.format(java.util.Locale.ROOT, "gear %d   %.0f rpm   load %.2f", tel.getGear(),
+                tel.getEngineRpm(), tel.getEngineLoad()), tx, ty + 10, TelUi.YELLOW, false);
+        g.drawString(font, String.format(java.util.Locale.ROOT, "wheels %d/8", tel.getWheelContacts()), tx, ty + 20,
+                TelUi.YELLOW, false);
     }
 
     private void renderTrace(GuiGraphics g, Font font, IskanderTelEntity tel, int x, int y, int width) {

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 public final class VehicleSpecs {
 
@@ -40,13 +41,19 @@ public final class VehicleSpecs {
         Path file = file(configDir);
         try {
             if (!Files.isRegularFile(file)) {
-                Files.createDirectories(file.getParent());
-                Files.writeString(file, VehicleSpec.defaults().toJson(), StandardCharsets.UTF_8);
-                use(VehicleSpec.defaults());
+                writeDefaults(file);
                 return null;
             }
             String text = Files.readString(file, StandardCharsets.UTF_8);
             VehicleSpec parsed = VehicleSpec.parse(text);
+            if (parsed.defaultsVersion < VehicleSpec.DEFAULTS_VERSION) {
+                Path old = file.resolveSibling(FILE_NAME + ".old");
+                Files.move(file, old, StandardCopyOption.REPLACE_EXISTING);
+                writeDefaults(file);
+                LOGGER.info("Vehicle settings {} were made for older defaults (version {}, now {}): kept as {}, new defaults written",
+                        file, parsed.defaultsVersion, VehicleSpec.DEFAULTS_VERSION, old.getFileName());
+                return null;
+            }
             use(parsed);
             return null;
         } catch (JsonParseException | IOException error) {
@@ -54,6 +61,13 @@ public final class VehicleSpecs {
             LOGGER.warn("Vehicle settings were not read, the previous ones stay: {}", message);
             return message;
         }
+    }
+
+    private static void writeDefaults(Path file) throws IOException {
+        Files.createDirectories(file.getParent());
+        VehicleSpec defaults = VehicleSpec.defaults();
+        Files.writeString(file, defaults.toJson(), StandardCharsets.UTF_8);
+        use(defaults);
     }
 
     public static synchronized void apply(String json) {

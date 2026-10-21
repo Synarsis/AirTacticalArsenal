@@ -11,7 +11,10 @@ public final class VehicleSpec {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    public static final int DEFAULTS_VERSION = 1;
+
     public String name = "iskander_tel";
+    public int defaultsVersion;
 
     public Body body = new Body();
     public Wheels wheels = new Wheels();
@@ -138,7 +141,9 @@ public final class VehicleSpec {
     }
 
     public static VehicleSpec defaults() {
-        return new VehicleSpec();
+        VehicleSpec spec = new VehicleSpec();
+        spec.defaultsVersion = DEFAULTS_VERSION;
+        return spec;
     }
 
     public static VehicleSpec parse(String json) {

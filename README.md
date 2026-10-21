@@ -278,8 +278,10 @@ no change to the world.
   `body.massKg` together with `engine.maxTorqueNm`; to change the pull-away
   `gearbox.forward` and `drivetrain.finalDrive`; `brakes.serviceTorqueNm` for the
   stopping distance; `suspension.*` and `body.centreOfMass` for the lean and nod;
-  `assist.slopeRelief` for how much hills slow it down. Delete the file to get the
-  new defaults after an update. The server config also has `vehiclePhysics`
+  `assist.slopeRelief` for how much hills slow it down. The file carries
+  `defaultsVersion`: when an update changes the defaults, a file of an older version is
+  renamed to `iskander_tel.json.old` and a new file with the new defaults is written,
+  while a file of the current version is read as it is, with your edits. The server config also has `vehiclePhysics`
   (JOLT or LEGACY) and `vehicleGravityScale`.
 - `config/ata-client.toml` — your own preferences: hit marker, its sound and
   size, section labels.

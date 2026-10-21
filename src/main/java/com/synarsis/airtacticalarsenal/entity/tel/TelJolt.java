@@ -1,6 +1,8 @@
 package com.synarsis.airtacticalarsenal.entity.tel;
 
 import com.mojang.logging.LogUtils;
+import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatch;
+import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatchBuilder;
 import com.synarsis.airtacticalarsenal.vehicle.physics.JoltVehicle;
 import com.synarsis.airtacticalarsenal.vehicle.physics.LevelColumns;
 import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorld;
@@ -10,7 +12,10 @@ import com.synarsis.airtacticalarsenal.vehicle.physics.Units;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleGround;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpec;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
@@ -50,8 +55,6 @@ public final class TelJolt implements PhysicsWorlds.Participant {
     private double writtenY;
     private double writtenZ;
     private double writtenYaw;
-    private double writtenPitch;
-    private double writtenRoll;
     private boolean hasWritten;
 
     private double acceptedX;
@@ -59,6 +62,7 @@ public final class TelJolt implements PhysicsWorlds.Participant {
     private double acceptedZ;
     private int acceptedTick = Integer.MIN_VALUE;
     private int rollbacks;
+    private final RollbackLog rollbackLog = new RollbackLog();
 
     private double speedMs;
     private double rpm;
@@ -154,10 +158,6 @@ public final class TelJolt implements PhysicsWorlds.Participant {
         return this.rollbacks;
     }
 
-    boolean righting() {
-        return this.rightingTicks > 0;
-    }
-
     void update(boolean simulating, boolean driven, boolean jacked, boolean stowed, int keys, Vec3 observedVelocity,
             double observedYawRate) {
         if (this.broken) {
@@ -232,7 +232,7 @@ public final class TelJolt implements PhysicsWorlds.Participant {
                 || wanted == Role.HOLD;
         if (needsGround && this.ground == null && this.vehicle.wheeled()) {
             this.ground = new VehicleGround(this.world, this.vehicle.slot(),
-                    new LevelColumns(this.level, this.tel.softBlocksGiveWayPublic()));
+                    new LevelColumns(this.level, this.tel.softBlocksGiveWay()));
         }
         if (!needsGround && this.ground != null) {
             this.ground.close();
@@ -380,8 +380,6 @@ public final class TelJolt implements PhysicsWorlds.Participant {
         this.writtenY = this.tel.getY();
         this.writtenZ = this.tel.getZ();
         this.writtenYaw = this.tel.getYRot();
-        this.writtenPitch = this.tel.getXRot();
-        this.writtenRoll = this.tel.roll;
         this.hasWritten = true;
         this.readGauges(s);
         double hit = this.vehicle.takeImpactSpeed();
@@ -419,9 +417,16 @@ public final class TelJolt implements PhysicsWorlds.Participant {
         boolean tooFast = moved > 4.0 && speed > limit;
         double depth = this.deepestIntoGround();
         if (tooFast || depth > spec.limits.groundDepthMetres) {
-            this.tel.rollBackTo(this.acceptedX, this.acceptedY, this.acceptedZ, tooFast
-                    ? String.format(java.util.Locale.ROOT, "сервер откатил: скорость %.0f км/ч", Units.msToKmh(speed))
-                    : String.format(java.util.Locale.ROOT, "сервер откатил: кузов в земле на %.2f м", depth));
+            String reason = tooFast
+                    ? String.format(java.util.Locale.ROOT, "speed %.0f km/h", Units.msToKmh(speed))
+                    : String.format(java.util.Locale.ROOT, "body %.2f m into the ground", depth);
+            String driver = this.tel.getControllingPassenger() == null ? "nobody"
+                    : this.tel.getControllingPassenger().getName().getString();
+            String line = this.rollbackLog.note(now, this.tel.getId(), driver, reason);
+            if (line != null) {
+                LOGGER.info(line);
+            }
+            this.tel.rollBackTo(this.acceptedX, this.acceptedY, this.acceptedZ);
             this.rollbacks++;
             return;
         }
@@ -453,10 +458,6 @@ public final class TelJolt implements PhysicsWorlds.Participant {
             }
         }
         return deepest;
-    }
-
-    void rightNow(double x, double y, double z) {
-        this.accept(x, y, z, this.tel.tickCount);
     }
 
     void startRighting() {
@@ -524,10 +525,26 @@ public final class TelJolt implements PhysicsWorlds.Participant {
     }
 
     @Override
-    public void blockChanged(int x, int y, int z) {
-        if (this.ground != null) {
-            this.ground.markDirty(x, z);
+    public void blockChanged(BlockPos pos, BlockState oldState, BlockState newState) {
+        if (this.ground == null) {
+            return;
         }
+        GroundPatch patch = this.ground.patch();
+        if (!GroundPatchBuilder.touches(patch, pos.getX(), pos.getZ()) || !GroundPatchBuilder.inWindow(patch, pos.getY())) {
+            return;
+        }
+        boolean skipSoft = this.tel.softBlocksGiveWay();
+        if (this.leavesGroundAlone(oldState, pos, skipSoft) && this.leavesGroundAlone(newState, pos, skipSoft)) {
+            return;
+        }
+        this.ground.markChanged(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    private boolean leavesGroundAlone(BlockState state, BlockPos pos, boolean skipSoft) {
+        if (state.isAir() || (skipSoft && state.is(TelWorld.BREAKABLE))) {
+            return true;
+        }
+        return state.getCollisionShape(this.level, pos, CollisionContext.empty()).isEmpty();
     }
 
     @Override

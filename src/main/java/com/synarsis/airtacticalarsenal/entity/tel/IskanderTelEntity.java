@@ -4,7 +4,6 @@ import com.synarsis.airtacticalarsenal.combat.hitbox.HitTag;
 import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
 import com.synarsis.airtacticalarsenal.combat.sweep.BulletSweep;
 import com.synarsis.airtacticalarsenal.compat.CreateCompat;
-import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.IskanderEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelBoneGroups;
@@ -522,11 +521,10 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
         this.reportImpact(kind, speed);
     }
 
-    void rollBackTo(double x, double y, double z, String reason) {
+    void rollBackTo(double x, double y, double z) {
         if (this.level().isClientSide) {
             return;
         }
-        AirTacticalArsenal.LOGGER.debug("Launcher {}: {}", this.getId(), reason);
         this.setPos(x, y, z);
         if (this.getControllingPassenger() instanceof ServerPlayer driver) {
             driver.connection.send(new net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket(this));
@@ -537,10 +535,6 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider 
         if (Float.isFinite(value) && Math.abs(value) < 180.0f) {
             this.setRoll(value);
         }
-    }
-
-    boolean softBlocksGiveWayPublic() {
-        return this.softBlocksGiveWay();
     }
 
     public boolean isOverturned() {

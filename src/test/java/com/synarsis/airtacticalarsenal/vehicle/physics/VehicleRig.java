@@ -22,6 +22,7 @@ final class VehicleRig implements AutoCloseable {
     private final Surface surface;
     private Smooth smooth;
     private GroundBody ground;
+    private VehicleGround surfaceGround;
     private AutoCloseable customGround;
     private int ticks;
     private double minGroundGap = Double.MAX_VALUE;
@@ -37,7 +38,11 @@ final class VehicleRig implements AutoCloseable {
         this.surface = surface;
         this.world = new PhysicsWorld(false, 1.6);
         double startY = surface.top((int) Math.floor(x), (int) Math.floor(z));
-        this.rebuildGround(x, startY, z);
+        this.surfaceGround = new VehicleGround(this.world, 0, (px, pz, low, high) -> {
+            double top = this.surface.top((int) Math.floor(px), (int) Math.floor(pz));
+            return top >= low && top <= high ? top : Double.NaN;
+        });
+        this.surfaceGround.update(x, startY, z);
         this.vehicle = new JoltVehicle(this.world, spec, x, startY + 0.05, z, yawDeg, 0.0, 0.0);
         this.vehicle.setDriven(true);
     }
@@ -86,17 +91,6 @@ final class VehicleRig implements AutoCloseable {
             }
             return;
         }
-        BlockColumns columns = (px, pz, low, high) -> {
-            double top = this.surface.top((int) Math.floor(px), (int) Math.floor(pz));
-            return top >= low && top <= high ? top : Double.NaN;
-        };
-        GroundPatch patch = GroundPatchBuilder.build(columns, x, y, z);
-        GroundBody fresh = new GroundBody(this.world, this.vehicleSlot(), patch);
-        GroundBody old = this.ground;
-        this.ground = fresh;
-        if (old != null) {
-            old.close();
-        }
     }
 
     private int vehicleSlot() {
@@ -105,7 +99,9 @@ final class VehicleRig implements AutoCloseable {
 
     void tick() {
         JoltVehicle.Snapshot s = this.vehicle.snapshot();
-        if (this.ground != null && GroundPatchBuilder.needsRebuild(this.ground.patch(), s.x(), s.y(), s.z(), false)) {
+        if (this.surfaceGround != null) {
+            this.surfaceGround.update(s.x(), s.y(), s.z());
+        } else if (this.ground != null && GroundPatchBuilder.needsRebuild(this.ground.patch(), s.x(), s.y(), s.z(), false)) {
             this.rebuildGround(s.x(), s.y(), s.z());
         }
         this.world.step();
@@ -156,6 +152,9 @@ final class VehicleRig implements AutoCloseable {
         this.vehicle.close();
         if (this.ground != null) {
             this.ground.close();
+        }
+        if (this.surfaceGround != null) {
+            this.surfaceGround.close();
         }
         if (this.customGround != null) {
             try {

@@ -4,20 +4,48 @@ public final class GroundPatch {
 
     public static final float HOLE = Float.MAX_VALUE;
 
-    private final double originX;
-    private final double originZ;
+    public record Region(int minX, int minZ, int maxX, int maxZ) {
+        public int width() {
+            return this.maxX - this.minX + 1;
+        }
+
+        public int depth() {
+            return this.maxZ - this.minZ + 1;
+        }
+    }
+
+    private double originX;
+    private double originZ;
     private final double centreY;
+    private final double low;
+    private final double high;
     private final float[] heights;
+    private final double[] raw;
     private final int count;
     private final double step;
+    private int dirtyMinX = Integer.MAX_VALUE;
+    private int dirtyMinZ = Integer.MAX_VALUE;
+    private int dirtyMaxX = -1;
+    private int dirtyMaxZ = -1;
+    private boolean moved;
 
     public GroundPatch(double originX, double originZ, double centreY, int count, double step, float[] heights) {
+        this(originX, originZ, centreY, centreY - GroundPatchBuilder.BELOW, centreY + GroundPatchBuilder.ABOVE, count,
+                step, heights, null);
+    }
+
+    GroundPatch(double originX, double originZ, double centreY, double low, double high, int count, double step,
+            float[] heights, double[] raw) {
         this.originX = originX;
         this.originZ = originZ;
         this.centreY = centreY;
+        this.low = low;
+        this.high = high;
         this.count = count;
         this.step = step;
         this.heights = heights;
+        this.raw = raw;
+        this.markAllDirty();
     }
 
     public double originX() {
@@ -32,6 +60,14 @@ public final class GroundPatch {
         return this.centreY;
     }
 
+    public double low() {
+        return this.low;
+    }
+
+    public double high() {
+        return this.high;
+    }
+
     public int count() {
         return this.count;
     }
@@ -44,12 +80,54 @@ public final class GroundPatch {
         return this.heights;
     }
 
+    double[] raw() {
+        return this.raw;
+    }
+
+    boolean hasRaw() {
+        return this.raw != null;
+    }
+
+    void moveOrigin(double x, double z) {
+        this.originX = x;
+        this.originZ = z;
+        this.moved = true;
+    }
+
+    public boolean originMoved() {
+        return this.moved;
+    }
+
     public double centreX() {
         return this.originX + 0.5 * (this.count - 1) * this.step;
     }
 
     public double centreZ() {
         return this.originZ + 0.5 * (this.count - 1) * this.step;
+    }
+
+    void markDirty(int minX, int minZ, int maxX, int maxZ) {
+        this.dirtyMinX = Math.min(this.dirtyMinX, Math.max(0, minX));
+        this.dirtyMinZ = Math.min(this.dirtyMinZ, Math.max(0, minZ));
+        this.dirtyMaxX = Math.max(this.dirtyMaxX, Math.min(this.count - 1, maxX));
+        this.dirtyMaxZ = Math.max(this.dirtyMaxZ, Math.min(this.count - 1, maxZ));
+    }
+
+    void markAllDirty() {
+        this.markDirty(0, 0, this.count - 1, this.count - 1);
+    }
+
+    public Region takeDirty() {
+        if (this.dirtyMaxX < 0) {
+            return null;
+        }
+        Region region = new Region(this.dirtyMinX, this.dirtyMinZ, this.dirtyMaxX, this.dirtyMaxZ);
+        this.dirtyMinX = Integer.MAX_VALUE;
+        this.dirtyMinZ = Integer.MAX_VALUE;
+        this.dirtyMaxX = -1;
+        this.dirtyMaxZ = -1;
+        this.moved = false;
+        return region;
     }
 
     public boolean covers(double x, double z) {

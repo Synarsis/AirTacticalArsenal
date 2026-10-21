@@ -45,6 +45,17 @@ public final class JoltRuntime {
             String platform = platformFolder();
             String library = libraryFileName();
             String wrapperVersion = readVersion();
+            String classes = JoltClassesVersion.ofLoadedClasses();
+            if (!JoltClassesVersion.agrees(classes, wrapperVersion)) {
+                throw new JoltUnavailable("the Jolt classes in the game are jolt-jni " + classes
+                        + " (probably from another mod) but the bundled native library is " + wrapperVersion);
+            }
+            if (classes == null) {
+                LOGGER.warn("The version of the Jolt classes in the game could not be read, assuming jolt-jni {}", wrapperVersion);
+            }
+            if (nativesAlreadyLinked()) {
+                throw new JoltUnavailable("the Jolt native library was already loaded by another mod");
+            }
             Path target = nativesRoot.resolve(wrapperVersion).resolve(library);
             extract(RESOURCE_ROOT + platform + "/" + library, target);
             if (!NativeLibraryLoader.loadLibrary(target.toAbsolutePath().toString())) {
@@ -65,9 +76,25 @@ public final class JoltRuntime {
             LOGGER.info("Jolt Physics loaded: jolt-jni {} ({}), {}", wrapperVersion, Jolt.versionString(), platform);
         } catch (Throwable error) {
             ready = false;
-            LOGGER.warn("Jolt Physics is not available, vehicles use the built-in physics: {}", error.toString());
+            LOGGER.warn("Jolt Physics is not available, vehicles use the built-in physics: {}",
+                    error instanceof JoltUnavailable ? error.getMessage() : error.toString());
         }
         return ready;
+    }
+
+    private static final class JoltUnavailable extends RuntimeException {
+        JoltUnavailable(String message) {
+            super(message);
+        }
+    }
+
+    private static boolean nativesAlreadyLinked() {
+        try {
+            Jolt.buildType();
+            return true;
+        } catch (UnsatisfiedLinkError notLinked) {
+            return false;
+        }
     }
 
     static synchronized void forgetForTests() {

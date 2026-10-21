@@ -19,7 +19,7 @@ public class LevelRendererBlockChangedMixin {
             CallbackInfo ci) {
         OccupancyVolume.markChanged(pos);
         if (level instanceof net.minecraft.world.level.Level world) {
-            PhysicsWorlds.blockChanged(world, pos.getX(), pos.getY(), pos.getZ());
+            PhysicsWorlds.blockChanged(world, pos, oldState, newState);
         }
     }
 }

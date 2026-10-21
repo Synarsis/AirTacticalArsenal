@@ -3,7 +3,9 @@ package com.synarsis.airtacticalarsenal.vehicle.physics;
 import com.mojang.logging.LogUtils;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.config.VehiclePhysicsMode;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -20,7 +22,7 @@ public final class PhysicsWorlds {
 
         void shutdown();
 
-        default void blockChanged(int x, int y, int z) {
+        default void blockChanged(BlockPos pos, BlockState oldState, BlockState newState) {
         }
     }
 
@@ -35,11 +37,22 @@ public final class PhysicsWorlds {
         }
     }
 
+    private static final class Side {
+        final Object lock = new Object();
+        final Map<Level, Entry> entries = new IdentityHashMap<>();
+        volatile int watchers;
+    }
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final double DEFAULT_GRAVITY_SCALE = 1.6;
-    private static final Map<Level, Entry> ENTRIES = new IdentityHashMap<>();
+    private static final Side CLIENT = new Side();
+    private static final Side SERVER = new Side();
 
     private PhysicsWorlds() {
+    }
+
+    private static Side sideOf(Level level) {
+        return level.isClientSide ? CLIENT : SERVER;
     }
 
     public static boolean joltWanted() {
@@ -58,100 +71,139 @@ public final class PhysicsWorlds {
         }
     }
 
-    public static synchronized PhysicsWorld obtain(Level level) {
-        Entry entry = ENTRIES.get(level);
+    private static Entry entryFor(Side side, Level level) {
+        Entry entry = side.entries.get(level);
         if (entry == null) {
             double scale = gravityScale();
             entry = new Entry(new PhysicsWorld(level.isClientSide, scale), scale);
-            ENTRIES.put(level, entry);
+            side.entries.put(level, entry);
         }
-        return entry.world;
+        return entry;
     }
 
-    public static synchronized PhysicsWorld existing(Level level) {
-        Entry entry = ENTRIES.get(level);
-        return entry == null ? null : entry.world;
-    }
-
-    public static synchronized void join(Level level, Participant participant) {
-        obtain(level);
-        ENTRIES.get(level).participants.add(participant);
-    }
-
-    public static synchronized void leave(Level level, Participant participant) {
-        Entry entry = ENTRIES.get(level);
-        if (entry != null) {
-            entry.participants.remove(participant);
+    public static PhysicsWorld obtain(Level level) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            return entryFor(side, level).world;
         }
     }
 
-    public static synchronized void tick(Level level) {
-        Entry entry = ENTRIES.get(level);
-        if (entry == null) {
-            return;
-        }
-        if (entry.world.idleExpired(!entry.participants.isEmpty())) {
-            close(entry);
-            ENTRIES.remove(level);
-            return;
-        }
-        if (entry.participants.isEmpty()) {
-            return;
-        }
-        double scale = gravityScale();
-        if (scale != entry.gravityScale) {
-            entry.gravityScale = scale;
-            entry.world.setGravityScale(scale);
-        }
-        List<Participant> crowd = new ArrayList<>(entry.participants);
-        for (Participant participant : crowd) {
-            participant.beforeStep();
-        }
-        entry.world.step();
-        for (Participant participant : crowd) {
-            participant.afterStep();
+    public static PhysicsWorld existing(Level level) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            Entry entry = side.entries.get(level);
+            return entry == null ? null : entry.world;
         }
     }
 
-    public static synchronized void blockChanged(Level level, int x, int y, int z) {
-        Entry entry = ENTRIES.get(level);
-        if (entry == null || entry.participants.isEmpty()) {
-            return;
-        }
-        for (Participant participant : entry.participants) {
-            participant.blockChanged(x, y, z);
+    public static void join(Level level, Participant participant) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            entryFor(side, level).participants.add(participant);
+            side.watchers++;
         }
     }
 
-    public static synchronized void unload(Level level) {
-        Entry entry = ENTRIES.remove(level);
-        if (entry != null) {
-            close(entry);
-        }
-    }
-
-    public static synchronized void unloadAll(boolean clientSide) {
-        List<Level> levels = new ArrayList<>();
-        for (Level level : ENTRIES.keySet()) {
-            if (level.isClientSide == clientSide) {
-                levels.add(level);
+    public static void leave(Level level, Participant participant) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            Entry entry = side.entries.get(level);
+            if (entry != null && entry.participants.remove(participant)) {
+                side.watchers--;
             }
         }
-        for (Level level : levels) {
-            unload(level);
+    }
+
+    public static void tick(Level level) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            Entry entry = side.entries.get(level);
+            if (entry == null) {
+                return;
+            }
+            if (entry.world.idleExpired(!entry.participants.isEmpty())) {
+                close(side, entry);
+                side.entries.remove(level);
+                return;
+            }
+            if (entry.participants.isEmpty()) {
+                return;
+            }
+            double scale = gravityScale();
+            if (scale != entry.gravityScale) {
+                entry.gravityScale = scale;
+                entry.world.setGravityScale(scale);
+            }
+            List<Participant> crowd = new ArrayList<>(entry.participants);
+            for (Participant participant : crowd) {
+                participant.beforeStep();
+            }
+            entry.world.step();
+            for (Participant participant : crowd) {
+                participant.afterStep();
+            }
         }
     }
 
-    public static synchronized int worldCount() {
-        return ENTRIES.size();
+    public static void blockChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
+        Side side = sideOf(level);
+        if (side.watchers == 0) {
+            return;
+        }
+        synchronized (side.lock) {
+            Entry entry = side.entries.get(level);
+            if (entry == null) {
+                return;
+            }
+            for (Participant participant : entry.participants) {
+                participant.blockChanged(pos, oldState, newState);
+            }
+        }
     }
 
-    public static synchronized int bodyCount(Level level) {
-        Entry entry = ENTRIES.get(level);
-        return entry == null ? 0 : entry.world.bodyCount();
+    public static void unload(Level level) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            Entry entry = side.entries.remove(level);
+            if (entry != null) {
+                close(side, entry);
+            }
+        }
     }
 
-    private static void close(Entry entry) {
+    public static void unloadAll(boolean clientSide) {
+        Side side = clientSide ? CLIENT : SERVER;
+        synchronized (side.lock) {
+            for (Entry entry : new ArrayList<>(side.entries.values())) {
+                close(side, entry);
+            }
+            side.entries.clear();
+        }
+    }
+
+    public static int worldCount() {
+        int count = 0;
+        for (Side side : new Side[] {CLIENT, SERVER}) {
+            synchronized (side.lock) {
+                count += side.entries.size();
+            }
+        }
+        return count;
+    }
+
+    public static int bodyCount(Level level) {
+        Side side = sideOf(level);
+        synchronized (side.lock) {
+            Entry entry = side.entries.get(level);
+            return entry == null ? 0 : entry.world.bodyCount();
+        }
+    }
+
+    public static boolean watched(boolean clientSide) {
+        return (clientSide ? CLIENT : SERVER).watchers > 0;
+    }
+
+    private static void close(Side side, Entry entry) {
         for (Participant participant : new ArrayList<>(entry.participants)) {
             try {
                 participant.shutdown();
@@ -159,6 +211,7 @@ public final class PhysicsWorlds {
                 LOGGER.warn("A vehicle did not shut down cleanly: {}", error.toString());
             }
         }
+        side.watchers -= entry.participants.size();
         entry.participants.clear();
         entry.world.close();
     }

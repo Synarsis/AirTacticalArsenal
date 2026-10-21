@@ -80,20 +80,45 @@ class VehicleSpecTest {
         assertNull(VehicleSpecs.loadFromDisk(configDir));
         Path file = VehicleSpecs.file(configDir);
         assertTrue(Files.isRegularFile(file));
+        assertEquals(VehicleSpec.DEFAULTS_VERSION, VehicleSpec.parse(Files.readString(file)).defaultsVersion);
         int first = VehicleSpecs.revision();
 
-        Files.writeString(file, "{\"body\": {\"massKg\": 36000}}");
+        Files.writeString(file, "{\"defaultsVersion\": 1, \"body\": {\"massKg\": 36000}}");
         assertNull(VehicleSpecs.loadFromDisk(configDir));
         assertEquals(36000.0, VehicleSpecs.current().body.massKg, 0.0);
         assertTrue(VehicleSpecs.revision() > first);
+        assertTrue(!Files.exists(file.resolveSibling("iskander_tel.json.old")), "the author's edits of the current version are kept as they are");
 
         int before = VehicleSpecs.revision();
         Files.writeString(file, "{broken");
         assertNotNull(VehicleSpecs.loadFromDisk(configDir));
+        assertEquals("{broken", Files.readString(file), "a broken file is not touched");
+        assertTrue(!Files.exists(file.resolveSibling("iskander_tel.json.old")));
         assertEquals(36000.0, VehicleSpecs.current().body.massKg, 0.0, "the previous settings stay");
         assertEquals(before, VehicleSpecs.revision());
 
         VehicleSpecs.useDefaults();
         assertEquals(42000.0, VehicleSpecs.current().body.massKg, 0.0);
+    }
+
+    @Test
+    @DisplayName("a file made for older defaults, or with no version at all, is kept as .old and replaced")
+    void olderDefaults(@TempDir Path configDir) throws Exception {
+        Path file = VehicleSpecs.file(configDir);
+        Files.createDirectories(file.getParent());
+        String stale = "{\"body\": {\"massKg\": 30000}}";
+        Files.writeString(file, stale);
+        Path old = file.resolveSibling("iskander_tel.json.old");
+        Files.writeString(old, "an even older copy");
+
+        assertNull(VehicleSpecs.loadFromDisk(configDir));
+        assertEquals(stale, Files.readString(old), "the earlier .old is replaced");
+        VehicleSpec written = VehicleSpec.parse(Files.readString(file));
+        assertEquals(VehicleSpec.DEFAULTS_VERSION, written.defaultsVersion);
+        assertEquals(42000.0, written.body.massKg, 0.0);
+        assertEquals(42000.0, VehicleSpecs.current().body.massKg, 0.0);
+
+        assertNull(VehicleSpecs.loadFromDisk(configDir));
+        assertEquals(stale, Files.readString(old), "the new file is of the current version and stays");
     }
 }

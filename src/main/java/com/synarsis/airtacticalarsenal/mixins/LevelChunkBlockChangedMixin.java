@@ -21,8 +21,9 @@ public abstract class LevelChunkBlockChangedMixin {
 
     @Inject(method = "setBlockState", at = @At("RETURN"), require = 0)
     private void ata$tellPhysics(BlockPos pos, BlockState state, boolean isMoving, CallbackInfoReturnable<BlockState> cir) {
-        if (cir.getReturnValue() != null && !this.level.isClientSide) {
-            PhysicsWorlds.blockChanged(this.level, pos.getX(), pos.getY(), pos.getZ());
+        BlockState previous = cir.getReturnValue();
+        if (previous != null && !this.level.isClientSide) {
+            PhysicsWorlds.blockChanged(this.level, pos, previous, state);
         }
     }
 }

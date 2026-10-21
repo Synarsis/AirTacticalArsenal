@@ -151,4 +151,36 @@ public final class TelPhysicsTests {
             helper.succeed();
         });
     }
+
+    @GameTest(template = "flat", templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300)
+    public static void harmlessBlocksDoNotRebuildTheGround(GameTestHelper helper) {
+        IskanderTelEntity tel = spawn(helper, 0.1);
+        int[] before = new int[2];
+        helper.runAfterDelay(70, () -> {
+            double floor = floorUnder(helper, tel);
+            before[0] = tel.joltView().ground().rebuilds();
+            before[1] = tel.joltView().ground().fullRebuilds();
+            int y = (int) Math.round(floor);
+            int x = tel.getBlockX() + 4;
+            int z = tel.getBlockZ();
+            helper.getLevel().setBlock(new net.minecraft.core.BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.SHORT_GRASS.defaultBlockState(), 3);
+            helper.getLevel().setBlock(new net.minecraft.core.BlockPos(x, y + 1, z + 3), net.minecraft.world.level.block.Blocks.OAK_LEAVES.defaultBlockState(), 3);
+            helper.getLevel().setBlock(new net.minecraft.core.BlockPos(x, y + 30, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            helper.getLevel().setBlock(new net.minecraft.core.BlockPos(x, y, z + 6), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+        });
+        helper.runAfterDelay(90, () -> {
+            helper.assertTrue(tel.joltView().ground().rebuilds() == before[0],
+                    "grass, leaves, air and a block far above rebuilt the ground: " + before[0] + " -> " + tel.joltView().ground().rebuilds());
+            double floor = floorUnder(helper, tel);
+            helper.getLevel().setBlock(new net.minecraft.core.BlockPos(tel.getBlockX() + 5, (int) Math.round(floor), tel.getBlockZ() + 2),
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+        });
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(tel.joltView().ground().rebuilds() == before[0] + 1,
+                    "a stone block should rebuild once: " + before[0] + " -> " + tel.joltView().ground().rebuilds());
+            helper.assertTrue(tel.joltView().ground().fullRebuilds() == before[1], "full rebuilds " + tel.joltView().ground().fullRebuilds());
+            tel.discard();
+            helper.succeed();
+        });
+    }
 }

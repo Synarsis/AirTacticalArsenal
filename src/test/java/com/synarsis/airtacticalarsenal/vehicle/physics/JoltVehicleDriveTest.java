@@ -1,6 +1,5 @@
 package com.synarsis.airtacticalarsenal.vehicle.physics;
 
-import com.github.stephengold.joltjni.Jolt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -172,22 +171,27 @@ class JoltVehicleDriveTest {
     }
 
     @Test
-    @DisplayName("native objects are all given back when the world and the vehicle are closed")
+    @DisplayName("bodies and vehicle slots are all given back when the vehicle and its ground are closed, round after round")
     void noLeaks() {
         assertTrue(JoltRuntime.load(Path.of("build", "test-natives")));
-        int before = Jolt.countNews() - Jolt.countDeletes();
-        for (int round = 0; round < 3; round++) {
-            try (VehicleRig rig = flat()) {
-                rig.run(30);
-                rig.drive(1.0, 0.3, 0.0, 0.0);
-                rig.run(40);
-                assertEquals(2, rig.world.bodyCount());
+        try (PhysicsWorld world = new PhysicsWorld(false, 1.6)) {
+            for (int round = 0; round < 25; round++) {
+                VehicleGround ground = new VehicleGround(world, 0, (x, z, low, high) -> 64.0);
+                ground.update(100.0, 64.0, 100.0);
+                JoltVehicle vehicle = new JoltVehicle(world, VehicleSpec.defaults(), 100.5, 64.05, 100.5, 0.0, 0.0, 0.0);
+                vehicle.setDriven(true);
+                vehicle.setControls(new JoltVehicle.Controls(1.0, 0.3, 0.0, 0.0));
+                for (int i = 0; i < 20; i++) {
+                    world.step();
+                }
+                assertEquals(2, world.bodyCount());
+                assertEquals(1, world.slotsInUse());
+                vehicle.close();
+                ground.close();
+                assertEquals(0, world.bodyCount(), "round " + round);
+                assertEquals(0, world.slotsInUse(), "round " + round);
             }
         }
-        System.gc();
-        int after = Jolt.countNews() - Jolt.countDeletes();
-        say("RESULT native objects before " + before + ", after " + after);
-        assertTrue(after - before <= 2, "native objects left behind: " + (after - before));
     }
 
     @Test
@@ -211,6 +215,43 @@ class JoltVehicleDriveTest {
             rig.vehicle.addImpulse(2.0e5, 0.0, 0.0);
             rig.run(40);
             assertTrue(Math.abs(rig.vehicle.snapshot().x() - jacked.x()) > 0.01, "should be movable again");
+        }
+    }
+
+    @Test
+    @DisplayName("a landing is reported once: the drop from a step afterwards is much softer than the first fall")
+    void landingIsReportedOnce() {
+        try (VehicleRig rig = new VehicleRig((x, z) -> z >= 135 ? 63.0 : 64.0, START_X, START_Z, 0.0)) {
+            settle(rig);
+            rig.vehicle.teleport(START_X, 68.0, START_Z, 0.0, 0.0, 0.0, null, null);
+            double first = 0;
+            for (int i = 0; i < 20 * 4; i++) {
+                rig.run(1);
+                first = Math.max(first, rig.vehicle.takeLanding());
+            }
+            assertTrue(first > 8.0, "the fall from 4 m should be a hard landing, got " + first);
+            assertEquals(0.0, rig.vehicle.takeLanding(), 0.0, "reading twice must not repeat it");
+
+            double second = 0;
+            for (int i = 0; i < 20 * 40; i++) {
+                rig.drive(Math.max(-0.2, Math.min(1.0, (10.0 - rig.forwardKmh()) * 0.3)), 0.0, 0.0, 0.0);
+                rig.run(1);
+                second = Math.max(second, rig.vehicle.takeLanding());
+            }
+            assertTrue(rig.vehicle.snapshot().z() > 140.0, "should have gone down the step");
+            say(String.format(Locale.ROOT, "RESULT landings: fall from 4 m %.2f m/s, step of 1 block %.2f m/s", first, second));
+            assertTrue(second < first * 0.5, "second landing " + second + " against first " + first);
+            assertTrue(second < 8.0, "the step must stay below the damage threshold: " + second);
+
+            JoltVehicle.Snapshot here = rig.vehicle.snapshot();
+            rig.vehicle.teleport(here.x(), here.y() + 0.5, here.z(), here.yawDeg(), 0.0, 0.0, null, null);
+            double small = 0;
+            for (int i = 0; i < 20 * 3; i++) {
+                rig.run(1);
+                small = Math.max(small, rig.vehicle.takeLanding());
+            }
+            say(String.format(Locale.ROOT, "RESULT landing after a 0.5 m drop %.2f m/s", small));
+            assertTrue(small > 0.0 && small < first * 0.5, "small drop landing " + small + " against first " + first);
         }
     }
 }

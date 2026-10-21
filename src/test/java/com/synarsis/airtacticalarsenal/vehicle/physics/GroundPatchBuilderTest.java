@@ -142,4 +142,116 @@ class GroundPatchBuilderTest {
         assertFalse(GroundPatchBuilder.touches(patch, 20, 100));
         assertFalse(GroundPatchBuilder.touches(patch, 100, 200));
     }
+
+    private static final class Counting implements BlockColumns {
+        final BlockColumns inner;
+        final java.util.Map<Long, Double> edits = new java.util.HashMap<>();
+        int reads;
+
+        Counting(BlockColumns inner) {
+            this.inner = inner;
+        }
+
+        void put(int x, int z, double top) {
+            this.edits.put(((long) x << 32) | (z & 0xFFFFFFFFL), top);
+        }
+
+        @Override
+        public double solidTop(double x, double z, double low, double high) {
+            this.reads++;
+            Double edit = this.edits.get(((long) Math.floor(x) << 32) | ((long) Math.floor(z) & 0xFFFFFFFFL));
+            if (edit != null) {
+                return edit >= low && edit <= high ? edit : Double.NaN;
+            }
+            return this.inner.solidTop(x, z, low, high);
+        }
+    }
+
+    private static void assertSame(GroundPatch expected, GroundPatch actual) {
+        assertEquals(expected.originX(), actual.originX(), 0.0);
+        assertEquals(expected.originZ(), actual.originZ(), 0.0);
+        for (int iz = 0; iz < expected.count(); iz++) {
+            for (int ix = 0; ix < expected.count(); ix++) {
+                assertEquals(expected.node(ix, iz), actual.node(ix, iz), 0.0, "node " + ix + "," + iz);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("one changed block reads four columns and gives the same patch as a build from scratch")
+    void oneBlockChanged() {
+        Counting world = new Counting(GroundPatchTimingTest.hills());
+        GroundPatch patch = GroundPatchBuilder.build(world, 100.0, 64.0, 100.0);
+        patch.takeDirty();
+        world.reads = 0;
+        world.put(101, 99, 67.0);
+        int reads = GroundPatchBuilder.refreshBlock(patch, world, 101, 99);
+        assertEquals(4, reads);
+        assertEquals(4, world.reads);
+        GroundPatch.Region region = patch.takeDirty();
+        assertTrue(region != null && region.width() <= 10 && region.depth() <= 10, "region " + region);
+        assertSame(GroundPatchBuilder.build(world, 100.0, 64.0, 100.0), patch);
+
+        world.put(101, 99, 63.0);
+        world.put(102, 99, 66.0);
+        GroundPatchBuilder.refreshBlock(patch, world, 101, 99);
+        GroundPatchBuilder.refreshBlock(patch, world, 102, 99);
+        assertSame(GroundPatchBuilder.build(world, 100.0, 64.0, 100.0), patch);
+    }
+
+    @Test
+    @DisplayName("a block at the edge of the patch is handled and a block outside it is ignored")
+    void edgeBlocks() {
+        Counting world = new Counting(GroundPatchTimingTest.hills());
+        GroundPatch patch = GroundPatchBuilder.build(world, 100.0, 64.0, 100.0);
+        int edge = (int) Math.floor(patch.originX());
+        world.put(edge, 100, 66.0);
+        GroundPatchBuilder.refreshBlock(patch, world, edge, 100);
+        world.put(edge + 63, 100, 66.0);
+        GroundPatchBuilder.refreshBlock(patch, world, edge + 63, 100);
+        assertSame(GroundPatchBuilder.build(world, 100.0, 64.0, 100.0), patch);
+        assertEquals(0, GroundPatchBuilder.refreshBlock(patch, world, edge - 20, 100));
+        assertEquals(0, GroundPatchBuilder.refreshBlock(patch, world, 100, 400));
+    }
+
+    @Test
+    @DisplayName("moving the patch by 8 metres reads only the new strips and gives the same patch as a build from scratch")
+    void recentre() {
+        Counting world = new Counting(GroundPatchTimingTest.hills());
+        GroundPatch patch = GroundPatchBuilder.build(world, 100.0, 64.0, 100.0);
+        world.reads = 0;
+        int reads = GroundPatchBuilder.recentre(patch, world, 109.0, 100.0);
+        assertEquals(18 * GroundPatchBuilder.NODES, reads);
+        assertEquals(reads, world.reads);
+        assertSame(GroundPatchBuilder.build(world, 109.0, 64.0, 100.0), patch);
+
+        world.reads = 0;
+        reads = GroundPatchBuilder.recentre(patch, world, 109.0, 91.0);
+        assertEquals(18 * GroundPatchBuilder.NODES, reads);
+        assertSame(GroundPatchBuilder.build(world, 109.0, 64.0, 91.0), patch);
+
+        GroundPatchBuilder.recentre(patch, world, 98.0, 108.0);
+        assertSame(GroundPatchBuilder.build(world, 98.0, 64.0, 108.0), patch);
+        assertEquals(0, GroundPatchBuilder.recentre(patch, world, 98.2, 108.1));
+    }
+
+    @Test
+    @DisplayName("a jump of more than the whole patch reads everything again")
+    void farJump() {
+        Counting world = new Counting(GroundPatchTimingTest.hills());
+        GroundPatch patch = GroundPatchBuilder.build(world, 100.0, 64.0, 100.0);
+        GroundPatchBuilder.recentre(patch, world, 400.0, -300.0);
+        assertSame(GroundPatchBuilder.build(world, 400.0, 64.0, -300.0), patch);
+    }
+
+    @Test
+    @DisplayName("blocks above or below the window are not worth a rebuild")
+    void window() {
+        GroundPatch patch = build((x, z) -> 64.0);
+        assertTrue(GroundPatchBuilder.inWindow(patch, 64));
+        assertTrue(GroundPatchBuilder.inWindow(patch, 68));
+        assertFalse(GroundPatchBuilder.inWindow(patch, 69));
+        assertTrue(GroundPatchBuilder.inWindow(patch, 56));
+        assertFalse(GroundPatchBuilder.inWindow(patch, 55));
+    }
 }

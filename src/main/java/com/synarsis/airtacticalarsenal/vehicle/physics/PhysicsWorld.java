@@ -129,6 +129,10 @@ public final class PhysicsWorld implements AutoCloseable {
         return this.clientSide;
     }
 
+    public TempAllocatorImpl tempAllocator() {
+        return this.tempAllocator;
+    }
+
     public PhysicsSystem system() {
         return this.system;
     }

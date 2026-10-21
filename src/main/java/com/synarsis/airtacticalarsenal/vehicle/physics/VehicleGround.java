@@ -1,13 +1,21 @@
 package com.synarsis.airtacticalarsenal.vehicle.physics;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 public final class VehicleGround implements AutoCloseable {
+
+    public static final int BATCH_LIMIT = 48;
 
     private final PhysicsWorld world;
     private final int slot;
     private final BlockColumns columns;
+    private final Set<Long> pending = new LinkedHashSet<>();
     private GroundBody body;
-    private boolean dirty;
     private int rebuilds;
+    private int fullRebuilds;
     private double lastBuildMillis;
 
     public VehicleGround(PhysicsWorld world, int slot, BlockColumns columns) {
@@ -24,22 +32,41 @@ public final class VehicleGround implements AutoCloseable {
         return this.rebuilds;
     }
 
+    public int fullRebuilds() {
+        return this.fullRebuilds;
+    }
+
     public double lastBuildMillis() {
         return this.lastBuildMillis;
     }
 
-    public void markDirty(int blockX, int blockZ) {
-        if (GroundPatchBuilder.touches(this.patch(), blockX, blockZ)) {
-            this.dirty = true;
+    public boolean markChanged(int blockX, int blockY, int blockZ) {
+        GroundPatch patch = this.patch();
+        if (!GroundPatchBuilder.touches(patch, blockX, blockZ) || !GroundPatchBuilder.inWindow(patch, blockY)) {
+            return false;
         }
+        this.pending.add(key(blockX, blockZ));
+        return true;
     }
 
     public boolean update(double x, double y, double z) {
         GroundPatch current = this.patch();
-        if (!GroundPatchBuilder.needsRebuild(current, x, y, z, this.dirty)) {
-            return false;
-        }
         long started = System.nanoTime();
+        boolean changed;
+        if (current == null || GroundPatchBuilder.needsNewWindow(current, y) || this.pending.size() > BATCH_LIMIT) {
+            this.rebuildFully(x, y, z);
+            changed = true;
+        } else {
+            changed = this.refresh(current, x, z);
+        }
+        if (changed) {
+            this.rebuilds++;
+            this.lastBuildMillis = (System.nanoTime() - started) / 1.0E6;
+        }
+        return changed;
+    }
+
+    private void rebuildFully(double x, double y, double z) {
         GroundPatch fresh = GroundPatchBuilder.build(this.columns, x, y, z);
         GroundBody replacement = new GroundBody(this.world, this.slot, fresh);
         GroundBody previous = this.body;
@@ -47,10 +74,40 @@ public final class VehicleGround implements AutoCloseable {
         if (previous != null) {
             previous.close();
         }
-        this.dirty = false;
-        this.rebuilds++;
-        this.lastBuildMillis = (System.nanoTime() - started) / 1.0E6;
-        return true;
+        this.pending.clear();
+        this.fullRebuilds++;
+    }
+
+    private boolean refresh(GroundPatch patch, double x, double z) {
+        boolean changed = false;
+        if (GroundPatchBuilder.needsRecentre(patch, x, z)) {
+            GroundPatchBuilder.recentre(patch, this.columns, x, z);
+            changed = true;
+        }
+        if (!this.pending.isEmpty()) {
+            List<Long> blocks = new ArrayList<>(this.pending);
+            this.pending.clear();
+            for (long block : blocks) {
+                GroundPatchBuilder.refreshBlock(patch, this.columns, blockX(block), blockZ(block));
+            }
+            changed = true;
+        }
+        if (changed) {
+            this.body.pushChanges();
+        }
+        return changed;
+    }
+
+    private static long key(int x, int z) {
+        return ((long) x << 32) | (z & 0xFFFFFFFFL);
+    }
+
+    private static int blockX(long key) {
+        return (int) (key >> 32);
+    }
+
+    private static int blockZ(long key) {
+        return (int) key;
     }
 
     public double heightAt(double x, double z) {
