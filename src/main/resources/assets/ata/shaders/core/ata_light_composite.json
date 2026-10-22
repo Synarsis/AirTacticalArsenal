@@ -5,12 +5,201 @@
     "Position"
   ],
   "samplers": [
-    { "name": "SceneSampler" },
-    { "name": "LightSampler" },
-    { "name": "DepthSampler" },
-    { "name": "HazeSampler" }
+    {
+      "name": "SceneSampler"
+    },
+    {
+      "name": "LightSampler"
+    },
+    {
+      "name": "DepthSampler"
+    },
+    {
+      "name": "HazeSampler"
+    },
+    {
+      "name": "LevelsSampler"
+    },
+    {
+      "name": "LightmapSampler"
+    },
+    {
+      "name": "GlareSampler"
+    },
+    {
+      "name": "BloomSampler"
+    },
+    {
+      "name": "BeamSampler"
+    }
   ],
   "uniforms": [
-    { "name": "Params", "type": "float", "count": 4, "values": [ 1.0, 0.0, 0.0, 0.0 ] }
+    {
+      "name": "Params",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "InvProj",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "InvView",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "DepthSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1,
+        1
+      ]
+    },
+    {
+      "name": "LevelOrigin",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "LevelMod",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GlareCount",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Daylight",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "GlareDir0",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GlareDir1",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GlareDir2",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GlareDir3",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BloomStrength",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BeamEnabled",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BeamSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1,
+        1
+      ]
+    }
   ]
 }

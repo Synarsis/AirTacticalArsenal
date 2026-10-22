@@ -3,7 +3,10 @@ package com.synarsis.airtacticalarsenal.client.renderer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.client.ClientTelInput;
+import com.synarsis.airtacticalarsenal.entity.tel.TelInput;
 import com.synarsis.airtacticalarsenal.vehicle.lamp.BrakeLights;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -64,7 +67,11 @@ public class LampGlowLayer<T extends Entity & GeoAnimatable> extends GeoRenderLa
             double dx = owner.getX() - owner.xo;
             double dz = owner.getZ() - owner.zo;
             double forward = (dz * Math.cos(yaw) - dx * Math.sin(yaw)) * 20.0;
-            motion.lights.update(forward, driven);
+            Minecraft mc = Minecraft.getInstance();
+            boolean localDriver = mc.player != null && owner.getControllingPassenger() == mc.player;
+            int input = localDriver ? ClientTelInput.poll() : 0;
+            motion.lights.update(forward, driven, localDriver, (input & TelInput.FWD) != 0,
+                    (input & TelInput.BACK) != 0);
         }
         return motion.lights;
     }
@@ -81,7 +88,10 @@ public class LampGlowLayer<T extends Entity & GeoAnimatable> extends GeoRenderLa
         BrakeLights lights = track(owner, this.driven.test(owner));
         if (this.front != null) {
             this.draw(poseStack, animatable, bakedModel, bufferSource, partialTick, this.front,
-                    BrakeLights.frontBrightness(on));
+                    BrakeLights.frontBrightness(on) * (owner instanceof com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity tel
+                            ? (tel.headlightMode() == 2 ? 1.0 : 0.85)
+                            : owner instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor
+                                    ? (tractor.headlightMode() == 2 ? 1.0 : 0.85) : 1.0));
         }
         this.draw(poseStack, animatable, bakedModel, bufferSource, partialTick, this.rear, lights.rearBrightness(on));
     }

@@ -21,6 +21,9 @@ public final class AtaClientConfig {
     public static final ModConfigSpec.EnumValue<FxLighting> FX_LIGHTING;
     public static final ModConfigSpec.DoubleValue FX_LIGHT_INTENSITY;
     public static final ModConfigSpec.BooleanValue FX_HEAT_HAZE;
+    public static final ModConfigSpec.BooleanValue FX_HEADLIGHT_BEAMS;
+    public static final ModConfigSpec.BooleanValue FX_BLOOM;
+    public static final ModConfigSpec.BooleanValue FX_GLARE;
 
     private AtaClientConfig() {
     }
@@ -76,6 +79,9 @@ public final class AtaClientConfig {
         FX_HEAT_HAZE = BUILDER
                 .comment("Hot air shakes the picture over flames and fireballs (only with fxLighting HIGH)")
                 .define("fxHeatHaze", true);
+        FX_HEADLIGHT_BEAMS = BUILDER.define("fxHeadlightBeams", true);
+        FX_BLOOM = BUILDER.define("fxBloom", true);
+        FX_GLARE = BUILDER.define("fxGlare", true);
         BUILDER.pop();
 
         BUILDER.push("Debug");
@@ -126,6 +132,18 @@ public final class AtaClientConfig {
 
     public static float getFxLightIntensity() {
         return FX_LIGHT_INTENSITY.get().floatValue();
+    }
+
+    public static boolean isFxHeadlightBeamsEnabled() {
+        return FX_HEADLIGHT_BEAMS.get();
+    }
+
+    public static boolean isFxBloomEnabled() {
+        return FX_BLOOM.get();
+    }
+
+    public static boolean isFxGlareEnabled() {
+        return FX_GLARE.get();
     }
 
     public static boolean isFxHeatHazeEnabled() {

@@ -16,7 +16,7 @@ import java.util.List;
 final class EntityBoxTexture {
 
     static final int WIDTH = EntityShadowMath.MAX_BOXES;
-    static final int ROWS = 3;
+    static final int ROWS = 11;
 
     private static int texture;
     private static FloatBuffer staging;
@@ -80,6 +80,21 @@ final class EntityBoxTexture {
         }
         GlStateManager._bindTexture(previous);
         return count;
+    }
+
+    static void uploadRanges(float[] ranges) {
+        if (texture == 0) upload(List.of());
+        int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        GlStateManager._bindTexture(texture);
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(WIDTH * 8 * 4);
+        buffer.put(ranges).flip();
+        TexUpload.Store store = TexUpload.begin();
+        try {
+            GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 3, WIDTH, 8, GL11.GL_RGBA, GL11.GL_FLOAT, buffer);
+        } finally {
+            TexUpload.end(store);
+            GlStateManager._bindTexture(previous);
+        }
     }
 
     static int texture() {

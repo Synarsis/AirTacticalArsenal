@@ -32,6 +32,8 @@ public final class AtaLights {
         private Position follow;
         private BooleanSupplier owner;
         private Vec3 direction = new Vec3(0.0, 0.0, 1.0);
+        private Vec3 right = new Vec3(-1.0, 0.0, 0.0);
+        private int headlightMode;
         private double cosInner = 1.0;
         private double cosOuter = 1.0;
         private float red = 1.0f;
@@ -178,6 +180,20 @@ public final class AtaLights {
             if (len > 1.0E-9) {
                 this.direction = axis.scale(1.0 / len);
             }
+        }
+
+        public Light headlight(int mode, Vec3 right) {
+            this.headlightMode = mode;
+            this.right = right.normalize();
+            return this;
+        }
+
+        public int headlightMode() {
+            return this.headlightMode;
+        }
+
+        public Vec3 right() {
+            return this.right;
         }
 
         public void kill() {

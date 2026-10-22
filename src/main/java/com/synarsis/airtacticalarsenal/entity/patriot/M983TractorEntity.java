@@ -16,6 +16,7 @@ import com.synarsis.airtacticalarsenal.vehicle.physics.Units;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -72,7 +73,6 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     private static final int IMPACT_COOLDOWN_TICKS = 4;
     private static final int DOOR_TICKS = 36;
     private static final int COUPLING_TICKS = 24;
-    private static final int TRAILER_LOAD_GRACE_TICKS = 200;
     private static final int HINT_REFRESH_TICKS = 2;
     private static final float BURNING_FRACTION = 0.1f;
     private static final float BURNING_LOSS_PER_TICK = 0.1f;
@@ -101,8 +101,8 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             .defineId(M983TractorEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_ROLL = SynchedEntityData
             .defineId(M983TractorEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Boolean> DATA_HEADLIGHTS = SynchedEntityData
-            .defineId(M983TractorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Byte> DATA_HEADLIGHTS = SynchedEntityData
+            .defineId(M983TractorEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Integer> DATA_SEAT_0 = SynchedEntityData
             .defineId(M983TractorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_SEAT_1 = SynchedEntityData
@@ -113,6 +113,8 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             .defineId(M983TractorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_TRAILER_ID = SynchedEntityData
             .defineId(M983TractorEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_MISSING_TRAILER_HOLD = SynchedEntityData
+            .defineId(M983TractorEntity.class, EntityDataSerializers.BOOLEAN);
 
     private final AnimatableInstanceCache animationCache = GeckoLibUtil.createInstanceCache(this);
     private final TractorPart[] parts;
@@ -177,8 +179,16 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     @Nullable
     private UUID coupledTrailerUuid;
     private float storedArticulationYaw;
-    private boolean trailerSeen;
-    private int missingTrailerTicks;
+    private boolean partnerKnown;
+    private double partnerX;
+    private double partnerY;
+    private double partnerZ;
+    private int absentTicks;
+    @Nullable
+    private MissingTrailerPose missingTrailerPose;
+
+    private record MissingTrailerPose(Vec3 position, float yaw, float pitch, float roll, boolean grounded) {
+    }
     @Nullable
     private UUID uncoupledFrom;
     private double uncoupleX;
@@ -201,12 +211,13 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_HEALTH, DEFAULT_HEALTH);
         builder.define(DATA_ROLL, 0.0f);
-        builder.define(DATA_HEADLIGHTS, false);
+        builder.define(DATA_HEADLIGHTS, (byte) 0);
         builder.define(DATA_SEAT_0, NO_OCCUPANT);
         builder.define(DATA_SEAT_1, NO_OCCUPANT);
         builder.define(DATA_COUPLING_STATE, CouplingState.FREE.ordinal());
         builder.define(DATA_COUPLING_TICKS, 0);
         builder.define(DATA_TRAILER_ID, -1);
+        builder.define(DATA_MISSING_TRAILER_HOLD, false);
     }
 
     @Override
@@ -243,6 +254,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             this.discard();
             return;
         }
+        this.enforceMissingTrailerHold();
         this.rollO = this.roll;
         for (int i = 0; i < this.spinNow.length; i++) {
             this.spinO[i] = this.spinNow[i];
@@ -320,7 +332,8 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         int id = this.entityData.get(DATA_TRAILER_ID);
         if (id >= 0) {
             Entity entity = this.level().getEntity(id);
-            if (entity instanceof PatriotVehicleEntity trailer && !trailer.isRemoved()) {
+            if (entity instanceof PatriotVehicleEntity trailer && !trailer.isRemoved()
+                    && (this.coupledTrailerUuid == null || this.coupledTrailerUuid.equals(trailer.getUUID()))) {
                 return trailer;
             }
         }
@@ -369,6 +382,9 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     private boolean couplingHoldsTrain() {
+        if (this.entityData.get(DATA_MISSING_TRAILER_HOLD)) {
+            return true;
+        }
         CouplingState state = this.couplingState();
         if (state == CouplingState.LOCKING || state == CouplingState.UNLOCKING) {
             return true;
@@ -452,6 +468,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         this.lockTargetZ = target.z;
         this.coupledTrailerUuid = trailer.getUUID();
         this.entityData.set(DATA_TRAILER_ID, trailer.getId());
+        this.rememberTrailer(trailer);
         trailer.setHitched(true, this.getId(), this.getUUID());
         trailer.dropJoltBody();
         this.couplingTicks = 0;
@@ -462,6 +479,12 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     private void tickLocking() {
+        PatriotVehicleEntity trailer = this.coupledTrailer();
+        if (trailer == null) {
+            this.evaluatePartner(false);
+            return;
+        }
+        this.rememberTrailer(trailer);
         this.couplingTicks++;
         double t = Mth.clamp((double) this.couplingTicks / COUPLING_TICKS, 0.0, 1.0);
         double smooth = t * t * (3.0 - 2.0 * t);
@@ -481,7 +504,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     private void finishLocking() {
         PatriotVehicleEntity trailer = this.coupledTrailer();
         if (trailer == null) {
-            this.releaseCoupling(false);
+            this.evaluatePartner(false);
             return;
         }
         this.setPos(this.lockTargetX, this.lockTargetY, this.lockTargetZ);
@@ -497,20 +520,94 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     private void tickCoupled() {
         PatriotVehicleEntity trailer = this.coupledTrailer();
         if (trailer == null) {
-            this.missingTrailerTicks++;
-            if (this.trailerSeen || this.missingTrailerTicks > TRAILER_LOAD_GRACE_TICKS) {
-                this.releaseCoupling(false);
-            }
+            this.evaluatePartner(false);
             return;
         }
-        this.trailerSeen = true;
-        this.missingTrailerTicks = 0;
+        this.rememberTrailer(trailer);
         trailer.setHitched(true, this.getId(), this.getUUID());
         if (this.jolt != null && this.jolt.role() == TractorJolt.Role.SIMULATE && this.jolt.hitchLinked()) {
             this.storedArticulationYaw = (float) this.jolt.articulation()[0];
         } else if (!this.joltDrivesPose()) {
             M983Coupling.applyTrailerPose(trailer, this, this.storedArticulationYaw);
         }
+    }
+
+    private void evaluatePartner(boolean destroyed) {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        boolean chunkTicks = this.partnerKnown
+                && serverLevel.isPositionEntityTicking(BlockPos.containing(this.partnerX, this.partnerY, this.partnerZ));
+        this.absentTicks = M983Coupling.nextAbsent(this.absentTicks, false, this.partnerKnown, chunkTicks);
+        if (M983Coupling.partner(false, this.partnerKnown, chunkTicks, this.absentTicks, destroyed)
+                == M983Coupling.Partner.GONE) {
+            this.releaseCoupling(false);
+        }
+    }
+
+    public boolean waitingForTrailer() {
+        return this.entityData.get(DATA_MISSING_TRAILER_HOLD);
+    }
+
+    public boolean enforceMissingTrailerHold() {
+        if (this.level().isClientSide) {
+            return this.waitingForTrailer();
+        }
+        boolean missing = this.couplingState() != CouplingState.FREE && this.coupledTrailer() == null;
+        if (!missing) {
+            this.missingTrailerPose = null;
+            this.entityData.set(DATA_MISSING_TRAILER_HOLD, false);
+            return false;
+        }
+        if (this.missingTrailerPose == null) {
+            this.missingTrailerPose = new MissingTrailerPose(this.position(), this.getYRot(), this.getXRot(),
+                    this.roll, this.onGround());
+        }
+        this.entityData.set(DATA_MISSING_TRAILER_HOLD, true);
+        MissingTrailerPose pose = this.missingTrailerPose;
+        this.setPos(pose.position().x, pose.position().y, pose.position().z);
+        this.setYRot(pose.yaw());
+        this.setXRot(pose.pitch());
+        this.setRoll(pose.roll());
+        this.setOnGround(pose.grounded());
+        this.setDeltaMovement(Vec3.ZERO);
+        this.serverVelocity = Vec3.ZERO;
+        this.observedVelocity = Vec3.ZERO;
+        this.observedYawRate = 0.0;
+        this.lastTickPos = pose.position();
+        this.speedKmh = 0.0f;
+        this.updateParts();
+        return true;
+    }
+
+    public void trailerDestroyed() {
+        if (this.level().isClientSide || this.couplingState() == CouplingState.FREE) {
+            return;
+        }
+        this.evaluatePartner(true);
+    }
+
+    private void rememberTrailer(PatriotVehicleEntity trailer) {
+        this.absentTicks = 0;
+        this.partnerKnown = true;
+        this.partnerX = trailer.getX();
+        this.partnerY = trailer.getY();
+        this.partnerZ = trailer.getZ();
+    }
+
+    public boolean trailerLoaded() {
+        return this.coupledTrailer() != null;
+    }
+
+    @Override
+    public void remove(Entity.RemovalReason reason) {
+        if (!this.level().isClientSide && reason.shouldDestroy() && this.couplingState() != CouplingState.FREE) {
+            PatriotVehicleEntity trailer = this.coupledTrailer();
+            if (trailer != null) {
+                trailer.tractorDestroyed();
+            }
+        }
+        super.remove(reason);
     }
 
     @Override
@@ -526,10 +623,9 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         this.coupledTrailerUuid = trailer.getUUID();
         this.entityData.set(DATA_TRAILER_ID, trailer.getId());
         this.storedArticulationYaw = bend;
-        this.trailerSeen = true;
-        this.missingTrailerTicks = 0;
         trailer.setHitched(true, this.getId(), this.getUUID());
         M983Coupling.applyTrailerPose(trailer, this, bend);
+        this.rememberTrailer(trailer);
         this.setCoupling(CouplingState.COUPLED, 0);
     }
 
@@ -543,7 +639,6 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         }
         PatriotVehicleEntity trailer = this.coupledTrailer();
         if (trailer == null) {
-            this.releaseCoupling(false);
             return;
         }
         M983Coupling.Uncouple verdict = this.uncoupleVerdict();
@@ -560,6 +655,12 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     private void tickUnlocking() {
+        PatriotVehicleEntity trailer = this.coupledTrailer();
+        if (trailer == null) {
+            this.evaluatePartner(false);
+            return;
+        }
+        this.rememberTrailer(trailer);
         this.couplingTicks++;
         this.setCoupling(CouplingState.UNLOCKING, this.couplingTicks);
         if (this.couplingTicks >= COUPLING_TICKS) {
@@ -580,6 +681,8 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             trailer.dropJoltBody();
         }
         this.coupledTrailerUuid = null;
+        this.partnerKnown = false;
+        this.absentTicks = 0;
         this.storedArticulationYaw = 0.0f;
         this.couplingTicks = 0;
         this.captureTicks = 0;
@@ -589,6 +692,10 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     private void setCoupling(CouplingState state, int ticks) {
+        if (state == CouplingState.FREE) {
+            this.missingTrailerPose = null;
+            this.entityData.set(DATA_MISSING_TRAILER_HOLD, false);
+        }
         this.entityData.set(DATA_COUPLING_STATE, state.ordinal());
         this.entityData.set(DATA_COUPLING_TICKS, ticks);
     }
@@ -1085,6 +1192,9 @@ public class M983TractorEntity extends Entity implements GeoEntity {
 
     public void applyJoltPose(double x, double y, double z, float yaw, float pitch, float roll, Vec3 velocity,
             boolean grounded) {
+        if (!this.level().isClientSide && this.enforceMissingTrailerHold()) {
+            return;
+        }
         this.setPos(x, y, z);
         this.setYRot(yaw);
         this.setXRot(pitch);
@@ -1113,7 +1223,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     public void acceptPose(float artYaw, float yaw, float pitch, float roll) {
-        if (this.level().isClientSide) {
+        if (this.level().isClientSide || this.enforceMissingTrailerHold()) {
             return;
         }
         if (Float.isFinite(yaw) && Float.isFinite(pitch) && Float.isFinite(roll)
@@ -1150,15 +1260,19 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             this.setHeadlights(false);
             return;
         }
-        this.setHeadlights(!this.areHeadlightsOn());
+        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.next(this.headlightMode(), true));
+    }
+
+    public byte headlightMode() {
+        return TelHeadlights.mode(this.entityData.get(DATA_HEADLIGHTS));
     }
 
     public boolean areHeadlightsOn() {
-        return this.entityData.get(DATA_HEADLIGHTS);
+        return this.headlightMode() != 0;
     }
 
     private void setHeadlights(boolean on) {
-        this.entityData.set(DATA_HEADLIGHTS, on && this.headlightsWork());
+        this.entityData.set(DATA_HEADLIGHTS, (byte) (on && this.headlightsWork() ? 1 : 0));
     }
 
     private boolean headlightsWork() {
@@ -1286,13 +1400,20 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         tag.putBoolean("LegitSpawn", this.isLegitSpawn);
         tag.putFloat("Health", this.getHealth());
         tag.putFloat("Roll", this.roll);
-        tag.putBoolean("Headlights", this.areHeadlightsOn());
+        tag.putByte("Headlights", this.headlightMode());
         if (this.ownerUuid != null) {
             tag.putUUID("Owner", this.ownerUuid);
         }
         if (this.coupledTrailerUuid != null && this.couplingState() != CouplingState.FREE) {
             tag.putUUID("CoupledTrailer", this.coupledTrailerUuid);
             tag.putFloat("ArticulationYaw", this.storedArticulationYaw);
+            if (this.partnerKnown) {
+                CompoundTag partner = new CompoundTag();
+                partner.putDouble("X", this.partnerX);
+                partner.putDouble("Y", this.partnerY);
+                partner.putDouble("Z", this.partnerZ);
+                tag.put("PartnerPos", partner);
+            }
         }
     }
 
@@ -1305,13 +1426,21 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         this.roll = tag.getFloat("Roll");
         this.rollO = this.roll;
         this.entityData.set(DATA_ROLL, this.roll);
-        this.entityData.set(DATA_HEADLIGHTS, tag.getBoolean("Headlights"));
+        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.mode(tag.getByte("Headlights")));
         if (tag.hasUUID("Owner")) {
             this.ownerUuid = tag.getUUID("Owner");
         }
         if (tag.hasUUID("CoupledTrailer")) {
             this.coupledTrailerUuid = tag.getUUID("CoupledTrailer");
             this.storedArticulationYaw = tag.getFloat("ArticulationYaw");
+            CompoundTag partner = tag.getCompound("PartnerPos");
+            this.partnerKnown = partner.contains("X", Tag.TAG_DOUBLE) && partner.contains("Y", Tag.TAG_DOUBLE)
+                    && partner.contains("Z", Tag.TAG_DOUBLE);
+            if (this.partnerKnown) {
+                this.partnerX = partner.getDouble("X");
+                this.partnerY = partner.getDouble("Y");
+                this.partnerZ = partner.getDouble("Z");
+            }
             this.setCoupling(CouplingState.COUPLED, 0);
         }
     }

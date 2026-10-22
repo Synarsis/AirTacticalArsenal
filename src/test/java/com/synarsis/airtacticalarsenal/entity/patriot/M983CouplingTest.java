@@ -24,6 +24,58 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class M983CouplingTest {
 
     @Test
+    void partnerPresenceAndAbsenceBranches() {
+        for (boolean present : new boolean[] {false, true}) {
+            for (boolean known : new boolean[] {false, true}) {
+                for (boolean ticking : new boolean[] {false, true}) {
+                    for (boolean destroyed : new boolean[] {false, true}) {
+                        for (int ticks : new int[] {0, 1, 99, 100, 101}) {
+                            M983Coupling.Partner expected = destroyed ? M983Coupling.Partner.GONE
+                                    : present ? M983Coupling.Partner.HERE
+                                    : known && ticking && ticks >= 100 ? M983Coupling.Partner.GONE
+                                    : M983Coupling.Partner.UNLOADED;
+                            assertEquals(expected, M983Coupling.partner(present, known, ticking, ticks, destroyed));
+                            assertEquals(present || !known || !ticking ? 0 : Math.min(ticks + 1, 100),
+                                    M983Coupling.nextAbsent(ticks, present, known, ticking));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void onlyConsecutiveTickingAbsenceReleases() {
+        int absent = 0;
+        for (int tick = 1; tick <= 99; tick++) {
+            absent = M983Coupling.nextAbsent(absent, false, true, true);
+            assertEquals(M983Coupling.Partner.UNLOADED, M983Coupling.partner(false, true, true, absent, false));
+        }
+        assertEquals(0, M983Coupling.nextAbsent(absent, false, true, false));
+        assertEquals(0, M983Coupling.nextAbsent(absent, true, true, true));
+        absent = M983Coupling.nextAbsent(absent, false, true, true);
+        assertEquals(M983Coupling.Partner.GONE, M983Coupling.partner(false, true, true, absent, false));
+    }
+
+    @Test
+    void unloadedHudAndTranslations() throws IOException {
+        for (CouplingState state : new CouplingState[] {CouplingState.LOCKING, CouplingState.COUPLED,
+                CouplingState.UNLOCKING}) {
+            List<M983HudLines.Line> lines = M983HudLines.lines(state, null, true, false);
+            assertEquals(1, lines.size());
+            assertEquals("hud.ata.m983.trailer_unloaded", lines.getFirst().key());
+            assertEquals(M983HudLines.Tone.YELLOW, lines.getFirst().tone());
+        }
+        assertEquals("hud.ata.m983.free", M983HudLines.lines(CouplingState.FREE, null, true, false).getFirst().key());
+        for (String file : new String[] {"en_us.json", "ru_ru.json"}) {
+            JsonObject lang = JsonParser.parseString(Files.readString(Path.of("src", "main", "resources", "assets",
+                    "ata", "lang", file), StandardCharsets.UTF_8)).getAsJsonObject();
+            assertNotNull(lang.get("hud.ata.m983.trailer_unloaded"));
+            assertNotNull(lang.get("gui.ata.patriot.tractor_unloaded"));
+        }
+    }
+
+    @Test
     @DisplayName("the kingpin must be within 0.35 blocks sideways, whichever way it lies")
     void distance() {
         assertEquals(Verdict.READY, M983Coupling.verdict(0.0, 0.0, 0.0, 0.0));

@@ -21,6 +21,7 @@ public final class M983Coupling {
     public static final int CAPTURE_TICKS = 10;
     public static final double UNCOUPLE_SPEED_MS = 0.3;
     public static final double RECOUPLE_DISTANCE = 1.5;
+    public static final int PARTNER_LOST_TICKS = 100;
 
     private M983Coupling() {
     }
@@ -120,6 +121,33 @@ public final class M983Coupling {
             return Uncouple.SUPPORTS;
         }
         return Uncouple.OK;
+    }
+
+    public enum Partner {
+        HERE,
+        UNLOADED,
+        GONE
+    }
+
+    public static Partner partner(boolean present, boolean positionKnown, boolean chunkTicks, int absentTicks,
+            boolean destroyed) {
+        if (destroyed) {
+            return Partner.GONE;
+        }
+        if (present) {
+            return Partner.HERE;
+        }
+        if (!positionKnown || !chunkTicks) {
+            return Partner.UNLOADED;
+        }
+        return absentTicks >= PARTNER_LOST_TICKS ? Partner.GONE : Partner.UNLOADED;
+    }
+
+    public static int nextAbsent(int absentTicks, boolean present, boolean positionKnown, boolean chunkTicks) {
+        if (present || !positionKnown || !chunkTicks) {
+            return 0;
+        }
+        return Math.min(absentTicks + 1, PARTNER_LOST_TICKS);
     }
 
     public static boolean slowEnough(double speedMs) {

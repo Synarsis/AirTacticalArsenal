@@ -106,7 +106,7 @@ public class TelHud implements LayeredDraw.Layer {
             ty += 1;
             boolean lit = tel.areHeadlightsOn();
             TelUi.text(g, font, Component.translatable("gui.ata.tel.hud.lights",
-                    Component.translatable(lit ? "gui.ata.tel.hud.on" : "gui.ata.tel.hud.off")),
+                    Component.translatable(com.synarsis.airtacticalarsenal.entity.tel.TelHeadlights.modeKey(tel.headlightMode()))),
                     new Rect(tx, ty, inner, 10), lit ? TelUi.YELLOW : TelUi.DIM);
             ty += 11;
             TelUi.text(g, font, Component.translatable("gui.ata.tel.hint", ModKeys.TEL_FIRE_CONTROL.getTranslatedKeyMessage()),

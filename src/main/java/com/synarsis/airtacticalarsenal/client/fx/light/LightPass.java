@@ -134,6 +134,9 @@ public final class LightPass {
         releaseHazeBuffer();
         OccupancyVolume.release();
         EntityBoxTexture.release();
+        GlarePass.release();
+        BloomPass.release();
+        BeamPass.release();
         boxCount = 0;
         copyWidth = 0;
         copyHeight = 0;
@@ -176,6 +179,9 @@ public final class LightPass {
         FxLighting mode = mode();
         if (disabledBy != null || mode == FxLighting.OFF || mc.level == null || !LightShaders.ready()
                 || ShaderPackGuard.shaderPackInUse()) {
+            GlarePass.reset();
+            BloomPass.reset();
+            BeamPass.reset();
             lastLights = 0;
             lastHaze = 0;
             lastShadowLights = 0;
@@ -193,6 +199,9 @@ public final class LightPass {
         lastLights = picked.size();
         lastHaze = hazes.size();
         if (picked.isEmpty() && hazes.isEmpty()) {
+            GlarePass.reset();
+            BloomPass.reset();
+            BeamPass.reset();
             lastShadowLights = 0;
             idle(now);
             return;
@@ -217,7 +226,7 @@ public final class LightPass {
             wantHaze = wantHaze && hazeFbo != 0 && LightShaders.haze() != null;
 
             Set<Integer> blockShadowed = blockShadowed(picked, mode);
-            boolean volumeWanted = !blockShadowed.isEmpty();
+            boolean volumeWanted = !picked.isEmpty();
             lastShadowLights = blockShadowed.size();
             if (volumeWanted) {
                 lastShadowUsed = now;
@@ -266,7 +275,24 @@ public final class LightPass {
                 enableAdditiveBlend();
                 drawHaze(hazes, view, projection, cam, partial, main);
             }
-            composite(main, level, cam, partial, wantHaze);
+            BeamPass.reset();
+            if (floatBuffers && mode.headlightBeams(AtaClientConfig.isFxHeadlightBeamsEnabled())) {
+                BeamPass.draw(level, cam, partial, view, projection, depthCopy.getDepthTextureId(), main.width, main.height);
+            }
+            BloomPass.reset();
+            if (floatBuffers && mode.bloom(AtaClientConfig.isFxBloomEnabled())) {
+                BloomPass.draw(main.width, main.height, shader -> {
+                    bindSurface(shader, main, cam, view, projection);
+                    shader.safeGetUniform("Params").set((float) (dayFactor(level, cam, partial)
+                            * AtaClientConfig.getFxLightIntensity()), 0.0f, 0.0f, 1.0f);
+                });
+            }
+            if (mode.glare(AtaClientConfig.isFxGlareEnabled())) {
+                GlarePass.draw(view, projection, cam, partial, depthCopy.getDepthTextureId(), main.width, main.height);
+            } else {
+                GlarePass.reset();
+            }
+            composite(main, level, cam, partial, wantHaze, view, projection);
         } finally {
             restoreState(saved);
             RenderSystem.setShader(() -> previousShader);
@@ -348,7 +374,7 @@ public final class LightPass {
         return true;
     }
 
-    private static int[] createColorTarget(int w, int h, boolean floating) {
+    static int[] createColorTarget(int w, int h, boolean floating) {
         int previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         int tex = GL11.glGenTextures();
         GlStateManager._bindTexture(tex);
@@ -385,7 +411,7 @@ public final class LightPass {
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
     }
 
-    private static void enableAdditiveBlend() {
+    static void enableAdditiveBlend() {
         RenderSystem.disableBlend();
         RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE,
                 GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
@@ -452,6 +478,8 @@ public final class LightPass {
         shader.safeGetUniform("DepthSize").set((float) main.width, (float) main.height);
         shader.safeGetUniform("FogRange").set(RenderSystem.getShaderFogStart(), RenderSystem.getShaderFogEnd());
         shader.safeGetUniform("AccScale").set(floatBuffers ? 1.0f : BYTE_RANGE);
+        shader.safeGetUniform("WetRoad").set(Minecraft.getInstance().level.getRainLevel(partial),
+                mode == FxLighting.HIGH && volume ? 1.0f : 0.0f);
 
         int shadowsLeft = mode.shadows() ? SHADOW_LIGHTS : 0;
         for (LightSelect.Candidate c : picked) {
@@ -464,13 +492,15 @@ public final class LightPass {
             Vector3f v = new Vector3f(world);
             view.transformPosition(v);
             float radius = (float) c.radius();
-            float[] rect = LightBounds.screenRect(projection, v, radius);
-            if (rect == null) {
-                continue;
-            }
             Vec3 axis = light.direction();
             Vector3f dir = new Vector3f((float) axis.x, (float) axis.y, (float) axis.z);
             view.transformDirection(dir);
+            Vec3 rightAxis = light.right();
+            Vector3f right = view.transformDirection(new Vector3f((float) rightAxis.x, (float) rightAxis.y, (float) rightAxis.z));
+            float[] rect = light.headlightMode() == 0 ? LightBounds.screenRect(projection, v, radius)
+                    : LightBounds.beamRect(projection, v, dir, right, radius, light.headlightMode() == 2);
+            if (rect == null) continue;
+            shader.safeGetUniform("LightRight").set(right.x, right.y, right.z, (float) light.headlightMode());
             boolean spot = light.kind() == AtaLights.Kind.SPOT;
             boolean shadow = shadowsLeft > 0 && light.shadows();
             if (shadow) {
@@ -482,7 +512,7 @@ public final class LightPass {
                     light.blue() * strength, (float) light.wrap());
             shader.safeGetUniform("LightDir").set(dir.x, dir.y, dir.z, (float) light.cosOuter());
             shader.safeGetUniform("LightCone").set((float) light.cosInner(), spot ? 1.0f : 0.0f, shadow ? 1.0f : 0.0f,
-                    mode.normals() ? 1.0f : 0.0f);
+                    mode.normals() || light.headlightMode() != 0 ? 1.0f : 0.0f);
             boolean blocks = volume && blockShadowed.contains(c.id());
             shader.safeGetUniform("LightWorld").set(world.x, world.y, world.z, radius);
             shader.safeGetUniform("Shadow").set(blocks ? 1.0f : 0.0f, (float) mode.shadowRays(),
@@ -555,7 +585,7 @@ public final class LightPass {
         shader.clear();
     }
 
-    private static void composite(RenderTarget main, ClientLevel level, Vec3 cam, float partial, boolean haze) {
+    private static void composite(RenderTarget main, ClientLevel level, Vec3 cam, float partial, boolean haze, Matrix4f view, Matrix4f projection) {
         ShaderInstance shader = LightShaders.composite();
         main.bindWrite(true);
         disableBlendForComposite();
@@ -574,13 +604,37 @@ public final class LightPass {
 
         RenderSystem.setShader(() -> shader);
         shader.setSampler("SceneSampler", sceneCopy.getColorTextureId());
-        shader.setSampler("LightSampler", lightTex);
-        shader.setSampler("DepthSampler", depthCopy.getDepthTextureId());
+        GlarePass.bind(shader, lightTex);
+        BeamPass.bind(shader, lightTex);
+        shader.safeGetUniform("Daylight").set((float) ((1.0 - day) / (1.0 - LightMath.DAY_STRENGTH)));
+        bindSurface(shader, main, cam, view, projection);
+        shader.setSampler("BloomSampler", BloomPass.texture() != 0 ? BloomPass.texture() : lightTex);
+        shader.safeGetUniform("BloomStrength").set(BloomPass.texture() != 0 ? 0.25f : 0.0f);
         shader.setSampler("HazeSampler", haze ? hazeTex : lightTex);
         shader.safeGetUniform("Params").set(scale, haze ? 1.0f : 0.0f, LightDebug.bufferView() ? 1.0f : 0.0f,
                 floatBuffers ? 1.0f : 1.0f / BYTE_RANGE);
         quad(-1.0f, -1.0f, 1.0f, 1.0f);
         shader.clear();
+    }
+
+    private static void bindSurface(ShaderInstance shader, RenderTarget main, Vec3 cam, Matrix4f view, Matrix4f projection) {
+        shader.setSampler("SceneSampler", sceneCopy.getColorTextureId());
+        shader.setSampler("LevelsSampler", LightLevelVolume.texture());
+        shader.setSampler("LightmapSampler", ((com.synarsis.airtacticalarsenal.mixins.LightTextureAccessor)
+                (Object) Minecraft.getInstance().gameRenderer.lightTexture()).ata$lightTexture().getId());
+        shader.safeGetUniform("InvProj").set(new Matrix4f(projection).invert());
+        shader.safeGetUniform("InvView").set(new Matrix4f(view).invert());
+        shader.safeGetUniform("DepthSize").set((float) main.width, (float) main.height);
+        OccupancyGrid levelsGrid = OccupancyVolume.grid();
+        if (levelsGrid == null) {
+            levelsGrid = new OccupancyGrid();
+        }
+        shader.safeGetUniform("LevelOrigin").set((float) (levelsGrid.originX() - cam.x),
+                (float) (levelsGrid.originY() - cam.y), (float) (levelsGrid.originZ() - cam.z));
+        shader.safeGetUniform("LevelMod").set((float) Math.floorMod(levelsGrid.originX(), 128),
+                (float) Math.floorMod(levelsGrid.originY(), 64), (float) Math.floorMod(levelsGrid.originZ(), 128));
+        shader.setSampler("LightSampler", lightTex);
+        shader.setSampler("DepthSampler", depthCopy.getDepthTextureId());
     }
 
     static double dayFactor(ClientLevel level, Vec3 cam, float partial) {
@@ -590,7 +644,7 @@ public final class LightPass {
         return LightMath.dayFactor(LightMath.daylight(sky, skyLight));
     }
 
-    private static void quad(float x0, float y0, float x1, float y1) {
+    static void quad(float x0, float y0, float x1, float y1) {
         BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
         buffer.addVertex(x0, y0, 0.0f);
         buffer.addVertex(x1, y0, 0.0f);

@@ -35,13 +35,8 @@ final class EntityShadowBoxes {
     static List<Box> collect(ClientLevel level, Minecraft mc, Vec3 cam, float partial, List<Source> sources,
             double originX, double originY, double originZ) {
         List<Candidate> found = new ArrayList<>();
-        Entity viewer = mc.getCameraEntity();
-        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
         for (Entity entity : level.entitiesForRendering()) {
             if (entity.isRemoved() || entity.isSpectator() || entity.isInvisible()) {
-                continue;
-            }
-            if (entity == viewer && firstPerson) {
                 continue;
             }
             Vec3 at = new Vec3(Mth.lerp(partial, entity.xo, entity.getX()), Mth.lerp(partial, entity.yo, entity.getY()),

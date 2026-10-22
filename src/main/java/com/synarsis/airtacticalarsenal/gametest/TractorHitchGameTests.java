@@ -14,14 +14,29 @@ import com.synarsis.airtacticalarsenal.entity.patriot.PatriotTiming;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.TractorJolt;
 import com.synarsis.airtacticalarsenal.vehicle.physics.JoltVehicle;
+import com.mojang.authlib.GameProfile;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -62,6 +77,267 @@ public final class TractorHitchGameTests {
         tractor.moveTo(at.x, at.y, at.z, yaw, 0.0f);
         helper.getLevel().addFreshEntity(tractor);
         return tractor;
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 180)
+    public static void unloadedTrailerKeepsCouplingAndHolds(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.LAUNCHER, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            Vec3 parked = tractor.position();
+            trailer.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            tractor.setTestThrottle(1.0);
+            helper.runAfterDelay(10, () -> {
+                helper.assertTrue(tractor.couplingState() == CouplingState.COUPLED, "unload must not uncouple");
+                helper.assertTrue(!tractor.trailerLoaded(), "the unloaded trailer must not resolve");
+                helper.assertTrue(tractor.joltView().role() == TractorJolt.Role.HOLD, "missing trailer holds tractor");
+                helper.assertTrue(tractor.position().distanceTo(parked) < 0.05, "throttle cannot move held tractor");
+                tractor.requestUncouple(helper.makeMockPlayer(GameType.SURVIVAL));
+                helper.assertTrue(tractor.couplingState() == CouplingState.COUPLED, "manual unlock needs partner");
+                helper.runAfterDelay(100, () -> {
+                    helper.assertTrue(tractor.couplingState() == CouplingState.FREE,
+                            "a ticking position missing its trailer eventually releases");
+                    tractor.discard();
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 180)
+    public static void drivenTractorRejectsIncomingMovementWhileTrailerIsUnloaded(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.LAUNCHER, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            GameProfile profile = new GameProfile(UUID.randomUUID(), "hitch-hold-driver");
+            ServerPlayer driver = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(), profile,
+                    ClientInformation.createDefault());
+            List<Packet<?>> replies = new ArrayList<>();
+            ServerGamePacketListenerImpl listener = new ServerGamePacketListenerImpl(helper.getLevel().getServer(),
+                    new Connection(PacketFlow.SERVERBOUND), driver, CommonListenerCookie.createInitial(profile, false)) {
+                @Override
+                public void send(Packet<?> packet) {
+                    replies.add(packet);
+                }
+            };
+            driver.setPos(tractor.getX(), tractor.getY(), tractor.getZ());
+            helper.getLevel().addNewPlayer(driver);
+            helper.assertTrue(driver.startRiding(tractor, true), "the regression needs a seated server driver");
+            helper.assertTrue(tractor.getControllingPassenger() == driver, "the server driver controls the tractor");
+            listener.tick();
+            replies.stream().filter(ClientboundPlayerPositionPacket.class::isInstance)
+                    .map(ClientboundPlayerPositionPacket.class::cast)
+                    .reduce((previous, latest) -> latest)
+                    .ifPresent(teleport -> listener.handleAcceptTeleportPacket(
+                            new ServerboundAcceptTeleportationPacket(teleport.getId())));
+            M983TractorEntity clientPose = ModEntities.M983_TRACTOR.get().create(helper.getLevel());
+            clientPose.moveTo(tractor.getX() + 0.25, tractor.getY(), tractor.getZ(), 6.0f, 0.0f);
+            listener.handleMoveVehicle(new ServerboundMoveVehiclePacket(clientPose));
+            helper.assertTrue(tractor.position().distanceTo(clientPose.position()) < 1.0E-6,
+                    "positive control: vanilla handler accepts movement with a loaded partner");
+            helper.assertTrue(Math.abs(tractor.getYRot() - 6.0f) < 1.0E-6,
+                    "positive control: the incoming packet really reaches vanilla movement");
+            Vec3 parked = tractor.position();
+            float yaw = tractor.getYRot();
+            float pitch = tractor.getXRot();
+            float roll = tractor.roll;
+            CompoundTag savedTrailer = new CompoundTag();
+            trailer.saveWithoutId(savedTrailer);
+            trailer.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            clientPose.moveTo(parked.x + 0.75, parked.y + 0.1, parked.z + 0.5, yaw + 45.0f, pitch + 12.0f);
+            replies.clear();
+            listener.handleMoveVehicle(new ServerboundMoveVehiclePacket(clientPose));
+            helper.assertTrue(tractor.waitingForTrailer(), "the server publishes missing-partner hold immediately");
+            helper.assertTrue(replies.stream().anyMatch(ClientboundMoveVehiclePacket.class::isInstance),
+                    "rejected movement sends the authoritative vehicle correction to its driver");
+            tractor.acceptPose(20.0f, yaw + 90.0f, pitch + 15.0f, roll + 10.0f);
+            tractor.applyJoltPose(clientPose.getX(), clientPose.getY(), clientPose.getZ(), yaw + 30.0f,
+                    pitch + 5.0f, roll + 5.0f, new Vec3(1.0, 0.0, 1.0), false);
+            assertFrozenTractor(helper, tractor, parked, yaw, pitch, roll);
+            helper.runAfterDelay(2, () -> {
+                helper.assertTrue(tractor.joltView().role() == TractorJolt.Role.HOLD,
+                        "the server selects HOLD even while a driver is present");
+                tractor.setPos(parked.x + 1.0, parked.y, parked.z);
+                tractor.setYRot(yaw + 60.0f);
+                tractor.joltView().beforeStep();
+                assertFrozenTractor(helper, tractor, parked, yaw, pitch, roll);
+                JoltVehicle.Snapshot body = tractor.joltView().vehicle().snapshot();
+                helper.assertTrue(new Vec3(body.x(), body.y(), body.z()).distanceTo(parked) < 1.0E-6,
+                        "beforeHold restores the frozen entity instead of dragging the static body after it");
+                helper.runAfterDelay(10, () -> {
+                    listener.handleMoveVehicle(new ServerboundMoveVehiclePacket(clientPose));
+                    assertFrozenTractor(helper, tractor, parked, yaw, pitch, roll);
+                    PatriotVehicleEntity restoredTrailer = ModEntities.PATRIOT_LAUNCHER.get().create(helper.getLevel());
+                    restoredTrailer.load(savedTrailer);
+                    helper.getLevel().addFreshEntity(restoredTrailer);
+                    helper.runAfterDelay(2, () -> {
+                        helper.assertTrue(!tractor.waitingForTrailer() && tractor.coupledTrailer() == restoredTrailer,
+                                "the server clears missing-partner hold when the same UUID loads again");
+                        restoredTrailer.discard();
+                        helper.assertTrue(!tractor.waitingForTrailer() && tractor.couplingState() == CouplingState.FREE,
+                                "destruction also clears the synchronized missing-partner hold");
+                        driver.stopRiding();
+                        driver.discard();
+                        tractor.discard();
+                        helper.succeed();
+                    });
+                });
+            });
+        });
+    }
+
+    private static void assertFrozenTractor(GameTestHelper helper, M983TractorEntity tractor, Vec3 parked,
+            float yaw, float pitch, float roll) {
+        helper.assertTrue(tractor.position().distanceTo(parked) < 1.0E-6, "incoming movement cannot shift frozen XYZ");
+        helper.assertTrue(Math.abs(tractor.getYRot() - yaw) < 1.0E-6, "incoming pose cannot rotate frozen yaw");
+        helper.assertTrue(Math.abs(tractor.getXRot() - pitch) < 1.0E-6, "incoming pose cannot rotate frozen pitch");
+        helper.assertTrue(Math.abs(tractor.roll - roll) < 1.0E-6, "incoming pose cannot rotate frozen roll");
+        helper.assertTrue(tractor.getDeltaMovement().lengthSqr() == 0.0, "the frozen tractor has zero velocity");
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 180)
+    public static void unloadedTractorKeepsTrailerHitched(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.RADAR, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            tractor.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            helper.runAfterDelay(10, () -> {
+                helper.assertTrue(trailer.isHitched(), "unloading tractor must not release trailer");
+                helper.assertTrue(trailer.coupledTractor() == null, "removed tractor must not resolve");
+                helper.runAfterDelay(100, () -> {
+                    helper.assertTrue(!trailer.isHitched() && trailer.supportsOutNow(),
+                            "100 ticking absent ticks park the orphan on supports");
+                    trailer.discard();
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 80)
+    public static void killedTrailerReleasesTractorImmediately(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.LAUNCHER, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            trailer.kill();
+            helper.assertTrue(tractor.couplingState() == CouplingState.FREE, "kill releases in the same tick");
+            tractor.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 80)
+    public static void killedTractorParksTrailerImmediately(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.RADAR, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            tractor.kill();
+            helper.assertTrue(!trailer.isHitched() && trailer.supportsOutNow(), "kill parks trailer in same tick");
+            trailer.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 180)
+    public static void partnersReloadTheirPositionsAndReconnectByUuid(GameTestHelper helper) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.LAUNCHER, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            CompoundTag trailerTag = new CompoundTag();
+            CompoundTag tractorTag = new CompoundTag();
+            trailer.saveWithoutId(trailerTag);
+            tractor.saveWithoutId(tractorTag);
+            helper.assertTrue(trailerTag.getCompound("PartnerPos").getDouble("X") == tractor.getX(),
+                    "trailer persists tractor position");
+            helper.assertTrue(tractorTag.getCompound("PartnerPos").getDouble("Z") == trailer.getZ(),
+                    "tractor persists trailer position");
+            tractor.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            trailer.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            helper.runAfterDelay(5, () -> {
+                M983TractorEntity restoredTractor = ModEntities.M983_TRACTOR.get().create(helper.getLevel());
+                PatriotVehicleEntity restoredTrailer = ModEntities.PATRIOT_LAUNCHER.get().create(helper.getLevel());
+                restoredTractor.load(tractorTag);
+                restoredTrailer.load(trailerTag);
+                helper.getLevel().addFreshEntity(restoredTrailer);
+                helper.runAfterDelay(10, () -> {
+                    helper.assertTrue(restoredTrailer.isHitched(), "loading trailer first retains hitch");
+                    helper.getLevel().addFreshEntity(restoredTractor);
+                    helper.runAfterDelay(10, () -> {
+                        helper.assertTrue(restoredTractor.coupledTrailer() == restoredTrailer,
+                                "tractor resolves reloaded trailer UUID");
+                        helper.assertTrue(restoredTrailer.coupledTractor() == restoredTractor,
+                                "trailer resolves reloaded tractor UUID");
+                        restoredTrailer.discard();
+                        helper.assertTrue(restoredTractor.couplingState() == CouplingState.FREE,
+                                "discard also notifies loaded partner");
+                        restoredTractor.discard();
+                        helper.succeed();
+                    });
+                });
+            });
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 400)
+    public static void nonTickingTrailerPositionNeverReleasesTractor(GameTestHelper helper) {
+        nonTickingPartnerSurvives(helper, true);
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = BATCH, timeoutTicks = 400)
+    public static void nonTickingTractorPositionNeverParksTrailer(GameTestHelper helper) {
+        nonTickingPartnerSurvives(helper, false);
+    }
+
+    private static void nonTickingPartnerSurvives(GameTestHelper helper, boolean keepTractor) {
+        PatriotVehicleEntity trailer = trailer(helper, PatriotKind.RADAR, TRAILER_X, TRAILER_Z);
+        M983TractorEntity tractor = tractor(helper, TRAILER_X, TRAILER_Z + PIN_OFFSET, 0.0f);
+        tractor.adoptTrailer(trailer, 0.0f);
+        helper.runAfterDelay(SETTLE, () -> {
+            CompoundTag saved = new CompoundTag();
+            (keepTractor ? tractor : trailer).saveWithoutId(saved);
+            CompoundTag partner = saved.getCompound("PartnerPos");
+            partner.putDouble("X", 3000000.0);
+            partner.putDouble("Z", 3000000.0);
+            helper.assertTrue(!helper.getLevel().isPositionEntityTicking(
+                    net.minecraft.core.BlockPos.containing(3000000.0, partner.getDouble("Y"), 3000000.0)),
+                    "partner chunk must not tick entities");
+            trailer.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            tractor.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            helper.runAfterDelay(5, () -> {
+                Entity restored = keepTractor ? ModEntities.M983_TRACTOR.get().create(helper.getLevel())
+                        : ModEntities.PATRIOT_RADAR.get().create(helper.getLevel());
+                restored.load(saved);
+                helper.getLevel().addFreshEntity(restored);
+                Vec3 parked = restored.position();
+                if (restored instanceof M983TractorEntity restoredTractor) {
+                    restoredTractor.setTestThrottle(1.0);
+                }
+                helper.runAfterDelay(320, () -> {
+                    if (restored instanceof M983TractorEntity restoredTractor) {
+                        helper.assertTrue(restoredTractor.couplingState() == CouplingState.COUPLED,
+                                "non-ticking trailer chunk never expires the hitch");
+                        helper.assertTrue(restoredTractor.joltView().role() == TractorJolt.Role.HOLD,
+                                "unloaded partner keeps HOLD");
+                        helper.assertTrue(restored.position().distanceTo(parked) < 0.05, "held tractor stays still");
+                    } else {
+                        helper.assertTrue(((PatriotVehicleEntity) restored).isHitched(),
+                                "non-ticking tractor chunk survives the old 300 tick orphan timeout");
+                    }
+                    CompoundTag after = new CompoundTag();
+                    restored.saveWithoutId(after);
+                    helper.assertTrue(after.getCompound("PartnerPos").equals(partner),
+                            "last partner position survives loading and waiting");
+                    restored.discard();
+                    helper.succeed();
+                });
+            });
+        });
     }
 
     private static double remaining(M983TractorEntity tractor, PatriotVehicleEntity trailer) {

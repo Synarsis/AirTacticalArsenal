@@ -56,6 +56,18 @@ public class AtaSettingsScreen extends Screen {
                             com.synarsis.airtacticalarsenal.client.debug.HitboxDebugRenderer.setEnabled(value);
                         }));
 
+        y += ROW;
+        addRenderableWidget(CycleButton.onOffBuilder(AtaClientConfig.isFxHeadlightBeamsEnabled())
+                .create(x, y, half, 20, Component.translatable("gui.ata.settings.headlight_beams"),
+                        (button, value) -> set(AtaClientConfig.FX_HEADLIGHT_BEAMS, value)));
+        addRenderableWidget(CycleButton.onOffBuilder(AtaClientConfig.isFxBloomEnabled())
+                .create(x + half + 6, y, half, 20, Component.translatable("gui.ata.settings.bloom"),
+                        (button, value) -> set(AtaClientConfig.FX_BLOOM, value)));
+        y += ROW;
+        addRenderableWidget(CycleButton.onOffBuilder(AtaClientConfig.isFxGlareEnabled())
+                .create(x, y, wide, 20, Component.translatable("gui.ata.settings.glare"),
+                        (button, value) -> set(AtaClientConfig.FX_GLARE, value)));
+
         addRenderableWidget(Button.builder(CommonComponentsDone(), button -> onClose())
                 .bounds(this.width / 2 - 100, this.height - 30, 200, 20).build());
     }
@@ -88,7 +100,7 @@ public class AtaSettingsScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
 
-        int y = this.height - 96;
+        int y = this.height - 68;
         graphics.drawCenteredString(this.font,
                 Component.translatable("gui.ata.settings.server_section"), this.width / 2, y, 0xFFFF55);
         y += 12;

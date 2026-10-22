@@ -25,6 +25,18 @@ public enum FxLighting {
         this.shadowRays = shadowRays;
     }
 
+    public boolean headlightBeams(boolean enabled) {
+        return enabled && this == HIGH;
+    }
+
+    public boolean bloom(boolean enabled) {
+        return enabled && (this == MEDIUM || this == HIGH);
+    }
+
+    public boolean glare(boolean enabled) {
+        return enabled && this != OFF;
+    }
+
     public int maxLights() {
         return this.maxLights;
     }

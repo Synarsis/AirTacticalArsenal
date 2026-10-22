@@ -59,18 +59,49 @@ class BrakeLightsTest {
     }
 
     @Test
-    @DisplayName("a parked vehicle with nobody aboard holds its brake lamps lit, a creeping driven one does not")
+    @DisplayName("an unoccupied vehicle never brakes, even when slowing down")
     void parked() {
         BrakeLights lights = new BrakeLights();
         lights.update(0.0, false);
-        assertTrue(lights.braking());
+        assertFalse(lights.braking());
+        assertEquals(0.0, lights.rearBrightness(false));
+        assertEquals(0.5, lights.rearBrightness(true));
         BrakeLights driven = new BrakeLights();
         driven.update(0.0, true);
         driven.update(0.0, true);
         assertFalse(driven.braking());
         BrakeLights moving = new BrakeLights();
         moving.update(5.0, false);
-        moving.update(5.0, false);
+        moving.update(2.0, false);
         assertFalse(moving.braking());
+    }
+
+    @Test
+    void localDriverUsesOppositeDirectionKey() {
+        BrakeLights lights = new BrakeLights();
+        lights.update(8.0, true, true, true, false);
+        lights.update(4.0, true, true, false, false);
+        assertFalse(lights.braking());
+        lights.update(4.0, true, true, false, true);
+        assertTrue(lights.braking());
+        lights.update(4.0, true, true, false, false);
+        assertFalse(lights.braking());
+        lights.update(-4.0, true, true, false, true);
+        assertFalse(lights.braking());
+        lights.update(-4.0, true, true, true, false);
+        assertTrue(lights.braking());
+        lights.update(0.0, true, true, true, true);
+        assertFalse(lights.braking());
+    }
+
+    @Test
+    void leavingTheSeatClearsHeldBrake() {
+        BrakeLights lights = new BrakeLights();
+        lights.update(8.0, true);
+        lights.update(4.0, true);
+        assertTrue(lights.braking());
+        lights.update(0.0, false);
+        assertFalse(lights.braking());
+        assertEquals(0.0, lights.rearBrightness(false));
     }
 }

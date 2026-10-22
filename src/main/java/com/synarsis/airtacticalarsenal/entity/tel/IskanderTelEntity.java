@@ -148,8 +148,8 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
             .defineId(IskanderTelEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_INTERVAL = SynchedEntityData
             .defineId(IskanderTelEntity.class, EntityDataSerializers.INT);
-    private static final EntityDataAccessor<Boolean> DATA_HEADLIGHTS = SynchedEntityData
-            .defineId(IskanderTelEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Byte> DATA_HEADLIGHTS = SynchedEntityData
+            .defineId(IskanderTelEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Integer> DATA_SEAT_0 = SynchedEntityData
             .defineId(IskanderTelEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_SEAT_1 = SynchedEntityData
@@ -308,7 +308,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
         builder.define(DATA_COUNTDOWN_0, -1);
         builder.define(DATA_COUNTDOWN_1, -1);
         builder.define(DATA_INTERVAL, TelSequence.DEFAULT_INTERVAL_SECONDS);
-        builder.define(DATA_HEADLIGHTS, false);
+        builder.define(DATA_HEADLIGHTS, (byte) 0);
         builder.define(DATA_SEAT_0, NO_OCCUPANT);
         builder.define(DATA_SEAT_1, NO_OCCUPANT);
         builder.define(DATA_SEAT_2, NO_OCCUPANT);
@@ -944,7 +944,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
         }
 
         if (this.areHeadlightsOn() && !TelHeadlights.afterTick(true, this.headlightsWork())) {
-            this.entityData.set(DATA_HEADLIGHTS, false);
+            this.entityData.set(DATA_HEADLIGHTS, (byte) 0);
         }
 
         float health = this.getHealth();
@@ -1724,7 +1724,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putBoolean("LegitSpawn", this.isLegitSpawn);
-        tag.putBoolean("Headlights", this.areHeadlightsOn());
+        tag.putByte("Headlights", this.headlightMode());
         tag.putFloat("Health", this.getHealth());
         tag.putFloat("Roll", this.roll);
         TelSequence.Snapshot snap = this.sequence.snapshot();
@@ -1794,7 +1794,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         this.isLegitSpawn = tag.contains("LegitSpawn") && tag.getBoolean("LegitSpawn");
-        this.entityData.set(DATA_HEADLIGHTS, tag.getBoolean("Headlights"));
+        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.mode(tag.getByte("Headlights")));
         if (tag.contains("Health")) {
             this.setHealth(tag.getFloat("Health"));
         }
@@ -2368,20 +2368,24 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
         return TelHeadlights.works(this.getHealth(), this.getMaxHealth(), this.destroyed, BURNING_FRACTION);
     }
 
+    public byte headlightMode() {
+        return TelHeadlights.mode(this.entityData.get(DATA_HEADLIGHTS));
+    }
+
     public boolean areHeadlightsOn() {
-        return this.entityData.get(DATA_HEADLIGHTS);
+        return this.headlightMode() != 0;
     }
 
     private TelLaunchRules.Denial orderHeadlights(ServerPlayer player) {
         if (this.seatOf(player) != 0) {
             return of(TelLaunchRules.Refusal.NOT_CREW);
         }
-        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.toggled(this.areHeadlightsOn(), this.headlightsWork()));
+        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.next(this.headlightMode(), this.headlightsWork()));
         return TelLaunchRules.Denial.NONE;
     }
 
     public boolean toggleHeadlights() {
-        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.toggled(this.areHeadlightsOn(), this.headlightsWork()));
+        this.entityData.set(DATA_HEADLIGHTS, TelHeadlights.next(this.headlightMode(), this.headlightsWork()));
         return this.areHeadlightsOn();
     }
 

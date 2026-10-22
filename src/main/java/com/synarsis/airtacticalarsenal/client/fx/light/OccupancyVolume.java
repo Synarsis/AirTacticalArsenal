@@ -66,12 +66,14 @@ public final class OccupancyVolume {
     }
 
     public static void markChanged(BlockPos pos) {
+        LightLevelVolume.markChanged(pos);
         if (grid != null) {
             CHANGED.add(OccupancyGrid.sectionKey(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4));
         }
     }
 
     public static void release() {
+        LightLevelVolume.release();
         if (texture != 0) {
             GlStateManager._deleteTexture(texture);
             texture = 0;
@@ -185,6 +187,7 @@ public final class OccupancyVolume {
             TexUpload.end(store);
             GlStateManager._bindTexture(previousTexture);
         }
+        LightLevelVolume.update(level, cam);
     }
 
     private static double distanceToFocus(long key, Vec3 cam, List<Vec3> focus) {
@@ -232,6 +235,7 @@ public final class OccupancyVolume {
     }
 
     private static void load(ClientLevel level, int sx, int sy, int sz) {
+        LightLevelVolume.loaded(sx, sy, sz);
         boolean chunkThere = read(level, sx, sy, sz);
         long key = OccupancyGrid.sectionKey(sx, sy, sz);
         if (chunkThere) {

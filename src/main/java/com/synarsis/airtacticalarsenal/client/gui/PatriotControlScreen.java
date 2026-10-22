@@ -100,7 +100,10 @@ public class PatriotControlScreen extends Screen {
         int colour = toneColour(status.tone());
         g.fill(l.chip().x(), l.chip().y() + 2, l.chip().right(), l.chip().bottom() - 1, 0xFF0E0F10);
         TelUi.frame(g, new Rect(l.chip().x(), l.chip().y() + 2, l.chip().w(), l.chip().h() - 3), colour);
-        TelUi.textCentred(g, this.font, Component.translatable(status.key(), status.args()), l.chip(), colour);
+        Component statusText = this.vehicle.isHitched() && this.vehicle.coupledTractor() == null
+                ? Component.translatable("gui.ata.patriot.tractor_unloaded")
+                : Component.translatable(status.key(), status.args());
+        TelUi.textCentred(g, this.font, statusText, l.chip(), colour);
 
         g.fill(l.progress().x(), l.progress().y(), l.progress().right(), l.progress().bottom(), 0xFF26282B);
         if (fraction > 0.0) {

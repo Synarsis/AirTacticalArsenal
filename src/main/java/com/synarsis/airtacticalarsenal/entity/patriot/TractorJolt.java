@@ -122,6 +122,9 @@ public final class TractorJolt implements PhysicsWorlds.Participant {
             }
             return proxyWanted ? Role.FOLLOW : Role.NONE;
         }
+        if (held) {
+            return Role.HOLD;
+        }
         if (driven) {
             return Role.FOLLOW;
         }
@@ -480,6 +483,7 @@ public final class TractorJolt implements PhysicsWorlds.Participant {
     }
 
     private void beforeHold() {
+        this.tractor.enforceMissingTrailerHold();
         if (this.ground != null) {
             this.ground.update(this.tractor.getX(), this.tractor.getY(), this.tractor.getZ());
         }

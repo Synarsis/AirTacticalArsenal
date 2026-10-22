@@ -158,6 +158,28 @@ public final class LightMath {
         return 1.0 + (DAY_STRENGTH - 1.0) * saturate(daylight);
     }
 
+    public static double recoverAlbedo(double colour, double brightness, double face, double previous) {
+        double factor = brightness * face;
+        double recovered = Math.max(0.0, Math.min(0.95, colour / Math.max(factor, 0.03)));
+        double weight = smoothstep(0.0, 0.03, factor);
+        return previous + (recovered - previous) * weight;
+    }
+
+    public static double[] compositeLit(double[] scene, double[] light, double scale, double[] brightness, double face) {
+        double[] linear = {toLinear(scene[0]), toLinear(scene[1]), toLinear(scene[2])};
+        double lum = luma(linear[0], linear[1], linear[2]);
+        double[] result = new double[3];
+        for (int channel = 0; channel < 3; channel++) {
+            double previous = linear[channel] / Math.max(lum, 0.02)
+                    * Math.max(ALBEDO_FLOOR, Math.min(1.0, lum * 8.0)) * ALBEDO_GAIN;
+            double albedo = recoverAlbedo(linear[channel], brightness[channel], face, previous);
+            double add = albedo * light[channel] * scale;
+            result[channel] = toSrgb(linear[channel]
+                    + Math.max(shoulder(linear[channel] + add) - shoulder(linear[channel]), 0.0));
+        }
+        return result;
+    }
+
     public static double[] composite(double[] scene, double[] light, double scale) {
         double r = toLinear(scene[0]);
         double g = toLinear(scene[1]);

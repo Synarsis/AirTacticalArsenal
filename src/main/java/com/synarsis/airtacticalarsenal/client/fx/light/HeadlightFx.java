@@ -19,6 +19,7 @@ import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.TrailerLamps;
 import com.synarsis.airtacticalarsenal.entity.patriot.TractorLamps;
 import com.synarsis.airtacticalarsenal.entity.tel.TelLamps;
+import com.synarsis.airtacticalarsenal.config.AtaClientConfig;
 import com.synarsis.airtacticalarsenal.particle.FlashParticle;
 import com.synarsis.airtacticalarsenal.vehicle.lamp.VehicleLamps;
 import net.minecraft.client.Camera;
@@ -49,7 +50,6 @@ import java.util.function.BooleanSupplier;
 @OnlyIn(Dist.CLIENT)
 public final class HeadlightFx {
 
-    private static final double BEAM_DOWN = 6.0;
     private static final double HALO_RANGE = 96.0;
     private static final double HIDDEN_SLACK = 0.6;
 
@@ -59,6 +59,11 @@ public final class HeadlightFx {
         Vec3 world(double[] local, float partialTick);
 
         Vec3 beam();
+
+        default Vec3 right(float partialTick) {
+            return world(new double[] {-1.0, 0.0, 0.0}, partialTick)
+                    .subtract(world(new double[] {0.0, 0.0, 0.0}, partialTick)).normalize();
+        }
 
         default Vec3 beam(float partialTick) {
             return beam();
@@ -72,6 +77,7 @@ public final class HeadlightFx {
         final boolean[] visible;
         Mount mount;
         long lastTick;
+        int mode = 1;
         BooleanSupplier gone;
 
         Set(VehicleLamps lamps) {
@@ -118,6 +124,7 @@ public final class HeadlightFx {
                 return HeadlightFx.beam(tel, partialTick);
             }
         });
+        setMode(LIT.get(id), tel.headlightMode());
         measure(id, tel.position(), TelLamps.LAYOUT);
     }
 
@@ -147,6 +154,7 @@ public final class HeadlightFx {
                 return HeadlightFx.beam(tractor, partialTick);
             }
         });
+        setMode(LIT.get(id), tractor.headlightMode());
         measure(id, tractor.position(), TractorLamps.LAYOUT);
         PatriotVehicleEntity trailer = tractor.coupledTrailer();
         if (trailer != null && tractor.couplingState() != M983TractorEntity.CouplingState.FREE) {
@@ -197,7 +205,8 @@ public final class HeadlightFx {
                 double[] local = array(lamp.local());
                 set.heads.add(AtaLights.spot(mount.world(local, 1.0f))
                         .following(p -> mount.world(local, p), stillThere)
-                        .colour(lamp.red(), lamp.green(), lamp.blue()).strength(3.5, 36.0)
+                        .colour(1.0f, 0.86f, 0.68f).strength(1000.0, 70.0)
+                        .headlight(1, mount.right(1.0f))
                         .life(0, -1, 0, Fall.LINEAR).shadows(true).entityOwner(id)
                         .cone(mount.beam(1.0f), LightMath.HEADLIGHT_INNER_DEGREES, LightMath.HEADLIGHT_OUTER_DEGREES)
                         .tintsParticles(false));
@@ -217,6 +226,15 @@ public final class HeadlightFx {
         Vec3 axis = mount.beam(1.0f);
         for (AtaLights.Light head : set.heads) {
             head.setDirection(axis);
+            head.headlight(set.mode, mount.right(1.0f));
+        }
+    }
+
+    private static void setMode(Set set, int mode) {
+        set.mode = mode;
+        for (AtaLights.Light head : set.heads) {
+            head.headlight(mode, set.mount.right(1.0f)).strength(mode == 2 ? 3000.0 : 1000.0,
+                    mode == 2 ? 140.0 : 70.0);
         }
     }
 
@@ -296,11 +314,22 @@ public final class HeadlightFx {
             Vec3 axis = set.mount.beam(partial);
             for (AtaLights.Light head : set.heads) {
                 head.setDirection(axis);
+                head.headlight(set.mode, set.mount.right(partial)).strength(set.mode == 2 ? 3000.0 : 1000.0,
+                        set.mode == 2 ? 140.0 : 70.0);
             }
             int index = 0;
+            int headIndex = 0;
             for (VehicleLamps.Lamp lamp : set.lamps.lamps()) {
+                AtaLights.Light head = lamp.kind() == VehicleLamps.Kind.HEAD || lamp.kind() == VehicleLamps.Kind.BEAM
+                        ? set.heads.get(headIndex++) : null;
                 if (set.visible[index++] && lamp.kind() != VehicleLamps.Kind.BEAM) {
-                    draws.add(new Draw(set.mount.world(array(lamp.local()), partial), lamp));
+                    Vec3 location = set.mount.world(array(lamp.local()), partial);
+                    double eyeLight = 0.0;
+                    if (lamp.kind() == VehicleLamps.Kind.HEAD && head != null
+                            && AtaClientConfig.getFxLighting().glare(AtaClientConfig.isFxGlareEnabled())) {
+                        eyeLight = GlarePass.eye(head, eye, partial);
+                    }
+                    draws.add(new Draw(location, lamp, (float) GlareMath.halo(eyeLight)));
                 }
             }
         }
@@ -311,7 +340,7 @@ public final class HeadlightFx {
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder buffer = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.PARTICLE);
         for (Draw draw : draws) {
-            quad(buffer, rotation, eye, draw.at(), draw.lamp(), sprite);
+            quad(buffer, rotation, eye, draw.at(), draw.lamp(), sprite, draw.scale());
         }
         MeshData mesh = buffer.build();
         if (mesh == null) {
@@ -330,12 +359,12 @@ public final class HeadlightFx {
         RenderSystem.enableCull();
     }
 
-    private record Draw(Vec3 at, VehicleLamps.Lamp lamp) {
+    private record Draw(Vec3 at, VehicleLamps.Lamp lamp, float scale) {
     }
 
     private static void quad(BufferBuilder buffer, Quaternionf rotation, Vec3 eye, Vec3 at, VehicleLamps.Lamp lamp,
-            TextureAtlasSprite sprite) {
-        float size = lamp.size() * 0.5f;
+            TextureAtlasSprite sprite, float scale) {
+        float size = lamp.size() * 0.5f * scale;
         float x = (float) (at.x - eye.x);
         float y = (float) (at.y - eye.y);
         float z = (float) (at.z - eye.z);
@@ -363,11 +392,10 @@ public final class HeadlightFx {
     }
 
     private static Vec3 beam(IskanderTelEntity tel, float partialTick) {
-        double down = Math.toRadians(BEAM_DOWN);
         float yaw = Mth.rotLerp(partialTick, tel.yRotO, tel.getYRot());
         float pitch = Mth.lerp(partialTick, tel.xRotO, tel.getXRot());
         float roll = Mth.lerp(partialTick, tel.rollO, tel.roll);
-        return TelGeometry.rotateToWorld(yaw, pitch, roll, new Vec3(0.0, -Math.sin(down), Math.cos(down)));
+        return TelGeometry.rotateToWorld(yaw, pitch, roll, new Vec3(0.0, 0.0, 1.0));
     }
 
     private static Vec3 world(M983TractorEntity tractor, double[] local, float partialTick) {
@@ -381,11 +409,10 @@ public final class HeadlightFx {
     }
 
     private static Vec3 beam(M983TractorEntity tractor, float partialTick) {
-        double down = Math.toRadians(BEAM_DOWN);
         float yaw = Mth.rotLerp(partialTick, tractor.yRotO, tractor.getYRot());
         float pitch = Mth.lerp(partialTick, tractor.xRotO, tractor.getXRot());
         float roll = tractor.getRollLerp(partialTick);
-        return TelGeometry.rotateToWorld(yaw, pitch, roll, new Vec3(0.0, -Math.sin(down), Math.cos(down)));
+        return TelGeometry.rotateToWorld(yaw, pitch, roll, new Vec3(0.0, 0.0, 1.0));
     }
 
     private static double[] array(Vec3 local) {

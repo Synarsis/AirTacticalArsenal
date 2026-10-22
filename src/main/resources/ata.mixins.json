@@ -11,6 +11,7 @@
     "LevelChunkBlockChangedMixin"
   ],
   "client": [
+    "LightTextureAccessor",
     "ClientChunkCacheMixin",
     "LevelRendererMixin",
     "LevelRendererBlockChangedMixin"

@@ -1,0 +1,31 @@
+{
+  "vertex": "ata:ata_light_volume",
+  "fragment": "ata:ata_light_filter",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "SourceSampler"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "PixelSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Upsample",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    }
+  ]
+}

@@ -88,7 +88,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     private static final int REPAIR_DELAY_TICKS = 10;
     private static final int IMPACT_COOLDOWN_TICKS = 4;
     private static final int CLEARANCE_REFRESH_TICKS = 10;
-    private static final int ORPHAN_TICKS = 300;
 
     private static final EntityDataAccessor<Float> DATA_HEALTH = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.FLOAT);
@@ -196,6 +195,8 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     private PatriotClearance.Blocker liftBlock;
     private int clearanceTick = -100;
     private int orphanTicks;
+    @Nullable
+    private Vec3 partnerPos;
     @Nullable
     private StageSevenHitch legacyHitch;
 
@@ -341,9 +342,22 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
         M983TractorEntity tractor = this.coupledTractor();
         boolean held = tractor != null && !tractor.isRemoved() && tractor.isCoupledTo(this);
-        this.orphanTicks = held ? 0 : this.orphanTicks + 1;
-        if (this.orphanTicks > ORPHAN_TICKS) {
+        if (held) {
+            this.partnerPos = tractor.position();
             this.orphanTicks = 0;
+            return;
+        }
+        boolean chunkTicks = this.partnerPos != null && this.level() instanceof ServerLevel serverLevel
+                && serverLevel.isPositionEntityTicking(BlockPos.containing(this.partnerPos));
+        this.orphanTicks = M983Coupling.nextAbsent(this.orphanTicks, false, this.partnerPos != null, chunkTicks);
+        if (M983Coupling.partner(false, this.partnerPos != null, chunkTicks, this.orphanTicks, false)
+                == M983Coupling.Partner.GONE) {
+            this.tractorDestroyed();
+        }
+    }
+
+    public void tractorDestroyed() {
+        if (!this.level().isClientSide && this.isHitched()) {
             this.setHitched(false, -1, null);
             this.placeOnSupports();
         }
@@ -378,12 +392,28 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.entityData.set(DATA_HITCHED, hitched);
         this.entityData.set(DATA_TRACTOR_ID, hitched ? tractorId : -1);
         this.coupledTractorUuid = hitched ? tractorUuid : null;
+        this.orphanTicks = 0;
+        M983TractorEntity tractor = hitched ? this.coupledTractor() : null;
+        if (!hitched || tractor != null) {
+            this.partnerPos = tractor == null ? null : tractor.position();
+        }
     }
 
     @Nullable
     public M983TractorEntity coupledTractor() {
         Entity entity = this.level().getEntity(this.entityData.get(DATA_TRACTOR_ID));
-        return entity instanceof M983TractorEntity tractor ? tractor : null;
+        if ((!(entity instanceof M983TractorEntity) || entity.isRemoved()
+                || this.coupledTractorUuid != null && !this.coupledTractorUuid.equals(entity.getUUID()))
+                && this.coupledTractorUuid != null
+                && this.level() instanceof ServerLevel serverLevel) {
+            entity = serverLevel.getEntity(this.coupledTractorUuid);
+        }
+        if (entity instanceof M983TractorEntity tractor && !tractor.isRemoved()
+                && (this.coupledTractorUuid == null || this.coupledTractorUuid.equals(tractor.getUUID()))) {
+            this.entityData.set(DATA_TRACTOR_ID, tractor.getId());
+            return tractor;
+        }
+        return null;
     }
 
     public void dropJoltBody() {
@@ -1014,6 +1044,13 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         tag.putBoolean("Hitched", this.isHitched());
         if (this.coupledTractorUuid != null) {
             tag.putUUID("CoupledTractor", this.coupledTractorUuid);
+            if (this.partnerPos != null) {
+                CompoundTag partner = new CompoundTag();
+                partner.putDouble("X", this.partnerPos.x);
+                partner.putDouble("Y", this.partnerPos.y);
+                partner.putDouble("Z", this.partnerPos.z);
+                tag.put("PartnerPos", partner);
+            }
         }
     }
 
@@ -1040,6 +1077,11 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
         this.entityData.set(DATA_HITCHED, tag.getBoolean("Hitched"));
         this.coupledTractorUuid = tag.hasUUID("CoupledTractor") ? tag.getUUID("CoupledTractor") : null;
+        CompoundTag partner = tag.getCompound("PartnerPos");
+        this.partnerPos = partner.contains("X", Tag.TAG_DOUBLE) && partner.contains("Y", Tag.TAG_DOUBLE)
+                && partner.contains("Z", Tag.TAG_DOUBLE)
+                        ? new Vec3(partner.getDouble("X"), partner.getDouble("Y"), partner.getDouble("Z")) : null;
+        this.orphanTicks = 0;
         this.legacyHitch = null;
         if (tag.contains("Cycle", Tag.TAG_COMPOUND)) {
             CompoundTag cycle = tag.getCompound("Cycle");
@@ -1256,6 +1298,12 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
 
     @Override
     public void remove(RemovalReason reason) {
+        if (!this.level().isClientSide && reason.shouldDestroy() && this.isHitched()) {
+            M983TractorEntity tractor = this.coupledTractor();
+            if (tractor != null && tractor.isCoupledTo(this)) {
+                tractor.trailerDestroyed();
+            }
+        }
         this.dropJolt();
         VehicleRegistry.remove(this.level(), this);
         super.remove(reason);

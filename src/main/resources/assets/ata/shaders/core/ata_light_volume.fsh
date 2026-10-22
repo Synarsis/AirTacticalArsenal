@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <ata:ata_beam.glsl>
+
 uniform sampler2D DepthSampler;
 uniform sampler2D OccupancySampler;
 uniform sampler2D BoxSampler;
@@ -9,6 +11,7 @@ uniform mat4 Proj;
 uniform vec4 LightPos;
 uniform vec4 LightColor;
 uniform vec4 LightDir;
+uniform vec4 LightRight;
 uniform vec4 LightCone;
 uniform vec2 DepthSize;
 uniform vec2 FogRange;
@@ -20,6 +23,7 @@ uniform vec4 OccOrigin;
 uniform vec4 OccMod;
 uniform vec4 Boxes;
 uniform vec4 Scatter;
+uniform vec2 WetRoad;
 
 in vec2 texCoord;
 
@@ -274,6 +278,21 @@ float blockShadow(vec3 p, vec3 n) {
     return sum / float(count);
 }
 
+float wetReflection(vec3 point, vec3 normal, vec3 light, float irradiance) {
+    if (WetRoad.x <= 0.0 || WetRoad.y < 0.5 || LightRight.w < 0.5) return 0.0;
+    vec3 worldNormal = mat3(InvView) * normal;
+    if (worldNormal.y <= 0.7) return 0.0;
+    vec3 world = (InvView * vec4(point, 1.0)).xyz - OccOrigin.xyz;
+    ivec3 cell = ivec3(floor(world + vec3(0.0, 0.5, 0.0)));
+    for (int index = 0; index < 6; index++) {
+        if (occupancyAt(cell + ivec3(0, index, 0)) > 0.0) return 0.0;
+    }
+    vec3 view = normalize(-point);
+    vec3 halfVector = normalize(view + light);
+    float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(view, halfVector), 0.0, 1.0), 5.0);
+    return 0.6 * WetRoad.x * irradiance * pow(max(dot(normal, halfVector), 0.0), 60.0) * fresnel;
+}
+
 void main() {
     float depth = depthOf(texCoord);
     if (depth >= 1.0) {
@@ -311,6 +330,12 @@ void main() {
     float front = LightCone.y > 0.5 ? smoothstep(0.0, 0.2, axisDot) : 1.0;
     float fill = Scatter.x * windowFill * windowFill / (1.0 + kf * kf) * front;
 
+    if (LightRight.w > 0.5) {
+        spot = beamPattern(LightRight.w, -toL, LightDir.xyz, LightRight.xyz);
+        attenuation = beamIrradiance(1.0, 1.0, d, radius);
+        fill = 0.07 * attenuation * spot;
+    }
+
     vec3 n = vec3(0.0, 0.0, 1.0);
     if (LightCone.w > 0.5 || Shadow.x > 0.5) {
         n = surfaceNormal(texCoord, p);
@@ -320,8 +345,9 @@ void main() {
         shade = LightColor.w + (1.0 - LightColor.w) * max(dot(n, l), 0.0);
     }
 
+    if (LightRight.w > 0.5) shade = max(dot(n, l), 0.0);
     float base = attenuation * spot * shade;
-    if ((base + fill) * max(max(LightColor.r, LightColor.g), LightColor.b) * AccScale < 0.0005) {
+    if (LightRight.w < 0.5 && (base + fill) * max(max(LightColor.r, LightColor.g), LightColor.b) * AccScale < 0.0005) {
         fragColor = vec4(0.0);
         return;
     }
@@ -337,5 +363,6 @@ void main() {
     float fog = clamp((length(p) - FogRange.x) / max(FogRange.y - FogRange.x, 1.0e-3), 0.0, 1.0);
 
     vec3 c = LightColor.rgb * (attenuation * spot * shade * shadow + fill) * (1.0 - fog) * AccScale;
-    fragColor = vec4(c, 1.0);
+    float reflection = wetReflection(p, n, l, attenuation * spot) * LightColor.r * shadow * (1.0 - fog) * AccScale;
+    fragColor = vec4(c, reflection);
 }

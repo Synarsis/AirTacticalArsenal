@@ -1,4 +1,6 @@
 {
+  "hud.ata.m983.trailer_unloaded": "Trailer not loaded",
+  "gui.ata.patriot.tractor_unloaded": "Tractor not loaded",
   "item.ata.iskander": "Iskander-M Missile",
   "item.ata.shahed": "Shahed-136 Drone",
   "block.ata.shahed_terminal": "Shahed Control Terminal",
@@ -87,6 +89,9 @@
   "gui.ata.settings.part_labels": "Name the section hit",
   "gui.ata.settings.marker_scale": "Marker size: %s",
   "gui.ata.settings.hitbox_overlay": "Hitbox wireframe",
+  "gui.ata.settings.headlight_beams": "Headlight beams (HIGH)",
+  "gui.ata.settings.bloom": "Bloom (MED/HIGH)",
+  "gui.ata.settings.glare": "Headlight glare",
   "gui.ata.settings.server_section": "Server settings",
   "gui.ata.settings.server_hint": "Set on the server with /ata config",
   "item.ata.iskander_tel": "Iskander-M Launcher (9P78-1)",
@@ -197,8 +202,10 @@
   "gui.ata.tel.state.lowering": "LOWERING",
   "gui.ata.tel.state.stowing": "STOWING",
   "gui.ata.tel.hud.kmh": "km/h",
+  "gui.ata.tel.hud.low_beam": "low beam",
+  "gui.ata.tel.hud.high_beam": "high beam",
   "gui.ata.tel.hud.lights": "Headlights: %s",
-  "gui.ata.tel.hud.on": "on",
+
   "gui.ata.tel.hud.off": "off",
   "gui.ata.tel.hud.metres": "%s m",
   "message.ata.tel.covers_closed": "§cOpen the covers first",

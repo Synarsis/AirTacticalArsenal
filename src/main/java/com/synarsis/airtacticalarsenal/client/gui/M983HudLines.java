@@ -26,7 +26,16 @@ public final class M983HudLines {
     }
 
     public static List<Line> lines(CouplingState state, @Nullable M983Coupling.Hint hint, boolean slow) {
+        return lines(state, hint, slow, true);
+    }
+
+    public static List<Line> lines(CouplingState state, @Nullable M983Coupling.Hint hint, boolean slow,
+            boolean trailerLoaded) {
         List<Line> lines = new ArrayList<>();
+        if (state != CouplingState.FREE && !trailerLoaded) {
+            lines.add(new Line("hud.ata.m983.trailer_unloaded", new Object[0], Tone.YELLOW));
+            return lines;
+        }
         switch (state) {
             case LOCKING -> lines.add(new Line("hud.ata.m983.locking", new Object[0], Tone.YELLOW));
             case COUPLED -> lines.add(new Line("hud.ata.m983.coupled", new Object[0], Tone.GREEN));

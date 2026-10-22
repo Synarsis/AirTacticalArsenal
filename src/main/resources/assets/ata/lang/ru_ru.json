@@ -1,4 +1,6 @@
 {
+  "hud.ata.m983.trailer_unloaded": "Прицеп не загружен",
+  "gui.ata.patriot.tractor_unloaded": "Тягач не загружен",
   "item.ata.iskander": "Ракета Искандер-М",
   "item.ata.shahed": "Дрон Shahed-136",
   "block.ata.shahed_terminal": "Терминал управления Shahed",
@@ -98,6 +100,9 @@
   "gui.ata.settings.part_labels": "Подписывать узел",
   "gui.ata.settings.marker_scale": "Размер метки: %s",
   "gui.ata.settings.hitbox_overlay": "Каркас хитбоксов",
+  "gui.ata.settings.headlight_beams": "Лучи фар (HIGH)",
+  "gui.ata.settings.bloom": "Ореол (MED/HIGH)",
+  "gui.ata.settings.glare": "Ослепление фарами",
   "gui.ata.settings.server_section": "Серверные настройки",
   "gui.ata.settings.server_hint": "Меняются на сервере командой /ata config",
   "item.ata.iskander_tel": "ПУ «Искандер-М» (9П78-1)",
@@ -208,8 +213,10 @@
   "gui.ata.tel.state.lowering": "ОПУСКАНИЕ",
   "gui.ata.tel.state.stowing": "СВОРАЧИВАНИЕ",
   "gui.ata.tel.hud.kmh": "км/ч",
+  "gui.ata.tel.hud.low_beam": "ближний",
+  "gui.ata.tel.hud.high_beam": "дальний",
   "gui.ata.tel.hud.lights": "Фары: %s",
-  "gui.ata.tel.hud.on": "вкл",
+
   "gui.ata.tel.hud.off": "выкл",
   "gui.ata.tel.hud.metres": "%s м",
   "message.ata.tel.covers_closed": "§cСначала откройте крыши",

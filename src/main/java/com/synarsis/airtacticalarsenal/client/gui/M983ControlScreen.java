@@ -85,6 +85,9 @@ public class M983ControlScreen extends Screen {
     }
 
     private Component couplingText() {
+        if (this.tractor.couplingState() != M983TractorEntity.CouplingState.FREE && !this.tractor.trailerLoaded()) {
+            return Component.translatable("hud.ata.m983.trailer_unloaded");
+        }
         return switch (this.tractor.couplingState()) {
             case LOCKING -> Component.translatable("gui.ata.m983.coupling.locking");
             case UNLOCKING -> Component.translatable("gui.ata.m983.coupling.unlocking");

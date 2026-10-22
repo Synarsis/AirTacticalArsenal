@@ -30,7 +30,7 @@ public final class M983Hud {
         }
         int x = (g.guiWidth() - WIDTH) / 2;
         int bottom = g.guiHeight() - 22 - MARGIN;
-        int top = bottom - 58;
+        int top = bottom - 68;
         Rect panel = new Rect(x, top, WIDTH, bottom - top);
         g.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), TelUi.PANEL);
         TelUi.frame(g, panel, TelUi.BORDER);
@@ -52,9 +52,12 @@ public final class M983Hud {
         TelUi.textRight(g, minecraft.font,
                 Component.literal(String.valueOf(Math.round(tractor.getEngineRpm()))), rpmBox, TelUi.DIM);
 
-        int rowY = panel.y() + 37;
+        TelUi.text(g, minecraft.font, Component.translatable("gui.ata.tel.hud.lights",
+                Component.translatable(com.synarsis.airtacticalarsenal.entity.tel.TelHeadlights.modeKey(tractor.headlightMode()))),
+                new Rect(x + MARGIN, panel.y() + 37, WIDTH - 2 * MARGIN, 10), TelUi.DIM);
+        int rowY = panel.y() + 47;
         for (M983HudLines.Line line : M983HudLines.lines(tractor.couplingState(), tractor.couplingHint(),
-                tractor.slowForCoupling())) {
+                tractor.slowForCoupling(), tractor.trailerLoaded())) {
             Rect row = new Rect(x + MARGIN, rowY, WIDTH - 2 * MARGIN, 10);
             TelUi.text(g, minecraft.font, Component.translatable(line.key(), line.args()), row, colour(line.tone()));
             rowY += 10;
