@@ -3,7 +3,7 @@ package com.synarsis.airtacticalarsenal.client.fx.light;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.LightLayer;
+import com.synarsis.airtacticalarsenal.lighting.LightLevelCopy;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.BufferUtils;
@@ -24,7 +24,7 @@ public final class LightLevelVolume {
     }
 
     public static int pack(int sky, int block) {
-        return (sky & 15) << 4 | block & 15;
+        return LightLevelCopy.pack(sky, block);
     }
 
     public static int texture() {
@@ -84,7 +84,8 @@ public final class LightLevelVolume {
                     read(level, sectionX, sectionY, sectionZ);
                 }
             }
-            for (int index = 0; index < LightLevelUpdates.ROUND_PER_FRAME; index++) {
+            int round = UPDATES.roundDue(System.nanoTime());
+            for (int index = 0; index < round; index++) {
                 int slot = UPDATES.nextRound();
                 int sectionX = (grid.originX() >> 4) + slot % OccupancyGrid.SECTIONS_X;
                 int sectionZ = (grid.originZ() >> 4) + slot / OccupancyGrid.SECTIONS_X % OccupancyGrid.SECTIONS_Z;
@@ -99,16 +100,10 @@ public final class LightLevelVolume {
 
     private static void read(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
         boolean loaded = level.getChunkSource().getChunk(sectionX, sectionZ, ChunkStatus.FULL, false) != null;
-        BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
-        for (int localY = 0; localY < 16; localY++) {
-            for (int localZ = 0; localZ < 16; localZ++) {
-                for (int localX = 0; localX < 16; localX++) {
-                    position.set(sectionX * 16 + localX, sectionY * 16 + localY, sectionZ * 16 + localZ);
-                    SECTION[(localY * 16 + localZ) * 16 + localX] = loaded
-                            ? (byte) pack(level.getBrightness(LightLayer.SKY, position),
-                                    level.getBrightness(LightLayer.BLOCK, position)) : 0;
-                }
-            }
+        if (loaded) {
+            LightLevelCopy.read(level, sectionX, sectionY, sectionZ, SECTION);
+        } else {
+            java.util.Arrays.fill(SECTION, (byte) 0);
         }
         grid.writeSection(sectionX, sectionY, sectionZ, SECTION, LightLevelVolume::upload);
     }

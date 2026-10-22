@@ -30,9 +30,20 @@ class LightLevelTest {
     }
 
     @Test
-    void fourRoundSectionsAndBudget() {
+    void roundWalksTheWholeVolumeInFourSeconds() {
         LightLevelUpdates updates = new LightLevelUpdates();
-        assertEquals(4, LightLevelUpdates.ROUND_PER_FRAME);
+        assertEquals(0, updates.roundDue(1_000_000_000L));
+        long now = 1_000_000_000L;
+        int total = 0;
+        for (int frame = 0; frame < 240; frame++) {
+            now += 1_000_000_000L / 60;
+            total += updates.roundDue(now);
+        }
+        assertEquals(OccupancyGrid.SECTION_COUNT, total, 1);
+        now += 60_000_000_000L;
+        assertEquals(LightLevelUpdates.ROUND_CAP, updates.roundDue(now));
+        updates.clear();
+        assertEquals(0, updates.roundDue(5L));
         HashSet<Integer> slots = new HashSet<>();
         for (int index = 0; index < OccupancyGrid.SECTION_COUNT; index++) {
             slots.add(updates.nextRound());

@@ -8,7 +8,10 @@ import java.util.Set;
 
 public final class LightLevelUpdates {
     public static final int RETRY_TICKS = 10;
-    public static final int ROUND_PER_FRAME = 4;
+    public static final double ROUND_SECONDS = 4.0;
+    public static final int ROUND_CAP = 16;
+    private double credit;
+    private long lastNanos = Long.MIN_VALUE;
     private final Set<Long> dirty = new LinkedHashSet<>();
     private final Map<Long, Long> retries = new LinkedHashMap<>();
     private int round;
@@ -44,6 +47,19 @@ public final class LightLevelUpdates {
         return result;
     }
 
+    public int roundDue(long nowNanos) {
+        if (this.lastNanos == Long.MIN_VALUE || nowNanos < this.lastNanos) {
+            this.lastNanos = nowNanos;
+            return 0;
+        }
+        double seconds = (nowNanos - this.lastNanos) / 1.0E9;
+        this.lastNanos = nowNanos;
+        this.credit = Math.min(this.credit + seconds * OccupancyGrid.SECTION_COUNT / ROUND_SECONDS, ROUND_CAP);
+        int due = (int) this.credit;
+        this.credit -= due;
+        return due;
+    }
+
     public int nextRound() {
         int result = this.round;
         this.round = (this.round + 1) % OccupancyGrid.SECTION_COUNT;
@@ -54,5 +70,7 @@ public final class LightLevelUpdates {
         this.dirty.clear();
         this.retries.clear();
         this.round = 0;
+        this.credit = 0.0;
+        this.lastNanos = Long.MIN_VALUE;
     }
 }

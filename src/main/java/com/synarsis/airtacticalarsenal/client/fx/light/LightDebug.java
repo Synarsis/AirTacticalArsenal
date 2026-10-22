@@ -205,6 +205,7 @@ public final class LightDebug implements LayeredDraw.Layer {
                         LightPass.lastHazePatches()),
                 String.format(Locale.ROOT, "pass %.2f ms (%s), %s buffers", LightPass.lastMillis(),
                         LightPass.gpuTimed() ? "gpu" : "cpu", LightPass.floatBuffers() ? "16-bit" : "8-bit fallback"),
+                LightTimings.shared().line(),
                 ShaderPackGuard.shaderPackInUse() ? "a shader pack is in use: the pass is off" : "no shader pack",
                 (bufferView ? "showing the light buffer; " : "") + (voxels ? "outlining the solidity volume; " : "")
                         + (OccupancyVolume.active() ? "volume on" : "volume off") + ", " + LightPass.lastBoxes() + " entity boxes"};

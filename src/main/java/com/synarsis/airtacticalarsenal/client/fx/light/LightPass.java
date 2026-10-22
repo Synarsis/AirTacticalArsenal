@@ -111,6 +111,7 @@ public final class LightPass {
             return;
         }
         OccupancyVolume.beginFrame();
+        LightTimings.shared().endFrame(System.nanoTime());
         try {
             run(event);
         } catch (RuntimeException e) {
@@ -478,7 +479,7 @@ public final class LightPass {
         shader.safeGetUniform("DepthSize").set((float) main.width, (float) main.height);
         shader.safeGetUniform("FogRange").set(RenderSystem.getShaderFogStart(), RenderSystem.getShaderFogEnd());
         shader.safeGetUniform("AccScale").set(floatBuffers ? 1.0f : BYTE_RANGE);
-        shader.safeGetUniform("WetRoad").set(Minecraft.getInstance().level.getRainLevel(partial),
+        shader.safeGetUniform("WetRoad").set((float) CameraPrecipitation.at(Minecraft.getInstance().level, cam, partial).roadRain(),
                 mode == FxLighting.HIGH && volume ? 1.0f : 0.0f);
 
         int shadowsLeft = mode.shadows() ? SHADOW_LIGHTS : 0;

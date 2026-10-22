@@ -94,6 +94,7 @@ public final class OccupancyVolume {
             return;
         }
         updatedFrame = frame;
+        long solidityStart = System.nanoTime();
         if (grid == null || gridLevel != level) {
             release();
             if (!create()) {
@@ -187,7 +188,11 @@ public final class OccupancyVolume {
             TexUpload.end(store);
             GlStateManager._bindTexture(previousTexture);
         }
+        long levelsStart = System.nanoTime();
         LightLevelVolume.update(level, cam);
+        long finished = System.nanoTime();
+        LightTimings.shared().add(LightTimings.LEVELS, finished - levelsStart);
+        LightTimings.shared().add(LightTimings.SOLIDITY, levelsStart - solidityStart);
     }
 
     private static double distanceToFocus(long key, Vec3 cam, List<Vec3> focus) {

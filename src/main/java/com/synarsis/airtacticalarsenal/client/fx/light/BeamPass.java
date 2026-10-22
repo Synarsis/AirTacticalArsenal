@@ -5,9 +5,7 @@ import com.synarsis.airtacticalarsenal.config.AtaClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -36,11 +34,11 @@ final class BeamPass {
             CACHE.clear();
             world = level;
         }
-        float rain = level.getRainLevel(partial);
-        float thunder = level.getThunderLevel(partial);
+        CameraPrecipitation weather = CameraPrecipitation.at(level, camera, partial);
+        float rain = (float) weather.beamRain();
+        float thunder = (float) weather.thunder();
         float fogEnd = RenderSystem.getShaderFogEnd();
-        boolean snow = level.getBiome(BlockPos.containing(camera)).value().getPrecipitationAt(BlockPos.containing(camera))
-                == Biome.Precipitation.SNOW;
+        boolean snow = weather.snow();
         if (BeamMath.density(rain, thunder, fogEnd, snow) <= 0.003) return;
         List<AtaLights.Light> lights = new ArrayList<>();
         for (AtaLights.Light light : AtaLights.all()) {
@@ -61,12 +59,14 @@ final class BeamPass {
                 Vec3 direction = light.direction();
                 Vec3 right = light.right();
                 Vec3 up = right.cross(direction);
+                long clipStart = System.nanoTime();
                 float[] values = BeamRangeMap.build(light.headlightMode(), light.radius(partial), (local, maximum) -> {
                     Vec3 end = origin.add(right.scale(local.x)).add(up.scale(local.y)).add(direction.scale(local.z));
                     end = origin.add(end.subtract(origin).scale(maximum));
                     return level.clip(new ClipContext(origin, end, ClipContext.Block.COLLIDER,
                             ClipContext.Fluid.NONE, Minecraft.getInstance().player)).getLocation().distanceTo(origin);
                 });
+                LightTimings.shared().add(LightTimings.BEAM_CLIPS, System.nanoTime() - clipStart);
                 cached = new Range(level.getGameTime(), light.headlightMode(), values);
                 CACHE.put(light.id, cached);
             }
