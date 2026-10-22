@@ -11,8 +11,7 @@ public final class PatriotBones {
     public static final int SUPPORTS = 0;
     public static final int LIFT = 1;
     public static final int SERVICE = 2;
-    public static final int DOORS = 3;
-    public static final int COUNT = 4;
+    public static final int COUNT = 3;
 
     private static final String[] OUTRIGGER_SIDES = {
             "left_front", "left_rear", "right_front", "right_rear"};
@@ -49,7 +48,6 @@ public final class PatriotBones {
                     out.addAll(List.of("service_left", "service_right"));
                 }
             }
-            case DOORS -> out.addAll(List.of("truck_door_left", "truck_door_right"));
             default -> {
             }
         }
@@ -66,9 +64,7 @@ public final class PatriotBones {
     }
 
     public static boolean isDirect(PatriotKind kind, String bone) {
-        return bone.equals("root") || bone.equals("tractor_carrier") || bone.equals("truck_coupling_latch")
-                || bone.startsWith("truck_steer_") || bone.startsWith("truck_wheel_") || bone.startsWith("wheel_")
-                || kind.isLauncher() && bone.equals("traverse");
+        return bone.startsWith("wheel_") || kind.isLauncher() && bone.equals("traverse");
     }
 
     public static int channelsOf(String bone) {
@@ -83,8 +79,7 @@ public final class PatriotBones {
         String name = switch (group) {
             case SUPPORTS -> opening ? "supports_out" : "supports_in";
             case LIFT -> kind.isLauncher() ? (opening ? "raise" : "lower") : (opening ? "antenna_up" : "antenna_down");
-            case SERVICE -> opening ? "service_open" : "service_close";
-            default -> opening ? "doors_open" : "doors_close";
+            default -> opening ? "service_open" : "service_close";
         };
         return kind.clipPrefix() + name;
     }
@@ -93,8 +88,7 @@ public final class PatriotBones {
         return switch (group) {
             case SUPPORTS -> PatriotTiming.SUPPORTS_TICKS;
             case LIFT -> kind.isLauncher() ? PatriotTiming.ERECTOR_TICKS : PatriotTiming.ANTENNA_TICKS;
-            case SERVICE -> PatriotTiming.SERVICE_TICKS;
-            default -> PatriotTiming.DOORS_TICKS;
+            default -> PatriotTiming.SERVICE_TICKS;
         };
     }
 }

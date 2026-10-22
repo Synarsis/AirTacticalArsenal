@@ -180,47 +180,65 @@ ground, then get in.
 
 Missiles can also be spawned directly with `/ata attack iskander`.
 
-### Patriot (M901 launcher and AN/MPQ-65 radar)
+### Patriot (M983 tractor, M901 launcher and AN/MPQ-65 radar)
 
-Two vehicles, each a trailer behind an M983 tractor: the **Patriot launcher**
-(`ata:patriot_launcher`) and the **AN/MPQ-65 radar** (`ata:patriot_radar`). For
-now they are vehicles only: drive, deploy and stow, detach the tractor. Missiles,
+Three separate vehicles: the **M983 tractor** (`ata:m983_tractor`) and two trailers,
+the **Patriot launcher** (`ata:patriot_launcher`) and the **AN/MPQ-65 radar**
+(`ata:patriot_radar`). The tractor drives on its own. A trailer stands on its supports
+and waits; you back the tractor under its kingpin and it couples, and you uncouple it
+and drive off. For now they are vehicles only: drive, couple, deploy and stow. Missiles,
 launches, radar work and interception come later.
 
-- **Placing.** Use the item on flat ground: the cab ends up where you look. It
-  needs solid ground along its whole length (about 22 blocks) and room for the
-  whole outline. They are in the creative tab only, there are no recipes yet.
-- **Driving.** The driver sits on the steering side of the cab, the second seat is
-  the passenger's. Movement keys, Space is the handbrake, Ctrl the afterburner. The
-  trailer follows on a hinge and takes the brakes of the tractor. Top speed 60 km/h,
-  reverse 15 km/h. A tight turn at 15 km/h bends the hitch by about 27 degrees.
-  You can drive only when the tractor is coupled, the supports are in, the
-  launcher or antenna is down, the hatches are shut and nothing is in progress;
-  the HUD says what is in the way. Without the Jolt physics engine
-  (`vehiclePhysics = "LEGACY"` or no native library) it does not drive at all, but
-  it still deploys and stows.
-- **Console (`G`).** From the cab, either seat:
+- **Placing.** Use an item on flat ground. The tractor is placed where you look; a
+  trailer is placed with its supports already out, needs solid ground along its whole
+  length (about 12.5 blocks) and room for the whole outline. All three are in the
+  creative tab only, there are no recipes yet.
+- **Driving the tractor.** The driver sits on the steering side of the cab, the second
+  seat is the passenger's. Movement keys, Space is the handbrake, Ctrl the afterburner.
+  Top speed 80 km/h, reverse 15 km/h, 60 km/h with a trailer behind it (`trainLimitKmh`
+  in the trailer file). Doors open as you get in and out. `H` switches the headlights, the
+  tail lights of a coupled trailer burn with them. Without the Jolt physics engine
+  (`vehiclePhysics = "LEGACY"` or no native library) it does not drive at all.
+- **Coupling.** Back up under the kingpin of a trailer that stands on its supports.
+  The HUD shows the way in: the distance to the kingpin, how far to the left or right it
+  is and the angle, and says "Ready to couple" when it fits. The lock closes by itself
+  when the saddle is within 0.35 blocks of the kingpin sideways and 0.3 in height, the
+  headings differ by no more than 25 degrees, and the tractor has been going 3 km/h or
+  slower for half a second. For 1.2 seconds it then settles under the kingpin by itself
+  and the controls do nothing. `/ata debug hitbox on` draws the saddle point, the
+  kingpins and the 0.35 circle.
+- **Uncoupling.** The tractor console (`G`) has an **Uncouple** button. It works when the
+  tractor stands still and the supports of the trailer are out. The tractor is free
+  and the trailer stays on its supports. The same console opens the console of the
+  coupled trailer.
+- **Towing.** A coupled trailer follows on a hinge and takes the brakes of the
+  tractor. A tight turn at 15 km/h bends the hitch by about 27 degrees. You can drive
+  off only when the supports are in, the launcher or antenna is down, the hatches
+  are shut and nothing is in progress; until then the pair is held in place. The
+  supports can be retracted only while the trailer is coupled.
+- **Trailer console.** Right click on a trailer (from up to 6 blocks, not sneaking)
+  opens it, or use the tractor console while coupled:
   - **Deploy** puts the supports out and then raises the launcher or antenna;
     **Stow** does it all in reverse: centres the turret, lowers, closes the
-    hatches, brings the tractor back and retracts the supports.
-  - **Supports** out or in. They can be retracted only while the tractor is coupled
-    and the launcher is down.
+    hatches and retracts the supports.
+  - **Supports** out or in.
   - **Raise / Lower** the launcher (or **Antenna up / down** on the radar). Lowering
     first brings the turret back to centre.
   - **Traverse** (launcher): left, centre, right in 6 degree steps, within 24 degrees.
   - **Hatches** (radar): open and close the side service hatches.
-  - **Detach / Attach** the tractor. Detach puts the supports out if needed, opens
-    the hitch lock and the tractor drives 6 blocks forward; the seats ride with it.
-    Attach brings it back and locks the hitch; the supports stay out.
   - Commands pressed during an operation are queued. A button that cannot be pressed
     shows why in its tooltip: a pit under a support, a block above the launcher,
-    a wall in front of the tractor, a slope over 6 degrees.
+    a slope over 6 degrees.
   - `/ata debug hitbox on` outlines the blocks these checks look at.
-- **Damage.** Hull strength is `patriotLauncherMaxHealth` (500) and
-  `patriotRadarMaxHealth` (450). The tractor and the trailer take normal damage,
-  the launcher pack and the antenna one and a half times as much. Iron ingots and
-  iron blocks repair it. A wrecked vehicle explodes. Right click on its side with an
-  iron block while sneaking puts it back on its wheels.
+- **Damage.** Hull strength is `m983MaxHealth` (300), `patriotLauncherMaxHealth` (400)
+  and `patriotRadarMaxHealth` (350). The launcher pack and the antenna take one and a
+  half times the damage. Iron ingots and iron blocks repair; a wrecked vehicle
+  explodes, and a trailer that was coupled to it is put on its supports where it
+  stands. Right click on the side of the tractor with an iron block while sneaking puts
+  it back on its wheels.
+- **Old worlds.** A Patriot saved by the previous version (one vehicle with the tractor
+  attached) is loaded as a trailer, and a tractor appears coupled to it in the place
+  where the old one stood. If the tractor had been detached, it stands free 95 px ahead.
 
 ### Orlan-10
 
@@ -238,8 +256,8 @@ All rebindable under Controls, in the **Air Tactical Arsenal** category.
 | `Left Alt` | Leave the drone camera |
 | `R` | Lock on target |
 | `N` | Night vision |
-| `G` | Console (in the cab of the Iskander launcher, the Patriot launcher or the radar) |
-| `H` | Launcher headlights (in the cab) |
+| `G` | Console (in the cab of the Iskander launcher or the M983 tractor) |
+| `H` | Headlights (in the cab of the Iskander launcher or the M983 tractor) |
 
 ## Effects and light
 
@@ -303,7 +321,7 @@ For looking at the effects and the light without firing anything:
 /ata debug lights buffer                show the light buffer instead of the picture (toggle)
 /ata debug lights voxels                outline the blocks that cast shadows (toggle)
 /ata debug physics on|off              vehicle body, wheels with suspension and load, ground patch
-/ata debug patriot state|skip          flags of the nearest Patriot; finish its current operation at once
+/ata debug patriot state|skip          flags of the nearest Patriot trailer; finish its current operation at once
 ```
 
 The scenes are the very ones the battle plays, only for you, with no damage and
@@ -326,12 +344,16 @@ no change to the world.
   renamed to `iskander_tel.json.old` and a new file with the new defaults is written,
   while a file of the current version is read as it is, with your edits. The server config also has `vehiclePhysics`
   (JOLT or LEGACY) and `vehicleGravityScale`.
-- `config/ata/vehicles/patriot_launcher.json` and `patriot_radar.json` — the same for
-  the two Patriot trains: `tractor` and `trailer` are vehicle settings like the file above
-  (mass, wheels, suspension, brakes, speed limits), `coupling` is the hitch (`type` is
-  `sixdof` or `swingtwist`, `kingpin`, and the limits `yawLimitDegrees`,
-  `pitchLimitDegrees`, `rollLimitDegrees`). A file may hold only the numbers you change;
-  the rest stays at the defaults. Each has its own `defaultsVersion` and its own `.old` copy.
+- `config/ata/vehicles/m983_tractor.json` — the same for the M983 tractor, a vehicle
+  file like the one above.
+- `config/ata/vehicles/patriot_launcher_trailer.json` and `patriot_radar_trailer.json` — the
+  two trailers: `trailer` is a vehicle file like the one above (mass, body boxes, wheels,
+  suspension, brakes), `coupling` is the hitch (`type` is `sixdof` or `swingtwist`, `kingpin`,
+  the limits `yawLimitDegrees`, `pitchLimitDegrees`, `rollLimitDegrees` and the speed
+  limit of the tractor with this trailer, `trainLimitKmh`). A file may hold only the numbers
+  you change; the rest stays at the defaults. Each has its own `defaultsVersion` and its
+  own `.old` copy. The files `patriot_launcher.json` and `patriot_radar.json` of the
+  previous version are renamed to `.old` and not read.
 - `config/ata-client.toml` — your own preferences: hit marker, its sound and
   size, section labels.
 
@@ -347,7 +369,7 @@ src/main/java/com/synarsis/airtacticalarsenal
 ├── block/                      Shahed terminal, radar, siren
 ├── entity/                     Shahed, Iskander, Orlan, paint stand
 │   └── tel/                    the 9P78-1 launcher vehicle: state machine, driving, checks
-│   └── patriot/                the Patriot launcher and radar trains: state machine, hitch physics glue, checks
+│   └── patriot/                the M983 tractor, the launcher and radar trailers: coupling, state machine, hitch physics glue, checks
 ├── item/                       coins, rockets, drones, tablets
 ├── combat/
 │   ├── hitbox/                 oriented boxes traced from the model

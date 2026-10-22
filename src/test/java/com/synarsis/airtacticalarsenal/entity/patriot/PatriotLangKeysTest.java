@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("Patriot language keys")
@@ -68,8 +69,7 @@ class PatriotLangKeysTest {
                     }
                 }
             }
-            for (String key : new String[] {"gui.ata.patriot.hitch.coupled", "gui.ata.patriot.hitch.detached",
-                    "gui.ata.patriot.can_drive", "gui.ata.patriot.cannot_drive", "gui.ata.patriot.traverse",
+            for (String key : new String[] {"gui.ata.patriot.can_drive", "gui.ata.patriot.cannot_drive", "gui.ata.patriot.traverse",
                     "message.ata.patriot.no_room", "message.ata.patriot.no_support", "message.ata.patriot.full",
                     "message.ata.patriot.righting", "message.ata.patriot.overturned", "message.ata.patriot.repaired",
                     "item.ata.patriot.tooltip.place", "item.ata.patriot.tooltip.health"}) {
@@ -97,9 +97,23 @@ class PatriotLangKeysTest {
             }
         }
         assertEquals(en, ru);
-        assertEquals("Patriot launcher (M901, M983 tractor)", lang("en_us.json").get("item.ata.patriot_launcher").getAsString());
-        assertEquals("AN/MPQ-65 radar (M983 tractor)", lang("en_us.json").get("item.ata.patriot_radar").getAsString());
-        assertEquals("ПУ Patriot (M901, тягач M983)", lang("ru_ru.json").get("item.ata.patriot_launcher").getAsString());
-        assertEquals("РЛС AN/MPQ-65 (тягач M983)", lang("ru_ru.json").get("item.ata.patriot_radar").getAsString());
+        assertEquals("Patriot launcher trailer (M901)", lang("en_us.json").get("item.ata.patriot_launcher").getAsString());
+        assertEquals("AN/MPQ-65 radar trailer", lang("en_us.json").get("item.ata.patriot_radar").getAsString());
+        assertEquals("Прицеп ПУ Patriot (M901)", lang("ru_ru.json").get("item.ata.patriot_launcher").getAsString());
+        assertEquals("Прицеп РЛС AN/MPQ-65", lang("ru_ru.json").get("item.ata.patriot_radar").getAsString());
+        assertEquals("M983 tractor", lang("en_us.json").get("item.ata.m983_tractor").getAsString());
+        assertEquals("Тягач M983", lang("ru_ru.json").get("item.ata.m983_tractor").getAsString());
+    }
+
+    @Test
+    @DisplayName("nothing in the language files talks about the removed detach, attach and tractor-leaving operations")
+    void removedOperationsAreGone() throws IOException {
+        for (String file : FILES) {
+            for (String key : lang(file).keySet()) {
+                assertFalse(key.contains(".detach") || key.contains(".attach") || key.contains("unlatching")
+                        || key.contains("latching") || key.contains("tractor_out") || key.contains("tractor_in")
+                        || key.contains("tractor_no_room") || key.contains("patriot.hitch."), file + " " + key);
+            }
+        }
     }
 }

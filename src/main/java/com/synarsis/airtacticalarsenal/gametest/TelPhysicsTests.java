@@ -3,6 +3,7 @@ package com.synarsis.airtacticalarsenal.gametest;
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.entity.ModEntities;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
+import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorld;
 import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -66,12 +67,19 @@ public final class TelPhysicsTests {
             helper.assertTrue(tel.usesJolt(), "the launcher should be driven by Jolt");
             helper.assertTrue(Math.abs(tel.getY() - floor) < 0.3, "height off the floor: " + (tel.getY() - floor));
             helper.assertTrue(Math.abs(tel.getXRot()) < 3.0f && Math.abs(tel.roll) < 3.0f, "tilted");
-            int before = PhysicsWorlds.bodyCount(helper.getLevel());
-            helper.assertTrue(before >= 2, "bodies: " + before);
+            PhysicsWorld world = PhysicsWorlds.existing(helper.getLevel());
+            helper.assertTrue(world != null, "needs a Jolt world");
+            int[] own = tel.joltView().bodyIds();
+            helper.assertTrue(own.length == 2, "the launcher and the ground");
+            for (int id : own) {
+                helper.assertTrue(world.hasBody(id), "its own body " + id + " is missing");
+            }
+            helper.assertTrue(own[0] != own[1], "the bodies are distinct");
             tel.discard();
             helper.runAfterDelay(2, () -> {
-                int after = PhysicsWorlds.bodyCount(helper.getLevel());
-                helper.assertTrue(after == before - 2, "bodies before " + before + ", after " + after);
+                for (int id : own) {
+                    helper.assertTrue(!world.hasBody(id), "body " + id + " was left behind");
+                }
                 helper.succeed();
             });
         });

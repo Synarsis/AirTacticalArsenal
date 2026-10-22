@@ -17,7 +17,6 @@ public enum PatriotRefusal {
     TRAVERSE_LIMIT,
     SUPPORTS_NO_GROUND,
     LIFT_BLOCKED,
-    TRACTOR_NO_ROOM,
     TILT,
     AIRBORNE,
     IN_WATER,

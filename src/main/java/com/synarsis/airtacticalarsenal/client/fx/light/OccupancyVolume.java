@@ -103,7 +103,7 @@ public final class OccupancyVolume {
         }
         int previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         GlStateManager._bindTexture(texture);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
+        TexUpload.Store store = TexUpload.begin();
         int budget = SECTIONS_PER_FRAME;
         try {
             for (OccupancyGrid.Slot slot : grid.recenter(cam.x, cam.y, cam.z)) {
@@ -182,7 +182,7 @@ public final class OccupancyVolume {
                 budget--;
             }
         } finally {
-            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+            TexUpload.end(store);
             GlStateManager._bindTexture(previousTexture);
         }
     }
@@ -211,7 +211,6 @@ public final class OccupancyVolume {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 33071);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 33071);
-            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
             int size = OccupancyGrid.TEXTURE_SIZE;
             ByteBuffer zeros = BufferUtils.createByteBuffer(size * size);
             TexUpload.Store store = TexUpload.begin();
@@ -221,7 +220,6 @@ public final class OccupancyVolume {
             } finally {
                 TexUpload.end(store);
             }
-            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
             GlStateManager._bindTexture(previous);
             texture = tex;
             grid = new OccupancyGrid();
@@ -249,12 +247,7 @@ public final class OccupancyVolume {
             AirTacticalArsenal.LOGGER.warn("The light grid layer is not a direct 16x16 buffer; it is skipped");
             return;
         }
-        TexUpload.Store store = TexUpload.begin();
-        try {
-            GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, u, v, 16, 16, GL11.GL_RED, GL11.GL_UNSIGNED_BYTE, pixels);
-        } finally {
-            TexUpload.end(store);
-        }
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, u, v, 16, 16, GL11.GL_RED, GL11.GL_UNSIGNED_BYTE, pixels);
     };
 
     private static boolean read(ClientLevel level, int sx, int sy, int sz) {

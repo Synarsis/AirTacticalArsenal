@@ -74,7 +74,7 @@ public class PatriotControlScreen extends Screen {
     public void tick() {
         super.tick();
         if (this.minecraft == null || this.minecraft.player == null || this.vehicle.isRemoved()
-                || this.minecraft.player.getVehicle() != this.vehicle) {
+                || !this.vehicle.inPanelRange(this.minecraft.player)) {
             this.onClose();
             return;
         }
@@ -108,13 +108,6 @@ public class PatriotControlScreen extends Screen {
                     l.progress().bottom(), colour);
         }
 
-        Component hitch = Component.translatable(view.detached() ? "gui.ata.patriot.hitch.detached"
-                : "gui.ata.patriot.hitch.coupled");
-        TelUi.text(g, this.font, hitch, l.status(), view.detached() ? TelUi.YELLOW : TelUi.TEXT);
-        PatriotRefusal why = this.vehicle.whyNotDrive();
-        Component drive = why.ok() ? Component.translatable("gui.ata.patriot.can_drive")
-                : Component.translatable("gui.ata.patriot.cannot_drive", Component.translatable(why.messageKey()));
-        TelUi.text(g, this.font, drive, l.hint(), why.ok() ? TelUi.GREEN : TelUi.DIM);
         if (this.vehicle.kind().isLauncher() && !l.traverse().isEmpty()) {
             Rect value = new Rect(l.traverse().x(), l.traverse().y() - 11, l.traverse().w(), 10);
             TelUi.textCentred(g, this.font, Component.translatable("gui.ata.patriot.traverse",

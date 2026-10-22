@@ -22,11 +22,9 @@ public class TelClientEvents {
     @SubscribeEvent
     public static void onCameraDistance(CalculateDetachedCameraDistanceEvent event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null && mc.player.getVehicle() instanceof IskanderTelEntity) {
+        if (mc.player != null && (mc.player.getVehicle() instanceof IskanderTelEntity
+                || mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity)) {
             event.setDistance(AtaClientConfig.getTelCameraDistance());
-        } else if (mc.player != null
-                && mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity) {
-            event.setDistance(Math.max(AtaClientConfig.getTelCameraDistance() * 1.6f, 14.0f));
         }
     }
 }

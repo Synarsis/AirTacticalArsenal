@@ -29,6 +29,11 @@ public class ModItems {
                     .stacksTo(1)
                     .rarity(Rarity.EPIC)));
 
+    public static final DeferredItem<Item> M983_TRACTOR = ITEMS.register("m983_tractor",
+            () -> new M983TractorItem(new Item.Properties()
+                    .stacksTo(1)
+                    .rarity(Rarity.EPIC)));
+
     public static final DeferredItem<Item> PATRIOT_LAUNCHER = ITEMS.register("patriot_launcher",
             () -> new PatriotItem(new Item.Properties()
                     .stacksTo(1)

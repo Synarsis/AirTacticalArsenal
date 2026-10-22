@@ -19,7 +19,6 @@ import com.synarsis.airtacticalarsenal.entity.tel.physics.ObbAabbSat;
 import com.synarsis.airtacticalarsenal.entity.tel.physics.TelHandover;
 import com.synarsis.airtacticalarsenal.item.ModItems;
 import com.synarsis.airtacticalarsenal.item.PatriotItem;
-import com.synarsis.airtacticalarsenal.network.PatriotPosePacket;
 import com.synarsis.airtacticalarsenal.sound.ModSounds;
 import com.synarsis.airtacticalarsenal.vehicle.hitbox.HitboxVehicle;
 import com.synarsis.airtacticalarsenal.vehicle.hitbox.VehicleRegistry;
@@ -84,15 +83,12 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
 
     private static final float BURNING_FRACTION = 0.1f;
     private static final float BURNING_LOSS_PER_TICK = 0.1f;
+    public static final double PANEL_RANGE = 6.0;
     private static final float ARMOUR = 2.0f;
-    private static final float RIDER_YAW_LIMIT = 95.0f;
-    private static final float RIDER_PITCH_LIMIT = 60.0f;
     private static final int REPAIR_DELAY_TICKS = 10;
-    private static final int NO_OCCUPANT = -1;
     private static final int IMPACT_COOLDOWN_TICKS = 4;
-    private static final double STANDING_SPEED = 0.03;
-    private static final double TRACTOR_WHEELBASE = 8.75;
     private static final int CLEARANCE_REFRESH_TICKS = 10;
+    private static final int ORPHAN_TICKS = 300;
 
     private static final EntityDataAccessor<Float> DATA_HEALTH = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.FLOAT);
@@ -118,16 +114,15 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_START_SERVICE = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.INT);
-    private static final EntityDataAccessor<Integer> DATA_START_DOORS = SynchedEntityData
-            .defineId(PatriotVehicleEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> DATA_TRAVERSE = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_TRAVERSE_TARGET = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Integer> DATA_SEAT_0 = SynchedEntityData
+    private static final EntityDataAccessor<Boolean> DATA_HITCHED = SynchedEntityData
+            .defineId(PatriotVehicleEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_TRACTOR_ID = SynchedEntityData
             .defineId(PatriotVehicleEntity.class, EntityDataSerializers.INT);
-    private static final EntityDataAccessor<Integer> DATA_SEAT_1 = SynchedEntityData
-            .defineId(PatriotVehicleEntity.class, EntityDataSerializers.INT);
+
 
     private final AnimatableInstanceCache animationCache = GeckoLibUtil.createInstanceCache(this);
 
@@ -147,10 +142,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     public float artYawO;
     public float artPitchO;
     public float artRollO;
-    private float poseSentYaw = Float.NaN;
-    private float poseSentPitch = Float.NaN;
-    private float poseSentRoll = Float.NaN;
-    private float poseSentTractorRoll = Float.NaN;
 
     private int syncOp = -2;
     private int syncTicks;
@@ -159,28 +150,16 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     private float traverseO;
 
     @Nullable
-    private PatriotJolt jolt;
-    private boolean joltDisabled;
+    private TrailerJolt jolt;
     private Vec3 observedVelocity = Vec3.ZERO;
-    private double observedYawRate;
     private Vec3 serverVelocity = Vec3.ZERO;
     @Nullable
     private Vec3 lastTickPos;
-    private float lastYaw;
     private int impactCooldown;
     private int lastImpactTick = -100;
-    private int overturnedTicks;
-    private int overturnHintCooldown;
 
-    private final double[] spinNow = new double[4];
-    private final double[] spinO = new double[4];
-    private float steerFrontNow;
-    private float steerFrontO;
-    private float steerSecondNow;
-    private float steerSecondO;
-    private float speedKmh;
-    private final double[] wheelLift = new double[PatriotPose.TRACTOR_WHEELS + PatriotPose.TRAILER_WHEELS];
-    private final double[] wheelLiftO = new double[PatriotPose.TRACTOR_WHEELS + PatriotPose.TRAILER_WHEELS];
+    private double wheelSpin;
+    private double wheelSpinO;
 
     @Nullable
     private List<WorldBox> modelBoxes;
@@ -204,7 +183,8 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     private double lerpXRot;
 
     private boolean destroyed;
-    private double testThrottle;
+    @Nullable
+    private UUID coupledTractorUuid;
     private int repairCooldown;
     @Nullable
     private DamageSource lastExplosionSource;
@@ -214,22 +194,10 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     private PatriotClearance.Blocker supportsBlock;
     @Nullable
     private PatriotClearance.Blocker liftBlock;
-    @Nullable
-    private PatriotClearance.Blocker tractorBlock;
     private int clearanceTick = -100;
-
-    private final Map<UUID, Rider> riders = new HashMap<>();
-    private final Map<UUID, Integer> savedSeats = new HashMap<>();
-
-    private static final class Rider {
-        int seat;
-        float vehicleYaw;
-
-        Rider(int seat, float vehicleYaw) {
-            this.seat = seat;
-            this.vehicleYaw = vehicleYaw;
-        }
-    }
+    private int orphanTicks;
+    @Nullable
+    private StageSevenHitch legacyHitch;
 
     protected PatriotVehicleEntity(EntityType<? extends PatriotVehicleEntity> type, Level level, PatriotKind kind) {
         super(type, level);
@@ -260,11 +228,10 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         builder.define(DATA_START_SUPPORTS, 0);
         builder.define(DATA_START_LIFT, 0);
         builder.define(DATA_START_SERVICE, 0);
-        builder.define(DATA_START_DOORS, 0);
         builder.define(DATA_TRAVERSE, 0.0f);
         builder.define(DATA_TRAVERSE_TARGET, 0.0f);
-        builder.define(DATA_SEAT_0, NO_OCCUPANT);
-        builder.define(DATA_SEAT_1, NO_OCCUPANT);
+        builder.define(DATA_HITCHED, false);
+        builder.define(DATA_TRACTOR_ID, -1);
     }
 
     @Override
@@ -322,10 +289,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.artPitchO = this.artPitch;
         this.artRollO = this.artRoll;
         this.traverseO = this.traverseNow;
-        System.arraycopy(this.spinNow, 0, this.spinO, 0, 4);
-        this.steerFrontO = this.steerFrontNow;
-        this.steerSecondO = this.steerSecondNow;
-        System.arraycopy(this.wheelLift, 0, this.wheelLiftO, 0, this.wheelLift.length);
+        this.wheelSpinO = this.wheelSpin;
         if (this.impactCooldown > 0) {
             this.impactCooldown--;
         }
@@ -334,32 +298,16 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.tickLerp();
         if (this.level().isClientSide) {
             this.tickCycleClient();
+            this.tickClient();
         } else {
             this.tickSequence();
+            this.tickJolt();
+            this.tickServer();
         }
-
-        boolean simulating = this.isControlledByLocalInstance();
-        if (this.useJolt()) {
-            this.tickJolt(simulating);
-        } else {
-            this.dropJolt();
-            if (this.level().isClientSide) {
-                this.setDeltaMovement(Vec3.ZERO);
-            } else {
-                this.settleWithoutPhysics();
-            }
-        }
-
-        if (this.level().isClientSide) {
-            this.tickClient(simulating);
-        } else {
-            this.tickServer(simulating);
-        }
+        this.applyHitchedPose();
 
         this.updateParts();
-        if (!this.joltDrivesPose()) {
-            this.updateCarry();
-        }
+        this.updateCarry();
         this.boxKey = Long.MIN_VALUE;
         VehicleRegistry.add(this.level(), this);
         if (!this.level().isClientSide) {
@@ -375,84 +323,105 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.carryFromYaw = this.getYRot();
     }
 
-    private boolean useJolt() {
-        return !this.joltDisabled && PhysicsWorlds.joltWanted();
-    }
-
-    private boolean joltDrivesPose() {
-        return this.jolt != null && this.jolt.role() == PatriotJolt.Role.SIMULATE;
-    }
-
-    private void dropJolt() {
-        if (this.jolt != null) {
-            this.jolt.close();
-            this.jolt = null;
-        }
-    }
-
-    public boolean physicsAvailable() {
-        return this.jolt != null && this.jolt.active();
-    }
-
-    public void setTestThrottle(double throttle) {
-        this.testThrottle = throttle;
-    }
-
-    public boolean isHeld() {
-        return this.currentMask() != 0 || this.currentOp() >= 0;
-    }
-
-    private void tickJolt(boolean simulating) {
-        if (this.jolt == null) {
-            this.jolt = new PatriotJolt(this);
-        }
-        boolean client = this.level().isClientSide;
-        boolean driven = this.getControllingPassenger() != null;
-        int keys = client && driven && simulating ? TelInput.provider.getAsInt() : 0;
-        Vec3 velocity = client ? this.observedVelocity : this.serverVelocity;
-        double yawRate = client ? this.observedYawRate
-                : -Math.toRadians(Mth.wrapDegrees(this.getYRot() - this.yRotO)) * Units.TICKS_PER_SECOND;
-        this.jolt.update(simulating, driven, this.isHeld() || this.groundUnloaded(), keys, this.testThrottle, velocity,
-                yawRate);
-        if (this.jolt.failed()) {
-            this.joltDisabled = true;
-            this.dropJolt();
+    private void applyHitchedPose() {
+        if (!this.isHitched()) {
             return;
         }
-        this.jolt.applyStagedPose();
-        if (client && !simulating) {
-            this.setDeltaMovement(Vec3.ZERO);
-        }
-        if (client && simulating && this.jolt.role() == PatriotJolt.Role.SIMULATE) {
-            this.sendPoseIfChanged();
+        M983TractorEntity tractor = this.coupledTractor();
+        TractorJolt tractorJolt = tractor == null ? null : tractor.joltView();
+        if (tractorJolt != null) {
+            tractorJolt.applyStagedTrailerPose(this);
         }
     }
 
-    private void sendPoseIfChanged() {
-        if (Float.isNaN(this.poseSentYaw) || Math.abs(this.artYaw - this.poseSentYaw) > 0.05f
-                || Math.abs(this.artPitch - this.poseSentPitch) > 0.05f
-                || Math.abs(this.artRoll - this.poseSentRoll) > 0.05f
-                || Math.abs(this.roll - this.poseSentTractorRoll) > 0.05f) {
-            this.poseSentYaw = this.artYaw;
-            this.poseSentPitch = this.artPitch;
-            this.poseSentRoll = this.artRoll;
-            this.poseSentTractorRoll = this.roll;
-            PacketDistributor.sendToServer(new PatriotPosePacket(this.getId(), this.roll, this.artYaw, this.artPitch,
-                    this.artRoll));
+    private void tickOrphan() {
+        if (!this.isHitched()) {
+            this.orphanTicks = 0;
+            return;
+        }
+        M983TractorEntity tractor = this.coupledTractor();
+        boolean held = tractor != null && !tractor.isRemoved() && tractor.isCoupledTo(this);
+        this.orphanTicks = held ? 0 : this.orphanTicks + 1;
+        if (this.orphanTicks > ORPHAN_TICKS) {
+            this.orphanTicks = 0;
+            this.setHitched(false, -1, null);
+            this.placeOnSupports();
         }
     }
 
-    private boolean groundUnloaded() {
-        double reach = 24.0;
-        for (int dx = -1; dx <= 1; dx += 2) {
-            for (int dz = -1; dz <= 1; dz += 2) {
-                if (!this.level().hasChunkAt(BlockPos.containing(this.getX() + dx * reach, this.getY(),
-                        this.getZ() + dz * reach))) {
-                    return true;
-                }
+    public boolean inPanelRange(Player player) {
+        if (player.distanceToSqr(this) <= PANEL_RANGE * PANEL_RANGE) {
+            return true;
+        }
+        M983TractorEntity tractor = this.coupledTractor();
+        return this.isHitched() && tractor != null && player.getVehicle() == tractor;
+    }
+
+    private void tickJolt() {
+        if (this.isHitched()) {
+            if (this.jolt != null) {
+                this.jolt.close();
+            }
+            return;
+        }
+        if (this.jolt == null) {
+            this.jolt = new TrailerJolt(this);
+        }
+        this.jolt.tick();
+    }
+
+    public boolean isHitched() {
+        return this.entityData.get(DATA_HITCHED);
+    }
+
+    public void setHitched(boolean hitched, int tractorId, @Nullable UUID tractorUuid) {
+        this.entityData.set(DATA_HITCHED, hitched);
+        this.entityData.set(DATA_TRACTOR_ID, hitched ? tractorId : -1);
+        this.coupledTractorUuid = hitched ? tractorUuid : null;
+    }
+
+    @Nullable
+    public M983TractorEntity coupledTractor() {
+        Entity entity = this.level().getEntity(this.entityData.get(DATA_TRACTOR_ID));
+        return entity instanceof M983TractorEntity tractor ? tractor : null;
+    }
+
+    public void dropJoltBody() {
+        if (this.jolt != null) {
+            this.jolt.close();
+        }
+    }
+
+    @Override
+    public boolean isControlledByLocalInstance() {
+        if (this.isHitched()) {
+            M983TractorEntity tractor = this.coupledTractor();
+            if (tractor != null) {
+                return tractor.isControlledByLocalInstance();
             }
         }
-        return false;
+        return super.isControlledByLocalInstance();
+    }
+
+    public boolean supportsOutNow() {
+        return this.seqView().supports();
+    }
+
+    public boolean operationBusy() {
+        return this.seqView().busy();
+    }
+
+    public boolean canBeCoupledNow() {
+        return M983Coupling.trailerAvailable(this.destroyed, this.isRemoved(), this.isHitched(), this.isOverturned(),
+                this.getHealth(), this.supportsOutNow(), this.operationBusy(), !this.getPassengers().isEmpty());
+    }
+
+    public boolean canBeTowedNow() {
+        return !this.destroyed && !this.isRemoved() && !this.isOverturned() && this.seqView().canDrive();
+    }
+
+    public PatriotRefusal whyNotTowed() {
+        return this.seqView().whyNotDrive();
     }
 
     public void applyJoltPose(double x, double y, double z, float yaw, float pitch, float roll, float artYaw,
@@ -464,7 +433,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.setArticulation(artYaw, artPitch, artRoll);
         this.setDeltaMovement(velocity);
         this.setOnGround(grounded);
-        this.verticalCollisionBelow = grounded;
         this.updateParts();
         this.updateCarry();
         this.boxKey = Long.MIN_VALUE;
@@ -474,112 +442,30 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.reportImpact(kind, speed);
     }
 
-    void rollBackTo(double x, double y, double z) {
-        if (this.level().isClientSide) {
-            return;
-        }
-        this.setPos(x, y, z);
-        if (this.getControllingPassenger() instanceof ServerPlayer driver) {
-            driver.connection.send(new net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket(this));
-        }
-    }
-
-    public void acceptPose(float tractorRoll, float yaw, float pitch, float rollValue) {
+    public void acceptPose(float trailerRoll, float yaw, float pitch, float rollValue) {
         double yawLimit = VehicleSpecs.train(this.kind().specName()).coupling.yawLimitDegrees + 5.0;
         double pitchLimit = VehicleSpecs.train(this.kind().specName()).coupling.pitchLimitDegrees + 5.0;
         double rollLimit = VehicleSpecs.train(this.kind().specName()).coupling.rollLimitDegrees + 5.0;
-        if (!Float.isFinite(tractorRoll) || !Float.isFinite(yaw) || !Float.isFinite(pitch) || !Float.isFinite(rollValue)
-                || Math.abs(tractorRoll) >= 180.0f || Math.abs(yaw) > yawLimit || Math.abs(pitch) > pitchLimit
+        if (!Float.isFinite(trailerRoll) || !Float.isFinite(yaw) || !Float.isFinite(pitch) || !Float.isFinite(rollValue)
+                || Math.abs(trailerRoll) >= 180.0f || Math.abs(yaw) > yawLimit || Math.abs(pitch) > pitchLimit
                 || Math.abs(rollValue) > rollLimit) {
             return;
         }
-        this.setRoll(tractorRoll);
+        this.setRoll(trailerRoll);
         this.setArticulation(yaw, pitch, rollValue);
     }
 
     public boolean isOverturned() {
-        return PatriotJolt.overturned(this.getXRot(), this.roll);
+        return Math.abs(this.getXRot()) > 60.0f || Math.abs(this.roll) > 60.0f;
     }
 
     public boolean usesJolt() {
         return this.jolt != null && this.jolt.active();
     }
 
-    public boolean joltSimulating() {
-        return this.joltDrivesPose();
-    }
-
     @Nullable
-    public PatriotJolt joltView() {
+    public TrailerJolt joltView() {
         return this.jolt;
-    }
-
-    public double getEngineRpm() {
-        if (this.joltDrivesPose()) {
-            return this.jolt.rpm();
-        }
-        return 700.0 + Mth.clamp(this.speedKmh / 65.0, 0.0, 1.2) * 1200.0;
-    }
-
-    public int getGear() {
-        return this.joltDrivesPose() ? this.jolt.gear() : 0;
-    }
-
-    public double getEngineLoad() {
-        return this.joltDrivesPose() ? this.jolt.load() : 0.0;
-    }
-
-    public void pushByExplosion(Vec3 centre, float power) {
-        if (this.level().isClientSide || this.jolt == null || !this.jolt.spinsFreely()) {
-            return;
-        }
-        Vec3 offset = new Vec3(this.getX(), this.getY() + 1.8, this.getZ()).subtract(centre);
-        double distance = offset.length();
-        if (distance > power * 12.0 + 12.0 || distance < 1.0E-3) {
-            return;
-        }
-        double magnitude = VehicleSpecs.train(this.kind().specName()).tractor.limits.explosionImpulse * power
-                / Math.max(distance * distance, 4.0);
-        Vec3 away = offset.normalize();
-        this.jolt.push(away.x * magnitude, Math.max(away.y, 0.25) * magnitude, away.z * magnitude);
-    }
-
-    private void rightWithIron(Player player, ItemStack held) {
-        for (Entity passenger : new ArrayList<>(this.getPassengers())) {
-            passenger.stopRiding();
-        }
-        if (!player.getAbilities().instabuild) {
-            held.shrink(1);
-        }
-        if (this.jolt != null) {
-            this.jolt.startRighting();
-        }
-        player.displayClientMessage(Component.translatable("message.ata.patriot.righting"), true);
-    }
-
-    private void settleWithoutPhysics() {
-        if (this.tickCount % 5 != 0) {
-            return;
-        }
-        double lowest = Double.NEGATIVE_INFINITY;
-        boolean supported = false;
-        for (double[] axleZ : new double[][] {PatriotGeometry.TRACTOR_AXLE_Z, PatriotGeometry.TRAILER_AXLE_Z}) {
-            for (double z : axleZ) {
-                Vec3 p = TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(), 0.0f, 0.0f,
-                        new Vec3(0.0, 0.0, z));
-                BlockPos below = BlockPos.containing(p.x, p.y - 0.2, p.z);
-                if (!this.level().getBlockState(below).getCollisionShape(this.level(), below).isEmpty()) {
-                    supported = true;
-                    lowest = Math.max(lowest, below.getY() + 1.0);
-                }
-            }
-        }
-        if (!supported && this.getY() > this.level().getMinBuildHeight()) {
-            this.setPos(this.getX(), this.getY() - 0.5, this.getZ());
-        } else if (supported && this.getY() < lowest - 0.05) {
-            this.setPos(this.getX(), lowest, this.getZ());
-        }
-        this.setDeltaMovement(Vec3.ZERO);
     }
 
     @Override
@@ -644,7 +530,9 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         return true;
     }
 
-    private void tickServer(boolean simulating) {
+    private void tickServer() {
+        this.tickMigration();
+        this.tickOrphan();
         if (this.repairCooldown > 0) {
             this.repairCooldown--;
         }
@@ -662,12 +550,8 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
         this.serverVelocity = here.subtract(this.lastTickPos);
         this.lastTickPos = here;
-        if (!simulating) {
-            this.setDeltaMovement(Vec3.ZERO);
-        }
-        this.tickOverturnHint();
 
-        Vec3 vel = simulating ? this.getDeltaMovement() : this.serverVelocity;
+        Vec3 vel = this.serverVelocity;
         if (vel.lengthSqr() >= 0.09) {
             this.crushScan(vel, ShahedConfig.isTelCrushDamageEnabled());
         }
@@ -675,22 +559,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
                 && ShahedConfig.doesTelBreakSoftBlocks() && Math.hypot(vel.x, vel.z) > 0.09) {
             TelWorld.smashSoftBlocks(serverLevel,
                     PatriotItem.footprint(this.getX(), this.getY(), this.getZ(), this.getYRot()), vel, this);
-        }
-    }
-
-    private void tickOverturnHint() {
-        if (this.overturnHintCooldown > 0) {
-            this.overturnHintCooldown--;
-        }
-        boolean lying = this.isOverturned() && this.serverVelocity.lengthSqr() < 1.0E-3;
-        this.overturnedTicks = lying ? this.overturnedTicks + 1 : 0;
-        if (this.overturnedTicks >= 60 && this.overturnHintCooldown == 0) {
-            this.overturnHintCooldown = 400;
-            for (Player near : this.level().players()) {
-                if (near.distanceToSqr(this) < 20.0 * 20.0) {
-                    near.displayClientMessage(Component.translatable("message.ata.patriot.overturned"), true);
-                }
-            }
         }
     }
 
@@ -746,54 +614,23 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
     }
 
-    private void tickClient(boolean simulating) {
-        Vec3 vel = new Vec3(this.getX() - this.xo, this.getY() - this.yo, this.getZ() - this.zo);
-        this.observedVelocity = vel;
-        float yawDelta = Mth.wrapDegrees(this.getYRot() - this.yRotO);
-        this.observedYawRate = -Math.toRadians(yawDelta) * Units.TICKS_PER_SECOND;
-        if (!simulating) {
+    private void tickClient() {
+        this.observedVelocity = new Vec3(this.getX() - this.xo, this.getY() - this.yo, this.getZ() - this.zo);
+        if (!(this.isHitched() && this.isControlledByLocalInstance())) {
             this.roll = Mth.lerp(0.35f, this.roll, this.entityData.get(DATA_ROLL));
             this.artYaw = Mth.lerp(0.35f, this.artYaw, this.entityData.get(DATA_ART_YAW));
             this.artPitch = Mth.lerp(0.35f, this.artPitch, this.entityData.get(DATA_ART_PITCH));
             this.artRoll = Mth.lerp(0.35f, this.artRoll, this.entityData.get(DATA_ART_ROLL));
         }
         this.traverseNow = Mth.lerp(0.5f, this.traverseNow, this.entityData.get(DATA_TRAVERSE));
-
-        float kmh = this.joltDrivesPose()
-                ? (float) Units.msToKmh(this.jolt.speedMs())
-                : (float) (Math.hypot(vel.x, vel.z) * 20.0 * 3.6);
-        this.speedKmh += (kmh - this.speedKmh) * 0.3f;
-
-        Vec3 f = this.getViewVector(1.0f);
-        double forward = vel.x * f.x + vel.z * f.z;
-        if (this.joltDrivesPose()) {
-            this.steerFrontNow = (float) this.jolt.steerFront();
-            this.steerSecondNow = (float) this.jolt.steerSecond();
-            for (int i = 0; i < 4; i++) {
-                this.spinNow[i] = this.jolt.wheelSpin(i);
-            }
-            for (int i = 0; i < this.wheelLift.length; i++) {
-                this.wheelLift[i] += (this.jolt.wheelOffset(i) - this.wheelLift[i]) * 0.6;
-            }
-        } else {
-            double yawRad = Math.toRadians(yawDelta);
-            double target = Math.abs(forward) > 0.01
-                    ? Math.toDegrees(Math.atan2(TRACTOR_WHEELBASE * yawRad, forward)) : 0.0;
-            target = Mth.clamp(target, -30.0, 30.0);
-            this.steerFrontNow += (float) ((target - this.steerFrontNow) * 0.3);
-            this.steerSecondNow = this.steerFrontNow * 0.7f;
-            double tractorSpin = -Math.toDegrees(forward / PatriotGeometry.TRACTOR_WHEEL_RADIUS);
-            double trailerSpin = -Math.toDegrees(forward / PatriotGeometry.TRAILER_WHEEL_RADIUS);
-            this.spinNow[PatriotPose.TRACTOR_LEFT] += tractorSpin;
-            this.spinNow[PatriotPose.TRACTOR_RIGHT] += tractorSpin;
-            this.spinNow[PatriotPose.TRAILER_LEFT] += trailerSpin;
-            this.spinNow[PatriotPose.TRAILER_RIGHT] += trailerSpin;
-            for (int i = 0; i < this.wheelLift.length; i++) {
-                this.wheelLift[i] *= 0.6;
-            }
-        }
+        double yawRad = Math.toRadians(this.getYRot());
+        double forward = this.observedVelocity.z * Math.cos(yawRad) - this.observedVelocity.x * Math.sin(yawRad);
+        this.wheelSpin -= Math.toDegrees(forward / PatriotGeometry.TRAILER_WHEEL_RADIUS);
         this.spawnDamageParticles();
-        PatriotInput.clientTick.accept(this);
+    }
+
+    public double getWheelSpin(float partialTick) {
+        return Mth.lerp(partialTick, this.wheelSpinO, this.wheelSpin);
     }
 
     private void spawnDamageParticles() {
@@ -809,17 +646,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
 
     public boolean isBurning() {
         return this.getHealth() <= this.getMaxHealth() * BURNING_FRACTION;
-    }
-
-    public boolean isEngineRunning() {
-        return this.getControllingPassenger() != null || this.speedKmh > 1.0f;
-    }
-
-    public float getSpeedKmh() {
-        if (!this.level().isClientSide && this.joltDrivesPose()) {
-            return (float) Units.msToKmh(this.jolt.speedMs());
-        }
-        return this.speedKmh;
     }
 
     public float getRollLerp(float partialTick) {
@@ -920,169 +746,15 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
     }
 
-    private static EntityDataAccessor<Integer> seatData(int seat) {
-        return seat == 0 ? DATA_SEAT_0 : DATA_SEAT_1;
+    @Nullable
+    @Override
+    public LivingEntity getControllingPassenger() {
+        return null;
     }
 
     @Override
     protected boolean canAddPassenger(Entity passenger) {
-        return this.getPassengers().size() < PatriotGeometry.SEAT_COUNT;
-    }
-
-    @Override
-    protected void addPassenger(Entity passenger) {
-        super.addPassenger(passenger);
-        if (!this.level().isClientSide) {
-            this.entityData.set(seatData(this.chooseSeat(passenger)), passenger.getId());
-            this.sequence.pulseDoors();
-        }
-        this.riders.put(passenger.getUUID(), new Rider(this.seatOf(passenger), this.getYRot()));
-    }
-
-    @Override
-    protected void removePassenger(Entity passenger) {
-        int seat = this.seatOf(passenger);
-        super.removePassenger(passenger);
-        Rider rider = this.riders.get(passenger.getUUID());
-        if (rider != null) {
-            rider.seat = seat;
-        }
-        if (!this.level().isClientSide) {
-            if (seat == 0) {
-                this.setDeltaMovement(TelHandover.coastVelocity(this.serverVelocity));
-            }
-            for (int i = 0; i < PatriotGeometry.SEAT_COUNT; i++) {
-                if (this.entityData.get(seatData(i)) == passenger.getId()) {
-                    this.entityData.set(seatData(i), NO_OCCUPANT);
-                }
-            }
-            this.sequence.pulseDoors();
-        }
-    }
-
-    private int chooseSeat(Entity arriving) {
-        Integer saved = this.savedSeats.remove(arriving.getUUID());
-        if (saved != null && saved >= 0 && saved < PatriotGeometry.SEAT_COUNT && this.isSeatFree(saved, arriving)) {
-            return saved;
-        }
-        for (int i = 0; i < PatriotGeometry.SEAT_COUNT; i++) {
-            if (this.isSeatFree(i, arriving)) {
-                return i;
-            }
-        }
-        return PatriotGeometry.SEAT_COUNT - 1;
-    }
-
-    private boolean isSeatFree(int seat, Entity arriving) {
-        int occupant = this.entityData.get(seatData(seat));
-        if (occupant == NO_OCCUPANT) {
-            return true;
-        }
-        for (Entity p : this.getPassengers()) {
-            if (p != arriving && p.getId() == occupant) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public int seatOf(Entity passenger) {
-        int id = passenger.getId();
-        for (int i = 0; i < PatriotGeometry.SEAT_COUNT; i++) {
-            if (this.entityData.get(seatData(i)) == id) {
-                return i;
-            }
-        }
-        return Mth.clamp(this.getPassengers().indexOf(passenger), 0, PatriotGeometry.SEAT_COUNT - 1);
-    }
-
-    public boolean isCrewSeat(Entity player) {
-        return this.hasPassenger(player);
-    }
-
-    @Nullable
-    @Override
-    public LivingEntity getControllingPassenger() {
-        for (Entity p : this.getPassengers()) {
-            if (this.seatOf(p) == 0) {
-                return p instanceof Player player ? player : null;
-            }
-        }
-        return null;
-    }
-
-    private Vec3 withTractorShift(Vec3 local) {
-        return local.add(0.0, 0.0, this.tractorOffsetBlocks());
-    }
-
-    @Override
-    public Vec3 getPassengerRidingPosition(Entity passenger) {
-        return TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(), this.getXRot(),
-                this.roll, this.withTractorShift(PatriotGeometry.SEATS[this.seatOf(passenger)]));
-    }
-
-    @Override
-    protected void positionRider(Entity passenger, MoveFunction callback) {
-        super.positionRider(passenger, callback);
-        Rider rider = this.riders.computeIfAbsent(passenger.getUUID(),
-                id -> new Rider(this.seatOf(passenger), this.getYRot()));
-        rider.seat = this.seatOf(passenger);
-        float turned = Mth.wrapDegrees(this.getYRot() - rider.vehicleYaw);
-        rider.vehicleYaw = this.getYRot();
-        passenger.setYRot(passenger.getYRot() + turned);
-        passenger.setYHeadRot(passenger.getYHeadRot() + turned);
-        this.clampRotation(passenger);
-    }
-
-    @Override
-    public void onPassengerTurned(Entity entityToUpdate) {
-        this.clampRotation(entityToUpdate);
-    }
-
-    protected void clampRotation(Entity rider) {
-        rider.setYBodyRot(this.getYRot());
-        float yaw = Mth.wrapDegrees(rider.getYRot() - this.getYRot());
-        float clampedYaw = Mth.clamp(yaw, -RIDER_YAW_LIMIT, RIDER_YAW_LIMIT);
-        rider.yRotO += clampedYaw - yaw;
-        rider.setYRot(rider.getYRot() + clampedYaw - yaw);
-        rider.setYHeadRot(rider.getYRot());
-        float pitch = rider.getXRot();
-        float clampedPitch = Mth.clamp(pitch, -RIDER_PITCH_LIMIT, RIDER_PITCH_LIMIT);
-        rider.xRotO += clampedPitch - pitch;
-        rider.setXRot(clampedPitch);
-    }
-
-    @Override
-    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
-        Rider rider = this.riders.remove(passenger.getUUID());
-        int seat = rider != null ? rider.seat : 0;
-        Vec3 door = this.withTractorShift(PatriotGeometry.DISMOUNTS[seat]);
-        Vec3 otherDoor = new Vec3(-door.x, door.y, door.z);
-        Vec3[] candidates = {
-                door,
-                door.add(0.0, 0.0, -1.5),
-                door.add(0.0, 0.0, 1.5),
-                door.add(Math.signum(door.x), 0.0, 0.0),
-                otherDoor,
-                otherDoor.add(0.0, 0.0, -1.5),
-        };
-        for (Vec3 local : candidates) {
-            Vec3 world = TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(), 0.0f, 0.0f,
-                    local);
-            BlockPos at = BlockPos.containing(world.x, world.y, world.z);
-            for (int dy = 0; dy >= -1; dy--) {
-                Vec3 spot = DismountHelper.findSafeDismountLocation(passenger.getType(), this.level(),
-                        at.offset(0, dy, 0), false);
-                if (spot != null) {
-                    return spot;
-                }
-            }
-            Vec3 up = DismountHelper.findSafeDismountLocation(passenger.getType(), this.level(), at.above(), false);
-            if (up != null) {
-                return up;
-            }
-        }
-        return new Vec3(this.getX(), this.getY() + 5.0, this.getZ());
+        return false;
     }
 
     @Override
@@ -1093,12 +765,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         ItemStack held = player.getItemInHand(hand);
         boolean client = this.level().isClientSide;
 
-        if (player.isShiftKeyDown() && held.is(Items.IRON_BLOCK) && this.isOverturned()) {
-            if (!client) {
-                this.rightWithIron(player, held);
-            }
-            return InteractionResult.sidedSuccess(client);
-        }
         if (this.isRepairItem(held) && this.getHealth() < this.getMaxHealth()) {
             if (!client && this.repairCooldown <= 0) {
                 this.repair(player, held);
@@ -1111,8 +777,11 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
             }
             return InteractionResult.sidedSuccess(client);
         }
-        if (!client && !player.startRiding(this)) {
-            player.displayClientMessage(Component.translatable("message.ata.patriot.full"), true);
+        if (this.isHitched() && this.coupledTractor() != null && player.getVehicle() == this.coupledTractor()) {
+            return InteractionResult.PASS;
+        }
+        if (client) {
+            PatriotInput.openPanel.accept(this);
         }
         return InteractionResult.sidedSuccess(client);
     }
@@ -1135,7 +804,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     }
 
     private boolean canPickUp(Player player) {
-        return this.sequence.canDrive()
+        return !this.sequence.busy()
                 && this.getPassengers().isEmpty()
                 && (this.ownerUuid == null || this.ownerUuid.equals(player.getUUID()) || player.getAbilities().instabuild);
     }
@@ -1151,6 +820,12 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
             player.drop(stack, false);
         }
         this.discard();
+    }
+
+    public void placeOnSupports() {
+        this.sequence.parkOnSupports();
+        this.publishSequence(true);
+        this.boxKey = Long.MIN_VALUE;
     }
 
     @Override
@@ -1268,12 +943,9 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         Level.ExplosionInteraction mode = ShahedConfig.doExplosionsBreakBlocks()
                 ? Level.ExplosionInteraction.TNT
                 : Level.ExplosionInteraction.NONE;
-        Vec3 tractorCentre = TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(),
-                this.getXRot(), this.roll, this.withTractorShift(new Vec3(0.0, 2.0, 11.0)));
-        Vec3 trailerCentre = TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(),
-                this.getXRot(), this.roll, new Vec3(0.0, 2.5, -1.0));
-        serverLevel.explode(this, blast, null, tractorCentre.x, tractorCentre.y, tractorCentre.z, 4.0f, false, mode);
-        serverLevel.explode(this, blast, null, trailerCentre.x, trailerCentre.y, trailerCentre.z, 5.0f, false, mode);
+        Vec3 centre = TelGeometry.localToWorld(this.getX(), this.getY(), this.getZ(), this.getYRot(),
+                this.getXRot(), this.roll, new Vec3(0.0, 2.5, -0.5));
+        serverLevel.explode(this, blast, null, centre.x, centre.y, centre.z, 5.0f, false, mode);
         serverLevel.broadcastEntityEvent(this, EVENT_DESTROYED);
         this.spawnAtLocation(new ItemStack(Items.IRON_INGOT, 6 + this.random.nextInt(7)));
         this.discard();
@@ -1330,8 +1002,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         cycle.putBoolean("Supports", snap.supports());
         cycle.putBoolean("Lift", snap.lift());
         cycle.putBoolean("Service", snap.service());
-        cycle.putBoolean("LatchOpen", snap.latchOpen());
-        cycle.putBoolean("TractorOut", snap.tractorOut());
         cycle.putDouble("Traverse", snap.traverse());
         cycle.putDouble("TraverseTarget", snap.traverseTarget());
         cycle.putInt("Op", snap.op());
@@ -1341,14 +1011,10 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         if (this.ownerUuid != null) {
             tag.putUUID("Owner", this.ownerUuid);
         }
-        ListTag seats = new ListTag();
-        for (Entity p : this.getPassengers()) {
-            CompoundTag entry = new CompoundTag();
-            entry.putUUID("Rider", p.getUUID());
-            entry.putByte("Seat", (byte) this.seatOf(p));
-            seats.add(entry);
+        tag.putBoolean("Hitched", this.isHitched());
+        if (this.coupledTractorUuid != null) {
+            tag.putUUID("CoupledTractor", this.coupledTractorUuid);
         }
-        tag.put("Seats", seats);
     }
 
     @Override
@@ -1372,24 +1038,39 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         if (tag.hasUUID("Owner")) {
             this.ownerUuid = tag.getUUID("Owner");
         }
-        this.savedSeats.clear();
-        ListTag seats = tag.getList("Seats", Tag.TAG_COMPOUND);
-        for (int i = 0; i < seats.size(); i++) {
-            CompoundTag entry = seats.getCompound(i);
-            if (entry.hasUUID("Rider")) {
-                this.savedSeats.put(entry.getUUID("Rider"), (int) entry.getByte("Seat"));
-            }
-        }
+        this.entityData.set(DATA_HITCHED, tag.getBoolean("Hitched"));
+        this.coupledTractorUuid = tag.hasUUID("CoupledTractor") ? tag.getUUID("CoupledTractor") : null;
+        this.legacyHitch = null;
         if (tag.contains("Cycle", Tag.TAG_COMPOUND)) {
             CompoundTag cycle = tag.getCompound("Cycle");
+            boolean stageSeven = StageSevenHitch.isStageSeven(tag);
             this.sequence.restore(new PatriotSequence.Snapshot(cycle.getBoolean("Supports"), cycle.getBoolean("Lift"),
-                    cycle.getBoolean("Service"), cycle.getBoolean("LatchOpen"), cycle.getBoolean("TractorOut"),
-                    cycle.getDouble("Traverse"), cycle.getDouble("TraverseTarget"),
-                    cycle.contains("Op") ? cycle.getInt("Op") : -1, cycle.getInt("Ticks"), cycle.getIntArray("Queue")));
+                    cycle.getBoolean("Service"), cycle.getDouble("Traverse"), cycle.getDouble("TraverseTarget"),
+                    cycle.contains("Op") ? cycle.getInt("Op") : -1, cycle.getInt("Ticks"), cycle.getIntArray("Queue")),
+                    stageSeven);
+            if (stageSeven) {
+                this.legacyHitch = StageSevenHitch.read(this, tag);
+                this.entityData.set(DATA_HITCHED, false);
+                this.coupledTractorUuid = null;
+            }
         } else {
             this.sequence.reset();
         }
         this.publishSequence(true);
+    }
+
+    @Nullable
+    public StageSevenHitch pendingMigration() {
+        return this.legacyHitch;
+    }
+
+    private void tickMigration() {
+        StageSevenHitch hitch = this.legacyHitch;
+        if (hitch == null || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        this.legacyHitch = null;
+        StageSevenHitch.migrate(serverLevel, this, hitch);
     }
 
     public int currentMask() {
@@ -1451,37 +1132,9 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         int start = this.entityData.get(switch (group) {
             case PatriotBones.SUPPORTS -> DATA_START_SUPPORTS;
             case PatriotBones.LIFT -> DATA_START_LIFT;
-            case PatriotBones.SERVICE -> DATA_START_SERVICE;
-            default -> DATA_START_DOORS;
+            default -> DATA_START_SERVICE;
         });
         return Math.max(0.0, (int) this.level().getGameTime() - start + partialTick);
-    }
-
-    public double tractorProgress(float partialTick) {
-        if (!this.level().isClientSide) {
-            return this.sequence.tractorProgress(partialTick);
-        }
-        int mask = this.entityData.get(DATA_MASK);
-        return PatriotSequence.tractorProgress((mask & PatriotSequence.TRACTOR_OUT_BIT) != 0,
-                PatriotSequence.Op.byOrdinal(this.entityData.get(DATA_OP)), this.getVisualTicks(), partialTick);
-    }
-
-    public double latchProgress(float partialTick) {
-        if (!this.level().isClientSide) {
-            return this.sequence.latchProgress(partialTick);
-        }
-        int mask = this.entityData.get(DATA_MASK);
-        return PatriotSequence.latchProgress((mask & PatriotSequence.LATCH_OPEN_BIT) != 0,
-                PatriotSequence.Op.byOrdinal(this.entityData.get(DATA_OP)), this.getVisualTicks(), partialTick);
-    }
-
-    public double tractorOffsetBlocks() {
-        return this.tractorProgress(0.0f) * PatriotGeometry.TRACTOR_OFFSET_BLOCKS;
-    }
-
-    public boolean tractorMoving() {
-        int op = this.currentOp();
-        return op == PatriotSequence.Op.TRACTOR_OUT.ordinal() || op == PatriotSequence.Op.TRACTOR_IN.ordinal();
     }
 
     private PatriotPose groupsPose(float partialTick) {
@@ -1493,9 +1146,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         TelHitboxPose.Part service = kind.isLauncher() ? TelHitboxPose.Part.REST
                 : PatriotPose.partOf(kind, PatriotBones.SERVICE, this.getGroupClip(PatriotBones.SERVICE),
                         this.getGroupAge(PatriotBones.SERVICE, partialTick));
-        TelHitboxPose.Part doors = PatriotPose.partOf(kind, PatriotBones.DOORS, this.getGroupClip(PatriotBones.DOORS),
-                this.getGroupAge(PatriotBones.DOORS, partialTick));
-        return PatriotPose.REST.withParts(supports, lift, service, doors);
+        return PatriotPose.REST.withParts(supports, lift, service);
     }
 
     private double traverseValue(float partialTick) {
@@ -1506,37 +1157,12 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     }
 
     public PatriotPose hitboxPose() {
-        float p = 0.0f;
-        return this.groupsPose(p)
-                .withArticulation(this.artYaw, this.artPitch, this.artRoll)
-                .withTractor(this.tractorProgress(p) * PatriotGeometry.TRACTOR_OFFSET_PX,
-                        PatriotTiming.LATCH_OPEN_DEGREES * this.latchProgress(p))
-                .withTraverse(this.traverseValue(p));
+        return this.groupsPose(0.0f).withTraverse(this.traverseValue(0.0f));
     }
 
     public PatriotPose poseFor(float partialTick) {
-        double spinLeftTractor = Mth.lerp(partialTick, this.spinO[PatriotPose.TRACTOR_LEFT],
-                this.spinNow[PatriotPose.TRACTOR_LEFT]);
-        double spinRightTractor = Mth.lerp(partialTick, this.spinO[PatriotPose.TRACTOR_RIGHT],
-                this.spinNow[PatriotPose.TRACTOR_RIGHT]);
-        double spinLeftTrailer = Mth.lerp(partialTick, this.spinO[PatriotPose.TRAILER_LEFT],
-                this.spinNow[PatriotPose.TRAILER_LEFT]);
-        double spinRightTrailer = Mth.lerp(partialTick, this.spinO[PatriotPose.TRAILER_RIGHT],
-                this.spinNow[PatriotPose.TRAILER_RIGHT]);
-        double[] lift = new double[this.wheelLift.length];
-        for (int i = 0; i < lift.length; i++) {
-            lift[i] = Mth.lerp(partialTick, this.wheelLiftO[i], this.wheelLift[i]);
-        }
-        return this.groupsPose(partialTick)
-                .withArticulation(Mth.lerp(partialTick, this.artYawO, this.artYaw),
-                        Mth.lerp(partialTick, this.artPitchO, this.artPitch),
-                        Mth.lerp(partialTick, this.artRollO, this.artRoll))
-                .withTractor(this.tractorProgress(partialTick) * PatriotGeometry.TRACTOR_OFFSET_PX,
-                        PatriotTiming.LATCH_OPEN_DEGREES * this.latchProgress(partialTick))
-                .withTraverse(this.traverseValue(partialTick))
-                .withSteer(Mth.lerp(partialTick, this.steerFrontO, this.steerFrontNow),
-                        Mth.lerp(partialTick, this.steerSecondO, this.steerSecondNow))
-                .withWheels(new double[] {spinLeftTractor, spinRightTractor, spinLeftTrailer, spinRightTrailer}, lift);
+        double spin = this.getWheelSpin(partialTick);
+        return this.groupsPose(partialTick).withTraverse(this.traverseValue(partialTick)).withWheels(spin, spin);
     }
 
     private void refreshBoxes() {
@@ -1635,11 +1261,18 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         super.remove(reason);
     }
 
+    private void dropJolt() {
+        if (this.jolt != null) {
+            this.jolt.close();
+            this.jolt = null;
+        }
+    }
+
     public boolean isStanding() {
         double speed = this.level().isClientSide
                 ? Math.hypot(this.observedVelocity.x, this.observedVelocity.z)
                 : Math.hypot(this.serverVelocity.x, this.serverVelocity.z);
-        return speed < STANDING_SPEED && !this.isInWater();
+        return speed < 0.03 && !this.isInWater();
     }
 
     public TelClearance.Pose clearancePose() {
@@ -1673,7 +1306,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         TelClearance.Solid solid = this.worldSolid();
         this.supportsBlock = PatriotClearance.supportBlocker(model, pose, at, solid);
         this.liftBlock = PatriotClearance.liftBlocker(model, pose, at, solid);
-        this.tractorBlock = PatriotClearance.tractorBlocker(model, pose, at, solid);
     }
 
     @Nullable
@@ -1688,14 +1320,8 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         return this.liftBlock;
     }
 
-    @Nullable
-    public PatriotClearance.Blocker tractorBlocker() {
-        this.refreshClearance();
-        return this.tractorBlock;
-    }
-
     private PatriotRefusal.Denial placeDenial(List<PatriotSequence.Op> ops, boolean fresh) {
-        if (ops.contains(PatriotSequence.Op.SUPPORTS_OUT) || ops.contains(PatriotSequence.Op.TRACTOR_OUT)) {
+        if (ops.contains(PatriotSequence.Op.SUPPORTS_OUT)) {
             if (!PatriotClearance.tiltOk(this.getXRot(), this.roll)) {
                 return PatriotRefusal.Denial.of(PatriotRefusal.TILT);
             }
@@ -1708,12 +1334,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         }
         if (ops.contains(PatriotSequence.Op.RAISE) || ops.contains(PatriotSequence.Op.ANTENNA_UP)) {
             PatriotClearance.Blocker b = fresh ? this.freshLift() : this.liftBlocker();
-            if (b != null) {
-                return b.denial();
-            }
-        }
-        if (ops.contains(PatriotSequence.Op.TRACTOR_OUT)) {
-            PatriotClearance.Blocker b = fresh ? this.freshTractor() : this.tractorBlocker();
             if (b != null) {
                 return b.denial();
             }
@@ -1733,12 +1353,6 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
                 this.worldSolid());
     }
 
-    @Nullable
-    private PatriotClearance.Blocker freshTractor() {
-        return PatriotClearance.tractorBlocker(PatriotHitbox.of(this.kind()), this.hitboxPose(), this.clearancePose(),
-                this.worldSolid());
-    }
-
     private PatriotRefusal.Denial checkOperation(PatriotSequence.Op op) {
         return this.placeDenial(List.of(op), true);
     }
@@ -1754,25 +1368,22 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     }
 
     public PatriotRefusal whyNotDrive() {
-        if (!this.level().isClientSide && !PhysicsWorlds.joltWanted()) {
-            return PatriotRefusal.NO_PHYSICS;
-        }
-        if (this.level().isClientSide && this.jolt == null && !PhysicsWorlds.joltWanted()) {
-            return PatriotRefusal.NO_PHYSICS;
-        }
-        return this.seqView().whyNotDrive();
+        return PatriotRefusal.NEED_COUPLED;
     }
 
     public void handleCommand(Player player, byte command) {
         if (this.level().isClientSide || this.destroyed) {
             return;
         }
-        if (!this.hasPassenger(player) || this.seatOf(player) > 1) {
-            player.displayClientMessage(Component.translatable(PatriotRefusal.NOT_CREW.messageKey()), true);
+        if (!this.inPanelRange(player)) {
             return;
         }
         Command c = Command.byOrdinal(command);
         if (c == null) {
+            return;
+        }
+        if (!this.isHitched() && (c == Command.STOW || c == Command.SUPPORTS_IN)) {
+            player.displayClientMessage(Component.translatable(PatriotRefusal.NEED_COUPLED.messageKey()), true);
             return;
         }
         PatriotRefusal.Denial denial = this.denial(c);
@@ -1839,8 +1450,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
             this.entityData.set(switch (group) {
                 case PatriotBones.SUPPORTS -> DATA_START_SUPPORTS;
                 case PatriotBones.LIFT -> DATA_START_LIFT;
-                case PatriotBones.SERVICE -> DATA_START_SERVICE;
-                default -> DATA_START_DOORS;
+                default -> DATA_START_SERVICE;
             }, start);
         }
         this.entityData.set(DATA_CLIPS, packed);
@@ -1874,13 +1484,12 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
     public String debugState() {
         PatriotSequence s = this.sequence;
         return String.format(java.util.Locale.ROOT,
-                "%s  op %s %d ticks (%d queued)  supports %s  lift %s  service %s  latch %s  tractor %s  traverse %.1f to %.1f  "
-                        + "articulation [%.1f %.1f %.1f]  roll %.1f  physics %s",
+                "%s  op %s %d ticks (%d queued)  supports %s  lift %s  service %s  traverse %.1f to %.1f  "
+                        + "articulation [%.1f %.1f %.1f]  roll %.1f  hitched %s  physics %s",
                 this.kind().id(), s.current() == null ? "-" : s.current(), s.ticks(), s.queued(),
                 s.supports() ? "out" : "in", s.lift() ? "up" : "down", s.service() ? "open" : "shut",
-                s.latchOpen() ? "open" : "shut", s.tractorOut() ? "out" : "in", s.traverse(), s.traverseTarget(),
-                this.artYaw, this.artPitch, this.artRoll, this.roll,
-                this.jolt == null ? (this.joltDisabled ? "disabled" : "none") : this.jolt.role());
+                s.traverse(), s.traverseTarget(), this.artYaw, this.artPitch, this.artRoll, this.roll,
+                this.isHitched(), this.jolt == null ? "none" : (this.jolt.failed() ? "failed" : "static"));
     }
 
     @Override

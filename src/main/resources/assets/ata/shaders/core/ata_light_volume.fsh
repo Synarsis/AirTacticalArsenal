@@ -2,6 +2,7 @@
 
 uniform sampler2D DepthSampler;
 uniform sampler2D OccupancySampler;
+uniform sampler2D BoxSampler;
 
 uniform mat4 InvProj;
 uniform mat4 Proj;
@@ -17,6 +18,8 @@ uniform vec4 LightWorld;
 uniform vec4 Shadow;
 uniform vec4 OccOrigin;
 uniform vec4 OccMod;
+uniform vec4 Boxes;
+uniform vec4 Scatter;
 
 in vec2 texCoord;
 
@@ -154,18 +157,121 @@ vec3 snapToAxis(vec3 n) {
     return vec3(0.0, 0.0, n.z < 0.0 ? -1.0 : 1.0);
 }
 
+const int MAX_BOXES = 16;
+const float TINY = 1.0e-6;
+
+vec3 boxLocal(vec3 w, vec3 centre, vec2 cs) {
+    vec3 r = w - centre;
+    return vec3(r.x * cs.x + r.z * cs.y, r.y, cs.x * r.z - cs.y * r.x);
+}
+
+vec2 slab(vec3 o, vec3 d, vec3 h) {
+    vec3 inv = 1.0 / d;
+    vec3 t0 = (-h - o) * inv;
+    vec3 t1 = (h - o) * inv;
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+    float tn = max(max(tmin.x, tmin.y), max(tmin.z, 0.0));
+    float tf = min(min(tmax.x, tmax.y), min(tmax.z, 1.0));
+    return vec2(tn, tf);
+}
+
+float boxTransmittance(vec3 from, vec3 to, vec3 centre, vec3 half, vec2 cs) {
+    vec3 a = boxLocal(from, centre, cs);
+    vec3 b = boxLocal(to, centre, cs);
+    vec3 d = b - a;
+    d.x = abs(d.x) < TINY ? TINY : d.x;
+    d.y = abs(d.y) < TINY ? TINY : d.y;
+    d.z = abs(d.z) < TINY ? TINY : d.z;
+    vec2 outer = slab(a, d, half + vec3(Boxes.w));
+    if (outer.x > outer.y) {
+        return 1.0;
+    }
+    vec2 inner = slab(a, d, half);
+    if (inner.x <= inner.y) {
+        return 0.0;
+    }
+    vec3 mid = a + d * (0.5 * (outer.x + outer.y));
+    vec3 q = abs(mid) - half;
+    float sdf = length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+    return smoothstep(0.0, Boxes.w, sdf);
+}
+
+bool boxMayTouch(vec3 from, vec3 to, vec3 centre, vec3 half) {
+    vec3 seg = to - from;
+    float len2 = dot(seg, seg);
+    float t = len2 < 1.0e-12 ? 0.0 : clamp(dot(centre - from, seg) / len2, 0.0, 1.0);
+    vec3 off = from + seg * t - centre;
+    float reach = length(half) + Boxes.w;
+    return dot(off, off) <= reach * reach;
+}
+
+float boxShadow(vec3 from, vec3 to) {
+    float transmitted = 1.0;
+    int n = int(Boxes.x + 0.5);
+    for (int i = 0; i < MAX_BOXES; i++) {
+        if (i >= n) {
+            break;
+        }
+        vec4 a = texelFetch(BoxSampler, ivec2(i, 0), 0);
+        vec4 b = texelFetch(BoxSampler, ivec2(i, 1), 0);
+        vec3 end = to;
+        if (abs(a.w - Boxes.y) < 0.5) {
+            vec3 delta = to - from;
+            float len = length(delta);
+            end = len <= Boxes.z ? from : from + delta * ((len - Boxes.z) / len);
+        }
+        if (!boxMayTouch(from, end, a.xyz, b.xyz)) {
+            continue;
+        }
+        vec4 c = texelFetch(BoxSampler, ivec2(i, 2), 0);
+        transmitted *= boxTransmittance(from, end, a.xyz, b.xyz, c.xy);
+        if (transmitted < SHUT) {
+            return 0.0;
+        }
+    }
+    return transmitted;
+}
+
+float rayShadow(vec3 from, vec3 to) {
+    float s = 1.0;
+    if (Shadow.x > 0.5) {
+        s = shadowRay(from, to);
+    }
+    if (s > SHUT && Boxes.x > 0.5) {
+        s *= boxShadow(from, to);
+    }
+    return s;
+}
+
+float noiseAt(vec2 frag) {
+    return fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
+}
+
 float blockShadow(vec3 p, vec3 n) {
     vec3 world = (InvView * vec4(p, 1.0)).xyz;
     vec3 worldNormal = mat3(InvView) * n;
     vec3 from = world + snapToAxis(worldNormal) * NORMAL_BIAS - OccOrigin.xyz;
     vec3 light = LightWorld.xyz - OccOrigin.xyz;
-    if (Shadow.y < 1.5) {
-        return shadowRay(from, light);
+    int count = int(Shadow.y + 0.5);
+    if (count < 2 || Shadow.z <= 0.0) {
+        return rayShadow(from, light);
     }
     vec3 way = normalize(light - from);
     vec3 up = abs(way.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
-    vec3 across = normalize(cross(way, up)) * Shadow.z;
-    return 0.5 * (shadowRay(from, light + across) + shadowRay(from, light - across));
+    vec3 across = normalize(cross(way, up));
+    vec3 lift = cross(way, across);
+    float turn = noiseAt(gl_FragCoord.xy);
+    float sum = 0.0;
+    for (int i = 0; i < 4; i++) {
+        if (i >= count) {
+            break;
+        }
+        float angle = 6.2831853 * (turn + float(i) / float(count));
+        float r = Shadow.z * sqrt((float(i) + 0.5) / float(count));
+        sum += rayShadow(from, light + across * (cos(angle) * r) + lift * (sin(angle) * r));
+    }
+    return sum / float(count);
 }
 
 void main() {
@@ -190,9 +296,20 @@ void main() {
     float attenuation = window * window / (1.0 + k * k);
 
     float spot = 1.0;
+    float axisDot = 1.0;
     if (LightCone.y > 0.5) {
-        spot = smoothstep(LightDir.w, LightCone.x, dot(-l, LightDir.xyz));
+        axisDot = dot(-l, LightDir.xyz);
+        float inside = smoothstep(LightDir.w, LightCone.x, axisDot);
+        inside *= inside;
+        float spill = Scatter.y * smoothstep(Scatter.z, LightDir.w, axisDot);
+        spot = inside + spill * (1.0 - inside);
     }
+    float rf = radius * Scatter.w;
+    float xf = d / rf;
+    float windowFill = clamp(1.0 - xf * xf * xf * xf, 0.0, 1.0);
+    float kf = d / (0.25 * rf);
+    float front = LightCone.y > 0.5 ? smoothstep(0.0, 0.2, axisDot) : 1.0;
+    float fill = Scatter.x * windowFill * windowFill / (1.0 + kf * kf) * front;
 
     vec3 n = vec3(0.0, 0.0, 1.0);
     if (LightCone.w > 0.5 || Shadow.x > 0.5) {
@@ -204,13 +321,13 @@ void main() {
     }
 
     float base = attenuation * spot * shade;
-    if (base * max(max(LightColor.r, LightColor.g), LightColor.b) * AccScale < 0.0005) {
+    if ((base + fill) * max(max(LightColor.r, LightColor.g), LightColor.b) * AccScale < 0.0005) {
         fragColor = vec4(0.0);
         return;
     }
 
     float shadow = 1.0;
-    if (Shadow.x > 0.5) {
+    if (Shadow.x > 0.5 || Boxes.x > 0.5) {
         shadow = blockShadow(p, n);
     }
     if (LightCone.z > 0.5) {
@@ -219,6 +336,6 @@ void main() {
 
     float fog = clamp((length(p) - FogRange.x) / max(FogRange.y - FogRange.x, 1.0e-3), 0.0, 1.0);
 
-    vec3 c = LightColor.rgb * attenuation * spot * shade * shadow * (1.0 - fog) * AccScale;
+    vec3 c = LightColor.rgb * (attenuation * spot * shade * shadow + fill) * (1.0 - fog) * AccScale;
     fragColor = vec4(c, 1.0);
 }

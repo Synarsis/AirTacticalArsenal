@@ -85,10 +85,10 @@ public final class ImpactFx {
     private static void blastLight(Vec3 pos, double power) {
         double reach = Math.sqrt(power);
         AtaLights.point(pos.add(0.0, 2.0, 0.0)).colour(1.0f, 0.90f, 0.75f).strength(16.0 * power, 96.0 * reach)
-                .life(1, 0, 10, Fall.EXPONENTIAL).shadows(true);
+                .life(1, 0, 10, Fall.EXPONENTIAL).shadows(true).sourceRadius(AtaLights.BLAST_SOURCE);
         AtaLights.point(pos.add(0.0, 2.0, 0.0)).colour(1.0f, 0.55f, 0.20f).strength(9.0 * power, 60.0 * reach)
                 .radiusEnd(0.6).life(1, 0, FIREBALL_LIGHT_TICKS - 1, Fall.LINEAR).flicker(0.20, 9.0).wrap(0.5)
-                .drift(new Vec3(0.0, 0.05, 0.0)).seed(pos.hashCode()).shadows(true);
+                .drift(new Vec3(0.0, 0.05, 0.0)).seed(pos.hashCode()).shadows(true).sourceRadius(AtaLights.BLAST_SOURCE);
         AtaLights.point(pos.add(0.0, 8.0, 0.0)).colour(1.0f, 0.55f, 0.25f).strength(3.0 * power, 24.0 * reach)
                 .life(1, 0, PILLAR_LIGHT_TICKS - 1, Fall.LINEAR).flicker(0.15, 1.5).seed(pos.hashCode() * 31 + 7);
         HazeSources.at(pos.add(0.0, 2.0, 0.0), 10.0 * reach, 1.0, FIREBALL_HAZE_TICKS);

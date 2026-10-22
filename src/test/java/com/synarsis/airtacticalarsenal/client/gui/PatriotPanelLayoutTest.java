@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,8 +62,12 @@ class PatriotPanelLayoutTest {
             assertFalse(launcher.buttons().containsKey(c));
         }
         for (Command c : new Command[] {Command.DEPLOY, Command.STOW, Command.SUPPORTS_OUT, Command.SUPPORTS_IN,
-                Command.LIFT_UP, Command.LIFT_DOWN, Command.DETACH, Command.ATTACH}) {
+                Command.LIFT_UP, Command.LIFT_DOWN}) {
             assertTrue(launcher.buttons().containsKey(c) && radar.buttons().containsKey(c), c.toString());
         }
+        assertEquals(Command.values().length - 2, launcher.buttons().size(),
+                "the launcher shows every command but the two service ones");
+        assertEquals(Command.values().length - 3, radar.buttons().size(),
+                "the radar shows every command but the three traverse ones");
     }
 }

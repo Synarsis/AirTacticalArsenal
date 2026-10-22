@@ -38,6 +38,44 @@ public final class LightMath {
         return smoothstep(cosOuter, cosInner, cosAngle);
     }
 
+    public static final double FILL = 0.07;
+    public static final double FILL_REACH = 0.5;
+    public static final double SPILL = 0.04;
+    public static final double SPILL_DEGREES = 70.0;
+    public static final double HEADLIGHT_INNER_DEGREES = 18.0;
+    public static final double HEADLIGHT_OUTER_DEGREES = 38.0;
+
+    public static double coneSoft(double cosAngle, double cosOuter, double cosInner) {
+        double s = smoothstep(cosOuter, cosInner, cosAngle);
+        return s * s;
+    }
+
+    public static double spill(double cosAngle, double cosOuter) {
+        return SPILL * smoothstep(Math.cos(Math.toRadians(SPILL_DEGREES)), cosOuter, cosAngle);
+    }
+
+    public static double spot(double cosAngle, double cosOuter, double cosInner) {
+        double inside = coneSoft(cosAngle, cosOuter, cosInner);
+        return inside + spill(cosAngle, cosOuter) * (1.0 - inside);
+    }
+
+    public static double fill(double d, double radius, double axisDot, boolean spot) {
+        double front = spot ? smoothstep(0.0, 0.2, axisDot) : 1.0;
+        return FILL * attenuation(d, FILL_REACH * radius) * front;
+    }
+
+    public static double interleavedGradientNoise(double x, double y) {
+        double inner = x * 0.06711056 + y * 0.00583715;
+        double a = 52.9829189 * (inner - Math.floor(inner));
+        return a - Math.floor(a);
+    }
+
+    public static double[] discPoint(int index, int count, double radius, double noise) {
+        double angle = 2.0 * Math.PI * (noise + (double) index / count);
+        double r = radius * Math.sqrt((index + 0.5) / count);
+        return new double[] {Math.cos(angle) * r, Math.sin(angle) * r};
+    }
+
     public static double shade(double wrap, double normalDotLight) {
         return wrap + (1.0 - wrap) * Math.max(normalDotLight, 0.0);
     }

@@ -2,7 +2,7 @@ package com.synarsis.airtacticalarsenal.vehicle.physics;
 
 public final class PhysicsLayers {
 
-    public static final int MAX_VEHICLES = 16;
+    public static final int MAX_VEHICLES = 64;
 
     public static final int BROAD_NON_MOVING = 0;
     public static final int BROAD_MOVING = 1;

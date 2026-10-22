@@ -149,6 +149,10 @@ public final class PhysicsWorld implements AutoCloseable {
         return this.system.getNumBodies();
     }
 
+    public boolean hasBody(int bodyId) {
+        return bodyId != Jolt.cInvalidBodyId && !this.closed && this.bodies().isAdded(bodyId);
+    }
+
     public long stepCount() {
         return this.stepCount;
     }

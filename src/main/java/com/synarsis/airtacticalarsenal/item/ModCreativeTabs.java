@@ -23,6 +23,7 @@ public class ModCreativeTabs {
                         output.accept(ModBlocks.SIREN.get());
                         output.accept(ModBlocks.SHAHED_TERMINAL.get());
                         output.accept(ModItems.ISKANDER_TEL.get());
+                        output.accept(ModItems.M983_TRACTOR.get());
                         output.accept(ModItems.PATRIOT_LAUNCHER.get());
                         output.accept(ModItems.PATRIOT_RADAR.get());
                         output.accept(ModItems.ISKANDER.get());

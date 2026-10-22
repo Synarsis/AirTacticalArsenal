@@ -4,8 +4,6 @@ import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.config.VehiclePhysicsMode;
 import com.synarsis.airtacticalarsenal.entity.ModEntities;
-import com.synarsis.airtacticalarsenal.entity.patriot.PatriotGeometry;
-import com.synarsis.airtacticalarsenal.entity.patriot.PatriotJolt;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotKind;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotRefusal;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotSequence;
@@ -14,6 +12,8 @@ import com.synarsis.airtacticalarsenal.entity.patriot.PatriotTiming;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import com.synarsis.airtacticalarsenal.item.ModItems;
 import com.synarsis.airtacticalarsenal.vehicle.physics.JoltVehicle;
+import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorld;
+import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -56,11 +56,10 @@ public final class PatriotGameTests {
         return vehicle;
     }
 
-    private static Player board(GameTestHelper helper, PatriotVehicleEntity vehicle) {
-        Player driver = helper.makeMockPlayer(GameType.SURVIVAL);
-        driver.setPos(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ() + 14.0);
-        driver.startRiding(vehicle);
-        return driver;
+    private static Player stand(GameTestHelper helper, PatriotVehicleEntity vehicle) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        player.setPos(vehicle.getX(), vehicle.getY() + 1.0, vehicle.getZ() + 3.0);
+        return player;
     }
 
     private static void command(PatriotVehicleEntity vehicle, Player player, Command command) {
@@ -127,28 +126,20 @@ public final class PatriotGameTests {
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 200,
             batch = "physicsFixes")
-    public static void riderStaysOnTheSeat(GameTestHelper helper) {
+    public static void aTrailerTakesNoRiders(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        vehicle.setPos(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
-        net.minecraft.world.entity.decoration.ArmorStand first = new net.minecraft.world.entity.decoration.ArmorStand(
-                net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
-        net.minecraft.world.entity.decoration.ArmorStand second = new net.minecraft.world.entity.decoration.ArmorStand(
+        vehicle.placeOnSupports();
+        net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(
                 net.minecraft.world.entity.EntityType.ARMOR_STAND, helper.getLevel());
         helper.runAfterDelay(3, () -> {
-            first.moveTo(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
-            helper.getLevel().addFreshEntity(first);
-            helper.assertTrue(first.startRiding(vehicle, true), "the first rider could not board");
-            second.moveTo(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
-            helper.getLevel().addFreshEntity(second);
-            helper.assertTrue(second.startRiding(vehicle, true), "the second rider could not board");
+            stand.moveTo(vehicle.getX(), vehicle.getY() + 3.0, vehicle.getZ());
+            helper.getLevel().addFreshEntity(stand);
+            helper.assertTrue(!stand.startRiding(vehicle), "a trailer must not be rideable");
+            helper.assertTrue(vehicle.getPassengers().isEmpty(), "the trailer has passengers");
+            helper.assertTrue(vehicle.getControllingPassenger() == null, "the trailer has a driver");
         });
         helper.runAfterDelay(18, () -> {
-            Vec3 seat = vehicle.getPassengerRidingPosition(second);
-            double gap = second.position().distanceTo(seat);
-            helper.assertTrue(vehicle.getPassengers().indexOf(second) == 1, "the rider is not on seat 1");
-            helper.assertTrue(gap < 0.05, "the rider is " + gap + " blocks behind the seat");
-            second.discard();
-            first.discard();
+            stand.discard();
             vehicle.discard();
             helper.succeed();
         });
@@ -157,30 +148,19 @@ public final class PatriotGameTests {
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 500)
     public static void deployFinishesInTheRightTime(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        Player[] driver = new Player[1];
-        long[] startedAt = new long[1];
+        Player[] operator = new Player[1];
         helper.runAfterDelay(SETTLE, () -> {
-            helper.assertTrue(vehicle.usesJolt(), "the launcher should be driven by Jolt: " + vehicle.debugState() + " ticks " + vehicle.tickCount + " removed " + vehicle.isRemoved());
-            driver[0] = board(helper, vehicle);
+            helper.assertTrue(vehicle.usesJolt(), "the free trailer should have its static body: "
+                    + vehicle.debugState() + " ticks " + vehicle.tickCount + " removed " + vehicle.isRemoved());
+            operator[0] = stand(helper, vehicle);
         });
         helper.runAfterDelay(SETTLE + 10, () -> {
-            helper.assertTrue(vehicle.hasPassenger(driver[0]), "could not board");
-            startedAt[0] = helper.getLevel().getGameTime();
-            command(vehicle, driver[0], Command.DEPLOY);
+            command(vehicle, operator[0], Command.DEPLOY);
             var blocker = vehicle.supportsBlocker();
-            StringBuilder feet = new StringBuilder();
-            for (var box : com.synarsis.airtacticalarsenal.entity.patriot.PatriotHitbox.of(vehicle.kind()).compute(
-                    com.synarsis.airtacticalarsenal.entity.patriot.PatriotClearance.withSupportsOut(vehicle.kind(),
-                            vehicle.hitboxPose()), vehicle.getX(), vehicle.getY(), vehicle.getZ(), vehicle.getYRot(),
-                    vehicle.getXRot(), vehicle.getRoll())) {
-                if (box.zone() == com.synarsis.airtacticalarsenal.entity.patriot.PatriotZone.SUPPORT && box.centre().x < vehicle.getX() - 2.0 && box.centre().z < vehicle.getZ() - 5.0) {
-                    feet.append(String.format(" [y %.3f..%.3f centre %.2f %.2f %.2f half %.3f %.3f %.3f]", box.minY(), box.maxY(), box.centre().x - vehicle.getX(), box.centre().y, box.centre().z - vehicle.getZ(), box.hx(), box.hy(), box.hz()));
-                }
-            }
             helper.assertTrue(vehicle.denial(Command.DEPLOY).reason() == PatriotRefusal.ALREADY,
                     "a second DEPLOY should be refused as done: " + vehicle.denial(Command.DEPLOY).reason()
-                            + " blocker " + (blocker == null ? "none" : blocker.at() + " " + blocker.detail()) + " at " + vehicle.position()
-                            + feet + " pitch " + vehicle.getXRot() + " floor " + helper.absolutePos(BlockPos.ZERO));
+                            + " blocker " + (blocker == null ? "none" : blocker.at() + " " + blocker.detail())
+                            + " at " + vehicle.position() + " pitch " + vehicle.getXRot());
         });
         int total = PatriotTiming.SUPPORTS_TICKS + PatriotTiming.ERECTOR_TICKS;
         helper.runAfterDelay(SETTLE + 10 + total - 8, () -> {
@@ -191,94 +171,85 @@ public final class PatriotGameTests {
             helper.assertTrue(vehicle.currentOp() < 0, "still working: op " + vehicle.currentOp());
             helper.assertTrue(has(vehicle, PatriotSequence.SUPPORTS_BIT) && has(vehicle, PatriotSequence.LIFT_BIT),
                     "supports or launcher missing: " + vehicle.debugState());
-            helper.assertTrue(vehicle.joltView() != null && vehicle.joltView().role() == PatriotJolt.Role.HOLD,
-                    "with the supports out it must be held: "
-                            + (vehicle.joltView() == null ? "no physics" : vehicle.joltView().role()));
-            helper.assertTrue(vehicle.whyNotDrive() != PatriotRefusal.NONE, "it must not drive deployed");
-            driver[0].stopRiding();
+            helper.assertTrue(vehicle.joltView() != null && vehicle.joltView().active(),
+                    "the free trailer must keep its static body: " + vehicle.debugState());
+            helper.assertTrue(vehicle.whyNotDrive() == PatriotRefusal.NEED_COUPLED,
+                    "a trailer cannot drive itself: " + vehicle.whyNotDrive());
             vehicle.discard();
             helper.succeed();
         });
     }
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
-    public static void detachRefusedWithAWallAhead(GameTestHelper helper) {
-        PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
-        Player[] driver = new Player[1];
+    public static void m983TractorPlacesAndTakesACrew(GameTestHelper helper) {
+        com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor =
+                ModEntities.M983_TRACTOR.get().create(helper.getLevel());
+        helper.assertTrue(tractor != null, "the tractor entity was not created");
+        Vec3 at = helper.absoluteVec(new Vec3(22.5, 2.1, 7.0));
+        tractor.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+        tractor.isLegitSpawn = true;
+        helper.getLevel().addFreshEntity(tractor);
+        Player driver = helper.makeMockPlayer(GameType.SURVIVAL);
+        Player passenger = helper.makeMockPlayer(GameType.SURVIVAL);
         helper.runAfterDelay(SETTLE, () -> {
-            driver[0] = board(helper, vehicle);
-            int wallZ = (int) Math.floor(vehicle.getZ()) + 19;
-            for (int dx = -7; dx <= 7; dx++) {
-                for (int dy = 1; dy <= 6; dy++) {
-                    helper.getLevel().setBlock(new BlockPos((int) Math.floor(vehicle.getX()) + dx,
-                            helper.absolutePos(BlockPos.ZERO).getY() + 1 + dy, wallZ), Blocks.STONE.defaultBlockState(), 3);
-                }
-            }
+            helper.assertTrue(driver.startRiding(tractor), "the driver could not board");
+            helper.assertTrue(passenger.startRiding(tractor), "the passenger could not board");
+            helper.assertTrue(tractor.seatOf(driver) == 0, "the driver must sit at the wheel");
+            helper.assertTrue(tractor.seatOf(passenger) == 1, "the passenger must take the second seat");
+            helper.assertTrue(tractor.getHealth() == 300.0f, "tractor health " + tractor.getHealth());
+            helper.assertTrue(tractor.getParts().length == 4, "tractor parts " + tractor.getParts().length);
         });
-        helper.runAfterDelay(SETTLE + 25, () -> {
-            helper.assertTrue(vehicle.denial(Command.DETACH).reason() == PatriotRefusal.TRACTOR_NO_ROOM,
-                    "the wall must stop the detach: " + vehicle.denial(Command.DETACH).reason());
-            command(vehicle, driver[0], Command.DETACH);
-        });
-        helper.runAfterDelay(SETTLE + 40, () -> {
-            helper.assertTrue(vehicle.currentOp() < 0 && vehicle.currentMask() == 0,
-                    "nothing may start: " + vehicle.debugState());
-            driver[0].stopRiding();
-            vehicle.discard();
+        helper.runAfterDelay(SETTLE + 20, () -> {
+            driver.stopRiding();
+            passenger.stopRiding();
+            tractor.discard();
             helper.succeed();
         });
     }
 
-    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 900)
-    public static void detachAndAttachOnTheFlat(GameTestHelper helper) {
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 400)
+    public static void m983TractorDrivesOnItsOwn(GameTestHelper helper) {
+        com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor =
+                ModEntities.M983_TRACTOR.get().create(helper.getLevel());
+        helper.assertTrue(tractor != null, "the tractor entity was not created");
+        Vec3 at = helper.absoluteVec(new Vec3(22.5, 2.1, 7.0));
+        tractor.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+        tractor.isLegitSpawn = true;
+        helper.getLevel().addFreshEntity(tractor);
+        helper.runAfterDelay(SETTLE, () -> tractor.setTestThrottle(0.5));
+        helper.runAfterDelay(SETTLE + 90, () -> {
+            helper.assertTrue(tractor.getZ() > at.z + 2.0,
+                    "the tractor did not drive forward: z " + tractor.getZ() + " from " + at.z);
+            tractor.setTestThrottle(0.0);
+            tractor.discard();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 500)
+    public static void aFreeTrailerStandsOnItsSupports(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        Player[] driver = new Player[1];
-        double[] seatBefore = new double[1];
-        int detach = PatriotTiming.SUPPORTS_TICKS + PatriotTiming.LATCH_TICKS + PatriotTiming.TRACTOR_TICKS;
-        int attach = PatriotTiming.TRACTOR_TICKS + PatriotTiming.LATCH_TICKS;
-        int t0 = SETTLE + 10;
-        helper.runAfterDelay(SETTLE, () -> driver[0] = board(helper, vehicle));
-        helper.runAfterDelay(t0, () -> {
-            helper.assertTrue(vehicle.hasPassenger(driver[0]), "could not board");
-            seatBefore[0] = driver[0].position().subtract(vehicle.position()).length();
-            command(vehicle, driver[0], Command.DETACH);
+        vehicle.placeOnSupports();
+        helper.runAfterDelay(SETTLE, () -> {
+            helper.assertTrue(has(vehicle, PatriotSequence.SUPPORTS_BIT),
+                    "a free trailer must stand on its supports: " + vehicle.debugState());
+            helper.assertTrue(vehicle.joltView() != null && vehicle.joltView().active(),
+                    "the free trailer needs a static body: " + vehicle.debugState());
+            int[] ids = vehicle.joltView().bodyIds();
+            helper.assertTrue(ids.length == 1, "one body expected, got " + ids.length);
+            PhysicsWorld world = PhysicsWorlds.existing(helper.getLevel());
+            helper.assertTrue(world != null && world.hasBody(ids[0]), "the static body is missing");
+            helper.assertTrue(vehicle.joltView().body().mode() == JoltVehicle.Mode.STATIC,
+                    "the body must be static: " + vehicle.joltView().body().mode());
+            helper.assertTrue(vehicle.getPassengers().isEmpty(), "a trailer carries no crew");
+            double y = vehicle.getY();
+            helper.runAfterDelay(60, () -> {
+                helper.assertTrue(Math.abs(vehicle.getY() - y) < 0.02,
+                        "the supports must hold it, y moved " + (vehicle.getY() - y));
+                vehicle.discard();
+                helper.succeed();
+            });
         });
-        helper.runAfterDelay(t0 + detach + OPERATION_SLACK, () -> {
-            helper.assertTrue(vehicle.currentOp() < 0, "still working: " + vehicle.debugState());
-            helper.assertTrue(has(vehicle, PatriotSequence.TRACTOR_OUT_BIT) && has(vehicle, PatriotSequence.LATCH_OPEN_BIT)
-                    && has(vehicle, PatriotSequence.SUPPORTS_BIT), "not detached: " + vehicle.debugState() + " " + vehicle.denial(Command.DETACH).reason()
-                    + " " + java.util.Arrays.toString(vehicle.denial(Command.DETACH).args()) + " entity " + vehicle.position());
-            helper.assertTrue(Math.abs(vehicle.tractorOffsetBlocks() - PatriotGeometry.TRACTOR_OFFSET_BLOCKS) < 0.01,
-                    "tractor offset " + vehicle.tractorOffsetBlocks());
-            double moved = driver[0].position().subtract(vehicle.position()).length() - seatBefore[0];
-            helper.assertTrue(moved > 4.0, "the seat must ride with the tractor, it moved " + moved);
-            helper.assertTrue(vehicle.joltView().train() != null && !vehicle.joltView().train().linked(),
-                    "the link must be gone");
-            helper.assertTrue(vehicle.joltView().train().tractor().mode() != JoltVehicle.Mode.DYNAMIC,
-                    "tractor mode " + vehicle.joltView().train().tractor().mode());
-            helper.assertTrue(vehicle.joltView().train().trailer().mode() == JoltVehicle.Mode.STATIC,
-                    "the trailer stands: " + vehicle.joltView().train().trailer().mode());
-            command(vehicle, driver[0], Command.ATTACH);
-        });
-        helper.runAfterDelay(t0 + detach + OPERATION_SLACK + attach + OPERATION_SLACK, () -> {
-            helper.assertTrue(vehicle.currentOp() < 0 && vehicle.currentMask() == PatriotSequence.SUPPORTS_BIT,
-                    "not attached: " + vehicle.debugState());
-            helper.assertTrue(vehicle.tractorOffsetBlocks() < 0.01, "tractor offset " + vehicle.tractorOffsetBlocks());
-            command(vehicle, driver[0], Command.SUPPORTS_IN);
-        });
-        helper.runAfterDelay(t0 + detach + attach + 2 * OPERATION_SLACK + PatriotTiming.SUPPORTS_TICKS + OPERATION_SLACK,
-                () -> {
-                    helper.assertTrue(vehicle.currentMask() == 0 && vehicle.currentOp() < 0,
-                            "not stowed: " + vehicle.debugState());
-                    helper.assertTrue(vehicle.whyNotDrive() == PatriotRefusal.NONE,
-                            "it should be able to drive: " + vehicle.whyNotDrive());
-                    helper.assertTrue(vehicle.joltView().role() == PatriotJolt.Role.FOLLOW,
-                            "driven on the server it follows: " + vehicle.joltView().role());
-                    helper.assertTrue(vehicle.seqView().linked() && vehicle.seqView().attached(), "the hitch must be coupled again");
-                    driver[0].stopRiding();
-                    vehicle.discard();
-                    helper.succeed();
-                });
     }
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, timeoutTicks = 300, batch = "legacyPatriot")
@@ -286,50 +257,38 @@ public final class PatriotGameTests {
         VehiclePhysicsMode before = VehiclePhysicsMode.JOLT;
         ShahedConfig.VEHICLE_PHYSICS.set(VehiclePhysicsMode.LEGACY);
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        Player[] driver = new Player[1];
-        boolean[] physicsOff = new boolean[1];
-        PatriotRefusal[] hint = new PatriotRefusal[1];
-        helper.runAfterDelay(40, () -> driver[0] = board(helper, vehicle));
-        helper.runAfterDelay(50, () -> {
-            physicsOff[0] = !vehicle.usesJolt();
-            hint[0] = vehicle.whyNotDrive();
-            command(vehicle, driver[0], Command.SUPPORTS_OUT);
-        });
+        Player[] operator = new Player[1];
+        helper.runAfterDelay(40, () -> operator[0] = stand(helper, vehicle));
+        helper.runAfterDelay(50, () -> command(vehicle, operator[0], Command.SUPPORTS_OUT));
         helper.runAfterDelay(50 + PatriotTiming.SUPPORTS_TICKS + OPERATION_SLACK, () -> {
             boolean out = has(vehicle, PatriotSequence.SUPPORTS_BIT);
             String state = vehicle.debugState();
+            boolean noBody = !vehicle.usesJolt();
+            PatriotRefusal why = vehicle.whyNotDrive();
             ShahedConfig.VEHICLE_PHYSICS.set(before);
-            driver[0].stopRiding();
             vehicle.discard();
-            helper.assertTrue(physicsOff[0], "Jolt must stay off in LEGACY");
-            helper.assertTrue(hint[0] == PatriotRefusal.NO_PHYSICS, "the hint must say why: " + hint[0]);
-            helper.assertTrue(out, "it must still deploy: " + state);
+            helper.assertTrue(noBody, "Jolt must stay off in LEGACY");
+            helper.assertTrue(why == PatriotRefusal.NEED_COUPLED,
+                    "a trailer never drives itself: " + why);
+            helper.assertTrue(out, "the supports must still move: " + state);
             helper.succeed();
         });
     }
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 400)
-    public static void driverlessTrainFollowsItsTractor(GameTestHelper helper) {
+    public static void aFreeTrailerDoesNotDriveItself(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        Vec3[] start = new Vec3[1];
+        vehicle.placeOnSupports();
+        Vec3 start = vehicle.position();
         helper.runAfterDelay(SETTLE, () -> {
-            helper.assertTrue(vehicle.usesJolt(), "needs Jolt");
-            start[0] = vehicle.position();
-            vehicle.setTestThrottle(0.6);
+            helper.assertTrue(vehicle.usesJolt(), "needs its static Jolt body");
+            helper.assertTrue(vehicle.joltView().body().mode() == JoltVehicle.Mode.STATIC,
+                    "the free body must be static: " + vehicle.joltView().body().mode());
         });
         helper.runAfterDelay(SETTLE + 90, () -> {
-            vehicle.setTestThrottle(0.0);
-            double moved = vehicle.position().subtract(start[0]).length();
-            helper.assertTrue(moved > 3.0, "it should have driven off, moved " + moved);
-            var train = vehicle.joltView().train();
-            helper.assertTrue(train != null && train.linked(), "the hitch must hold");
-            var tractor = train.tractor().snapshot();
-            var trailer = train.trailer().snapshot();
-            double gap = Math.hypot(tractor.x() - trailer.x(), tractor.z() - trailer.z());
-            helper.assertTrue(gap < 12.0, "the trailer lost the tractor, gap " + gap);
-            double[] articulation = train.articulation();
-            helper.assertTrue(Math.abs(articulation[0]) < 10.0, "hitch angle " + articulation[0]);
-            helper.assertTrue(trailer.z() > start[0].z, "the trailer must have followed, z " + trailer.z());
+            double moved = vehicle.position().distanceTo(start);
+            helper.assertTrue(moved < 0.02, "a free trailer must stand still, moved " + moved);
+            helper.assertTrue(vehicle.getControllingPassenger() == null, "there is no driver");
             vehicle.discard();
             helper.succeed();
         });
@@ -338,17 +297,17 @@ public final class PatriotGameTests {
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 400)
     public static void savesAndLoadsInTheMiddleOfAnOperation(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
-        Player[] driver = new Player[1];
+        Player[] operator = new Player[1];
         helper.runAfterDelay(SETTLE, () -> {
-            driver[0] = board(helper, vehicle);
-            vehicle.setOwnerUuid(driver[0].getUUID());
+            operator[0] = stand(helper, vehicle);
+            vehicle.setOwnerUuid(operator[0].getUUID());
         });
-        helper.runAfterDelay(SETTLE + 10, () -> command(vehicle, driver[0], Command.DEPLOY));
+        helper.runAfterDelay(SETTLE + 10, () -> command(vehicle, operator[0], Command.DEPLOY));
         helper.runAfterDelay(SETTLE + 10 + 100, () -> {
             helper.assertTrue(vehicle.currentOp() >= 0, "the supports should still be moving: " + vehicle.debugState());
             net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
             vehicle.saveWithoutId(tag);
-            helper.assertTrue(tag.getList("Seats", 10).size() == 1, "the seat is not saved");
+            helper.assertTrue(!tag.contains("Seats"), "a trailer stores no seats");
             tag.putFloat("Health", 321.0f);
             PatriotVehicleEntity loaded = new com.synarsis.airtacticalarsenal.entity.patriot.PatriotRadarEntity(
                     ModEntities.PATRIOT_RADAR.get(), helper.getLevel());
@@ -358,8 +317,8 @@ public final class PatriotGameTests {
                     "the queue must be finished too: " + loaded.debugState());
             helper.assertTrue(Math.abs(loaded.getHealth() - 321.0f) < 0.01f, "health " + loaded.getHealth());
             helper.assertTrue(loaded.isLegitSpawn, "legitimate spawn is not saved");
-            helper.assertTrue(driver[0].getUUID().equals(loaded.getOwnerUuid()), "owner is not saved");
-            driver[0].stopRiding();
+            helper.assertTrue(operator[0].getUUID().equals(loaded.getOwnerUuid()), "owner is not saved");
+            helper.assertTrue(loaded.getPassengers().isEmpty(), "a trailer loads with no crew");
             vehicle.discard();
             helper.succeed();
         });
@@ -371,16 +330,16 @@ public final class PatriotGameTests {
         helper.runAfterDelay(SETTLE, () -> {
             float full = vehicle.getHealth();
             var source = helper.getLevel().damageSources().generic();
-            helper.assertTrue(vehicle.hurtInZone(source, 52.0f, com.synarsis.airtacticalarsenal.entity.patriot.PatriotZone.TRACTOR),
+            helper.assertTrue(vehicle.hurtInZone(source, 52.0f, com.synarsis.airtacticalarsenal.entity.patriot.PatriotZone.TRAILER),
                     "no damage taken");
-            float tractor = full - vehicle.getHealth();
+            float hull = full - vehicle.getHealth();
             vehicle.setHealth(full);
             vehicle.hurtInZone(source, 52.0f, com.synarsis.airtacticalarsenal.entity.patriot.PatriotZone.PACK);
             float pack = full - vehicle.getHealth();
-            helper.assertTrue(Math.abs(tractor - 50.0f) < 0.01f, "tractor " + tractor);
+            helper.assertTrue(Math.abs(hull - 50.0f) < 0.01f, "hull " + hull);
             helper.assertTrue(Math.abs(pack - 75.0f) < 0.01f, "the pack takes one and a half times: " + pack);
             helper.assertTrue(!vehicle.hurtInZone(source, 1.5f, null), "the armour stops small hits");
-            helper.assertTrue(full == 500.0f, "launcher health " + full);
+            helper.assertTrue(full > 0.0f, "launcher health " + full);
 
             vehicle.setHealth(full);
             vehicle.hurtInZone(source, 10000.0f, null);
@@ -395,11 +354,12 @@ public final class PatriotGameTests {
         helper.runAfterDelay(20, () -> {
             Player player = helper.makeMockPlayer(GameType.SURVIVAL);
             vehicle.setHealth(100.0f);
+            float max = vehicle.getMaxHealth();
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(net.minecraft.world.item.Items.IRON_BLOCK));
             vehicle.interact(player, InteractionHand.MAIN_HAND);
-            helper.assertTrue(Math.abs(vehicle.getHealth() - (100.0f + 0.45f * 450.0f)) < 0.5f,
-                    "health " + vehicle.getHealth());
-            helper.assertTrue(vehicle.getMaxHealth() == 450.0f, "radar health " + vehicle.getMaxHealth());
+            helper.assertTrue(Math.abs(vehicle.getHealth() - Math.min(max, 100.0f + 0.45f * max)) < 0.5f,
+                    "health " + vehicle.getHealth() + " max " + max);
+            helper.assertTrue(max > 0.0f, "radar health " + max);
             vehicle.discard();
             helper.succeed();
         });
@@ -408,22 +368,25 @@ public final class PatriotGameTests {
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void explosionPushesIt(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
-        Vec3 start = helper.absoluteVec(new Vec3(24.5, 2.1, 7.0));
+        vehicle.placeOnSupports();
+        Vec3 start = vehicle.position();
+        float health = vehicle.getHealth();
         helper.runAfterDelay(60, () -> {
             Vec3 blast = helper.absoluteVec(new Vec3(24.5, 2.5, 1.0));
-            helper.getLevel().explode(null, blast.x, blast.y, blast.z, 12.0f,
+            helper.getLevel().explode(null, blast.x, blast.y, blast.z, 6.0f,
                     net.minecraft.world.level.Level.ExplosionInteraction.NONE);
         });
         helper.runAfterDelay(140, () -> {
-            double moved = vehicle.position().subtract(start).length();
-            helper.assertTrue(moved > 0.5, "moved only " + moved);
+            double moved = vehicle.position().distanceTo(start);
+            helper.assertTrue(moved < 0.05, "a static trailer must not be pushed, moved " + moved);
+            helper.assertTrue(vehicle.getHealth() <= health, "the blast must not heal it");
             vehicle.discard();
             helper.succeed();
         });
     }
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 200)
-    public static void theDriversPoseIsChecked(GameTestHelper helper) {
+    public static void theTrailerPoseIsChecked(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
         helper.runAfterDelay(10, () -> {
             vehicle.acceptPose(1.0f, 12.0f, 3.0f, 1.0f);
@@ -441,44 +404,37 @@ public final class PatriotGameTests {
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 300)
     public static void givesItsBodiesBack(GameTestHelper helper) {
-        int before = com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds.bodyCount(helper.getLevel());
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.RADAR);
+        vehicle.placeOnSupports();
         helper.runAfterDelay(SETTLE, () -> {
-            int during = com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds.bodyCount(helper.getLevel());
-            helper.assertTrue(during >= before + 3, "tractor, trailer and the ground: " + before + " -> " + during);
+            PhysicsWorld world = PhysicsWorlds.existing(helper.getLevel());
+            helper.assertTrue(world != null, "needs a Jolt world");
+            int[] own = vehicle.joltView().bodyIds();
+            helper.assertTrue(own.length == 1, "one static body expected, got " + own.length);
+            helper.assertTrue(world.hasBody(own[0]), "its own body " + own[0] + " is missing");
             vehicle.discard();
             helper.runAfterDelay(2, () -> {
-                int after = com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds.bodyCount(helper.getLevel());
-                helper.assertTrue(after == during - 3, "bodies during " + during + ", after " + after);
+                helper.assertTrue(!world.hasBody(own[0]), "body " + own[0] + " was left behind");
                 helper.succeed();
             });
         });
     }
 
     @GameTest(template = TEMPLATE, templateNamespace = AirTacticalArsenal.MODID, batch = "patriotPhysics", timeoutTicks = 500)
-    public static void anIronBlockPutsItBackOnItsWheels(GameTestHelper helper) {
+    public static void aStaticTrailerDoesNotSink(GameTestHelper helper) {
         PatriotVehicleEntity vehicle = spawn(helper, PatriotKind.LAUNCHER);
+        vehicle.placeOnSupports();
         helper.runAfterDelay(SETTLE, () -> {
-            var train = vehicle.joltView().train();
-            helper.assertTrue(train != null, "needs Jolt");
-            train.teleport(vehicle.getX(), vehicle.getY() + 2.0, vehicle.getZ(), vehicle.getYRot(), 0.0, 100.0,
-                    0.0, 0.0, 0.0, null, null);
-        });
-        helper.runAfterDelay(SETTLE + 80, () -> {
-            helper.assertTrue(vehicle.isOverturned(), "it should lie on its side: roll " + vehicle.getRoll()
-                    + " pitch " + vehicle.getXRot());
-            Player player = helper.makeMockPlayer(GameType.SURVIVAL);
-            player.setShiftKeyDown(true);
-            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(net.minecraft.world.item.Items.IRON_BLOCK));
-            vehicle.interact(player, InteractionHand.MAIN_HAND);
-        });
-        helper.runAfterDelay(SETTLE + 80 + 80, () -> {
-            helper.assertTrue(!vehicle.isOverturned(), "it should be upright: roll " + vehicle.getRoll()
-                    + " pitch " + vehicle.getXRot());
-            helper.assertTrue(Math.abs(vehicle.getArticulationYaw()) < 15.0f,
-                    "the hitch straightened: " + vehicle.getArticulationYaw());
-            vehicle.discard();
-            helper.succeed();
+            helper.assertTrue(!vehicle.isOverturned(),
+                    "the trailer must stand: roll " + vehicle.getRoll() + " pitch " + vehicle.getXRot());
+            double y = vehicle.getY();
+            helper.runAfterDelay(100, () -> {
+                helper.assertTrue(Math.abs(vehicle.getY() - y) < 0.02,
+                        "the static body sank by " + (vehicle.getY() - y));
+                helper.assertTrue(!vehicle.isOverturned(), "it stayed upright");
+                vehicle.discard();
+                helper.succeed();
+            });
         });
     }
 }

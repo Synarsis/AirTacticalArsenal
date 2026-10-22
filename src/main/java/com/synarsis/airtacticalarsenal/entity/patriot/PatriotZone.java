@@ -4,7 +4,6 @@ import com.synarsis.airtacticalarsenal.combat.hitbox.HitTag;
 
 public enum PatriotZone implements HitTag {
 
-    TRACTOR("tractor", 0x34C759, 1.0f),
     TRAILER("trailer", 0xC7C7CC, 1.0f),
     PACK("pack", 0xFF9500, 1.5f),
     ANTENNA("antenna", 0xFF9500, 1.5f),
@@ -36,12 +35,6 @@ public enum PatriotZone implements HitTag {
     }
 
     public static PatriotZone ofBone(String bone) {
-        if (bone.startsWith("truck_wheel_") || bone.startsWith("truck_steer_")) {
-            return WHEEL;
-        }
-        if (bone.startsWith("truck_") || bone.equals("tractor_carrier")) {
-            return TRACTOR;
-        }
         if (bone.startsWith("wheel_")) {
             return WHEEL;
         }

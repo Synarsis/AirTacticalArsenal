@@ -43,14 +43,13 @@ class PatriotClearanceTest {
     }
 
     @Test
-    @DisplayName("on flat ground nothing is in the way of the supports, the lift or the tractor")
+    @DisplayName("on flat ground nothing is in the way of the supports or the lift")
     void flatGroundIsFree() {
         for (PatriotKind kind : PatriotKind.values()) {
             PatriotHitbox m = model(kind);
             World world = new World();
             assertNull(PatriotClearance.supportBlocker(m, PatriotPose.REST, AT, world), kind + " supports");
             assertNull(PatriotClearance.liftBlocker(m, PatriotPose.REST, AT, world), kind + " lift");
-            assertNull(PatriotClearance.tractorBlocker(m, PatriotPose.REST, AT, world), kind + " tractor");
         }
     }
 
@@ -126,32 +125,6 @@ class PatriotClearanceTest {
     }
 
     @Test
-    @DisplayName("a wall in front of the tractor, or a ditch under the places its wheels reach, refuses the detach")
-    void tractorPath() {
-        for (PatriotKind kind : PatriotKind.values()) {
-            PatriotHitbox m = model(kind);
-            Set<BlockPos> path = PatriotClearance.tractorCells(m, PatriotPose.REST, AT);
-            BlockPos farthest = null;
-            for (BlockPos c : path) {
-                if (c.getY() >= 1 && (farthest == null || c.getZ() > farthest.getZ())) {
-                    farthest = c;
-                }
-            }
-            assertNotNull(farthest);
-            assertTrue(farthest.getZ() >= 20, kind + " the tractor reaches z " + farthest);
-            World wall = new World();
-            wall.added.add(farthest);
-            PatriotClearance.Blocker blocked = PatriotClearance.tractorBlocker(m, PatriotPose.REST, AT, wall);
-            assertNotNull(blocked, kind.toString());
-            assertEquals(PatriotRefusal.TRACTOR_NO_ROOM, blocked.reason());
-
-            World ditch = new World();
-            ditch.hole = p -> p.getZ() >= 15 && p.getY() >= -5;
-            assertNotNull(PatriotClearance.tractorBlocker(m, PatriotPose.REST, AT, ditch), kind + " ditch");
-        }
-    }
-
-    @Test
     @DisplayName("blocks the solidity test says are not solid do not count")
     void softBlocksAreIgnored() {
         PatriotHitbox m = model(PatriotKind.LAUNCHER);
@@ -161,19 +134,6 @@ class PatriotClearanceTest {
         TelClearance.Solid ignoring = (x, y, z) -> y < 0;
         assertNotNull(PatriotClearance.liftBlocker(m, PatriotPose.REST, AT, world));
         assertNull(PatriotClearance.liftBlocker(m, PatriotPose.REST, AT, ignoring));
-    }
-
-    @Test
-    @DisplayName("the checks follow the vehicle when it is turned")
-    void turned() {
-        PatriotHitbox m = model(PatriotKind.RADAR);
-        TelClearance.Pose turned = new TelClearance.Pose(0.5, 0.0, 0.5, 90.0f, 0.0f, 0.0f);
-        Set<BlockPos> straight = PatriotClearance.tractorCells(m, PatriotPose.REST, AT);
-        Set<BlockPos> sideways = PatriotClearance.tractorCells(m, PatriotPose.REST, turned);
-        int maxZ = straight.stream().mapToInt(BlockPos::getZ).max().orElse(0);
-        int minX = sideways.stream().mapToInt(BlockPos::getX).min().orElse(0);
-        assertTrue(maxZ > 15);
-        assertTrue(minX < -15, "turned by 90 degrees the tractor points to -X: " + minX);
     }
 
     @Test

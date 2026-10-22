@@ -73,8 +73,8 @@ class FxSettingsTest {
         assertEquals(4, FxLighting.MEDIUM.blockShadowLights());
         assertEquals(8, FxLighting.HIGH.blockShadowLights());
         assertEquals(1, FxLighting.LOW.shadowRays());
-        assertEquals(1, FxLighting.MEDIUM.shadowRays());
-        assertEquals(2, FxLighting.HIGH.shadowRays());
+        assertEquals(2, FxLighting.MEDIUM.shadowRays());
+        assertEquals(4, FxLighting.HIGH.shadowRays());
     }
 
     @Test

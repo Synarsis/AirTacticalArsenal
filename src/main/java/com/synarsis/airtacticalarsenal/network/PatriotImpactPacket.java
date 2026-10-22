@@ -35,6 +35,9 @@ public record PatriotImpactPacket(int vehicleId, byte kind, float speed) impleme
             Entity entity = player.level().getEntity(payload.vehicleId());
             if (entity instanceof PatriotVehicleEntity vehicle && vehicle.getControllingPassenger() == player) {
                 vehicle.applyImpact(payload.kind(), payload.speed());
+            } else if (entity instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor
+                    && tractor.getControllingPassenger() == player) {
+                tractor.applyImpact(payload.kind(), payload.speed());
             }
         });
     }

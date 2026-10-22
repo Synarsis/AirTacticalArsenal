@@ -17,13 +17,10 @@ public final class PatriotSequence {
         ANTENNA_DOWN(PatriotBones.LIFT, false),
         SERVICE_OPEN(PatriotBones.SERVICE, true),
         SERVICE_CLOSE(PatriotBones.SERVICE, false),
-        UNLATCH(-1, true),
-        TRACTOR_OUT(-1, true),
-        TRACTOR_IN(-1, false),
-        LATCH(-1, false),
         CENTER(-1, false);
 
         private static final Op[] VALUES = values();
+        private static final int[] STAGE_SEVEN = {0, 1, 2, 3, 4, 5, 6, 7, -1, -1, -1, -1, 8};
 
         public final int group;
         public final boolean opening;
@@ -36,6 +33,10 @@ public final class PatriotSequence {
         public static Op byOrdinal(int ordinal) {
             return ordinal >= 0 && ordinal < VALUES.length ? VALUES[ordinal] : null;
         }
+
+        public static Op byStageSevenOrdinal(int ordinal) {
+            return ordinal >= 0 && ordinal < STAGE_SEVEN.length ? byOrdinal(STAGE_SEVEN[ordinal]) : null;
+        }
     }
 
     public enum Command {
@@ -45,8 +46,6 @@ public final class PatriotSequence {
         SUPPORTS_IN,
         LIFT_UP,
         LIFT_DOWN,
-        DETACH,
-        ATTACH,
         TRAVERSE_LEFT,
         TRAVERSE_RIGHT,
         TRAVERSE_CENTER,
@@ -66,44 +65,30 @@ public final class PatriotSequence {
         PatriotRefusal.Denial check(Op op);
     }
 
-    public record Snapshot(boolean supports, boolean lift, boolean service, boolean latchOpen, boolean tractorOut,
-            double traverse, double traverseTarget, int op, int ticks, int[] queue) {
+    public record Snapshot(boolean supports, boolean lift, boolean service, double traverse, double traverseTarget,
+            int op, int ticks, int[] queue) {
     }
 
     public static final int SUPPORTS_BIT = 1;
     public static final int LIFT_BIT = 2;
     public static final int SERVICE_BIT = 4;
-    public static final int LATCH_OPEN_BIT = 8;
-    public static final int TRACTOR_OUT_BIT = 16;
 
     public static final int QUEUE_LIMIT = 8;
     public static final double TRAVERSE_STEP = 6.0;
-    public static final int DOOR_HOLD_TICKS = 40;
 
     private static final double TRAVERSE_PER_TICK = PatriotTiming.TRAVERSE_DEGREES_PER_SECOND / 20.0;
-
-    private static final int DOORS_CLOSED = 0;
-    private static final int DOORS_OPENING = 1;
-    private static final int DOORS_OPEN = 2;
-    private static final int DOORS_CLOSING = 3;
 
     private final PatriotKind kind;
 
     private boolean supports;
     private boolean lift;
     private boolean service;
-    private boolean latchOpen;
-    private boolean tractorOut;
     private double traverse;
     private double traverseTarget;
 
     private Op current;
     private int ticks;
     private final ArrayDeque<Op> queue = new ArrayDeque<>();
-
-    private int doorPhase = DOORS_CLOSED;
-    private int doorTicks;
-    private int doorHold;
 
     private boolean changed;
     private Op started;
@@ -139,26 +124,6 @@ public final class PatriotSequence {
         return this.service;
     }
 
-    public boolean latchOpen() {
-        return this.latchOpen;
-    }
-
-    public boolean tractorOut() {
-        return this.tractorOut;
-    }
-
-    public boolean attached() {
-        return !this.latchOpen && !this.tractorOut && !this.isTractorMoving();
-    }
-
-    public boolean linked() {
-        return !this.latchOpen;
-    }
-
-    public boolean detached() {
-        return this.tractorOut || this.latchOpen;
-    }
-
     public double traverse() {
         return this.traverse;
     }
@@ -184,15 +149,12 @@ public final class PatriotSequence {
     }
 
     public boolean canDrive() {
-        return this.attached() && !this.supports && !this.lift && !this.service && !this.busy();
+        return !this.supports && !this.lift && !this.service && !this.busy();
     }
 
     public PatriotRefusal whyNotDrive() {
         if (this.busy()) {
             return PatriotRefusal.BUSY;
-        }
-        if (!this.attached()) {
-            return PatriotRefusal.NEED_COUPLED;
         }
         if (this.supports) {
             return PatriotRefusal.NEED_SUPPORTS;
@@ -227,20 +189,13 @@ public final class PatriotSequence {
     }
 
     public int mask() {
-        return (this.supports ? SUPPORTS_BIT : 0) | (this.lift ? LIFT_BIT : 0) | (this.service ? SERVICE_BIT : 0)
-                | (this.latchOpen ? LATCH_OPEN_BIT : 0) | (this.tractorOut ? TRACTOR_OUT_BIT : 0);
+        return (this.supports ? SUPPORTS_BIT : 0) | (this.lift ? LIFT_BIT : 0) | (this.service ? SERVICE_BIT : 0);
     }
 
     private void setMask(int mask) {
         this.supports = (mask & SUPPORTS_BIT) != 0;
         this.lift = (mask & LIFT_BIT) != 0;
         this.service = (mask & SERVICE_BIT) != 0;
-        this.latchOpen = (mask & LATCH_OPEN_BIT) != 0;
-        this.tractorOut = (mask & TRACTOR_OUT_BIT) != 0;
-    }
-
-    private boolean isTractorMoving() {
-        return this.current == Op.TRACTOR_OUT || this.current == Op.TRACTOR_IN;
     }
 
     private Op liftOp(boolean up) {
@@ -256,8 +211,6 @@ public final class PatriotSequence {
             case RAISE, LOWER -> PatriotTiming.ERECTOR_TICKS;
             case ANTENNA_UP, ANTENNA_DOWN -> PatriotTiming.ANTENNA_TICKS;
             case SERVICE_OPEN, SERVICE_CLOSE -> PatriotTiming.SERVICE_TICKS;
-            case UNLATCH, LATCH -> PatriotTiming.LATCH_TICKS;
-            case TRACTOR_OUT, TRACTOR_IN -> PatriotTiming.TRACTOR_TICKS;
             case CENTER -> (int) Math.ceil(Math.abs(this.traverse) / TRAVERSE_PER_TICK);
         };
     }
@@ -270,12 +223,7 @@ public final class PatriotSequence {
             case PatriotBones.SUPPORTS -> this.supports ? TelPose.Clip.HELD : TelPose.Clip.REST;
             case PatriotBones.LIFT -> this.lift ? TelPose.Clip.HELD : TelPose.Clip.REST;
             case PatriotBones.SERVICE -> this.service ? TelPose.Clip.HELD : TelPose.Clip.REST;
-            default -> switch (this.doorPhase) {
-                case DOORS_OPENING -> TelPose.Clip.OPENING;
-                case DOORS_OPEN -> TelPose.Clip.HELD;
-                case DOORS_CLOSING -> TelPose.Clip.CLOSING;
-                default -> TelPose.Clip.REST;
-            };
+            default -> TelPose.Clip.REST;
         };
     }
 
@@ -283,7 +231,7 @@ public final class PatriotSequence {
         if (this.current != null && this.current.group == group) {
             return this.ticks;
         }
-        return group == PatriotBones.DOORS ? this.doorTicks : 0;
+        return 0;
     }
 
     public double supportsProgress(float partialTick) {
@@ -298,56 +246,10 @@ public final class PatriotSequence {
         return flag ? 1.0 : 0.0;
     }
 
-    private static double smooth(double t) {
-        double c = Math.max(0.0, Math.min(1.0, t));
-        return c * c * (3.0 - 2.0 * c);
-    }
-
-    public double tractorProgress(float partialTick) {
-        return tractorProgress(this.tractorOut, this.current, this.ticks, partialTick);
-    }
-
-    public static double tractorProgress(boolean tractorOut, Op current, int ticks, float partialTick) {
-        double t = smooth((ticks + partialTick) / PatriotTiming.TRACTOR_TICKS);
-        if (current == Op.TRACTOR_OUT) {
-            return t;
-        }
-        if (current == Op.TRACTOR_IN) {
-            return 1.0 - t;
-        }
-        return tractorOut ? 1.0 : 0.0;
-    }
-
-    public double latchProgress(float partialTick) {
-        return latchProgress(this.latchOpen, this.current, this.ticks, partialTick);
-    }
-
-    public static double latchProgress(boolean latchOpen, Op current, int ticks, float partialTick) {
-        double t = smooth((ticks + partialTick) / PatriotTiming.LATCH_TICKS);
-        if (current == Op.UNLATCH) {
-            return t;
-        }
-        if (current == Op.LATCH) {
-            return 1.0 - t;
-        }
-        return latchOpen ? 1.0 : 0.0;
-    }
-
-    public void pulseDoors() {
-        this.doorHold = DOOR_HOLD_TICKS;
-        if (this.doorPhase == DOORS_CLOSED) {
-            this.doorPhase = DOORS_OPENING;
-            this.doorTicks = 0;
-            this.changed = true;
-        }
-    }
-
     private static final class Projection {
         boolean supports;
         boolean lift;
         boolean service;
-        boolean latchOpen;
-        boolean tractorOut;
 
         void apply(Op op) {
             switch (op) {
@@ -357,10 +259,6 @@ public final class PatriotSequence {
                 case LOWER, ANTENNA_DOWN -> this.lift = false;
                 case SERVICE_OPEN -> this.service = true;
                 case SERVICE_CLOSE -> this.service = false;
-                case UNLATCH -> this.latchOpen = true;
-                case TRACTOR_OUT -> this.tractorOut = true;
-                case TRACTOR_IN -> this.tractorOut = false;
-                case LATCH -> this.latchOpen = false;
                 default -> {
                 }
             }
@@ -372,8 +270,6 @@ public final class PatriotSequence {
         p.supports = this.supports;
         p.lift = this.lift;
         p.service = this.service;
-        p.latchOpen = this.latchOpen;
-        p.tractorOut = this.tractorOut;
         if (this.current != null) {
             p.apply(this.current);
         }
@@ -420,12 +316,6 @@ public final class PatriotSequence {
                 if (p.service) {
                     ops.add(Op.SERVICE_CLOSE);
                 }
-                if (p.tractorOut) {
-                    ops.add(Op.TRACTOR_IN);
-                }
-                if (p.latchOpen) {
-                    ops.add(Op.LATCH);
-                }
                 if (p.supports) {
                     ops.add(Op.SUPPORTS_IN);
                 }
@@ -448,9 +338,6 @@ public final class PatriotSequence {
                 }
                 if (!p.supports) {
                     return refuse(PatriotRefusal.ALREADY);
-                }
-                if (p.latchOpen || p.tractorOut) {
-                    return refuse(PatriotRefusal.NEED_COUPLED);
                 }
                 if (p.lift) {
                     return refuse(PatriotRefusal.LIFT_NOT_DOWN);
@@ -480,32 +367,6 @@ public final class PatriotSequence {
                     ops.add(Op.CENTER);
                 }
                 ops.add(this.liftOp(false));
-            }
-            case DETACH -> {
-                if (!standing) {
-                    return refuse(PatriotRefusal.MOVING);
-                }
-                if (p.tractorOut) {
-                    return refuse(PatriotRefusal.ALREADY);
-                }
-                if (!p.supports) {
-                    ops.add(Op.SUPPORTS_OUT);
-                }
-                if (!p.latchOpen) {
-                    ops.add(Op.UNLATCH);
-                }
-                ops.add(Op.TRACTOR_OUT);
-            }
-            case ATTACH -> {
-                if (!p.tractorOut && !p.latchOpen) {
-                    return refuse(PatriotRefusal.ALREADY);
-                }
-                if (p.tractorOut) {
-                    ops.add(Op.TRACTOR_IN);
-                }
-                if (p.latchOpen) {
-                    ops.add(Op.LATCH);
-                }
             }
             case TRAVERSE_LEFT, TRAVERSE_RIGHT, TRAVERSE_CENTER -> {
                 if (!launcher) {
@@ -590,7 +451,6 @@ public final class PatriotSequence {
             this.traverse += Math.signum(this.traverseTarget - this.traverse) * step;
             this.changed = true;
         }
-        this.tickDoors();
 
         if (this.current == null) {
             this.startNext(gate);
@@ -653,10 +513,6 @@ public final class PatriotSequence {
             case LOWER, ANTENNA_DOWN -> this.lift = false;
             case SERVICE_OPEN -> this.service = true;
             case SERVICE_CLOSE -> this.service = false;
-            case UNLATCH -> this.latchOpen = true;
-            case TRACTOR_OUT -> this.tractorOut = true;
-            case TRACTOR_IN -> this.tractorOut = false;
-            case LATCH -> this.latchOpen = false;
             case CENTER -> {
                 this.traverse = 0.0;
                 this.traverseTarget = 0.0;
@@ -675,63 +531,35 @@ public final class PatriotSequence {
         return true;
     }
 
-    private void tickDoors() {
-        switch (this.doorPhase) {
-            case DOORS_OPENING -> {
-                this.doorTicks++;
-                if (this.doorTicks >= PatriotTiming.DOORS_TICKS) {
-                    this.doorPhase = DOORS_OPEN;
-                    this.doorTicks = 0;
-                }
-            }
-            case DOORS_OPEN -> {
-                if (--this.doorHold <= 0) {
-                    this.doorPhase = DOORS_CLOSING;
-                    this.doorTicks = 0;
-                }
-            }
-            case DOORS_CLOSING -> {
-                this.doorTicks++;
-                if (this.doorTicks >= PatriotTiming.DOORS_TICKS) {
-                    this.doorTicks = 0;
-                    this.doorPhase = this.doorHold > 0 ? DOORS_OPENING : DOORS_CLOSED;
-                }
-            }
-            default -> {
-            }
-        }
-    }
-
     public Snapshot snapshot() {
         int[] pending = new int[this.queue.size()];
         int i = 0;
         for (Op op : this.queue) {
             pending[i++] = op.ordinal();
         }
-        return new Snapshot(this.supports, this.lift, this.service, this.latchOpen, this.tractorOut, this.traverse,
-                this.traverseTarget, this.current == null ? -1 : this.current.ordinal(), this.ticks, pending);
+        return new Snapshot(this.supports, this.lift, this.service, this.traverse, this.traverseTarget,
+                this.current == null ? -1 : this.current.ordinal(), this.ticks, pending);
     }
 
     public void restore(Snapshot s) {
+        this.restore(s, false);
+    }
+
+    public void restore(Snapshot s, boolean stageSeven) {
         this.supports = s.supports();
         this.lift = s.lift();
         this.service = s.service();
-        this.latchOpen = s.latchOpen();
-        this.tractorOut = s.tractorOut();
         this.traverse = s.traverse();
         this.traverseTarget = s.traverseTarget();
         this.current = null;
         this.ticks = 0;
         this.queue.clear();
-        this.doorPhase = DOORS_CLOSED;
-        this.doorTicks = 0;
-        this.doorHold = 0;
-        Op running = Op.byOrdinal(s.op());
+        Op running = stageSeven ? Op.byStageSevenOrdinal(s.op()) : Op.byOrdinal(s.op());
         if (running != null) {
             this.apply(running);
         }
         for (int ordinal : s.queue()) {
-            Op op = Op.byOrdinal(ordinal);
+            Op op = stageSeven ? Op.byStageSevenOrdinal(ordinal) : Op.byOrdinal(ordinal);
             if (op != null) {
                 this.apply(op);
             }
@@ -741,6 +569,10 @@ public final class PatriotSequence {
     }
 
     public void reset() {
-        this.restore(new Snapshot(false, false, false, false, false, 0.0, 0.0, -1, 0, new int[0]));
+        this.restore(new Snapshot(false, false, false, 0.0, 0.0, -1, 0, new int[0]));
+    }
+
+    public void parkOnSupports() {
+        this.restore(new Snapshot(true, false, false, 0.0, 0.0, -1, 0, new int[0]));
     }
 }

@@ -11,7 +11,9 @@ public final class VehicleLamps {
     public enum Kind {
         HEAD,
         TAIL,
-        TURN
+        TURN,
+        BEAM,
+        GLOW
     }
 
     public record Lamp(Vec3 local, Kind kind, float size, float red, float green, float blue) {

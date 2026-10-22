@@ -20,8 +20,11 @@ import java.util.function.ToIntFunction;
 public final class VehicleSpecs {
 
     public static final String TEL = "iskander_tel";
-    public static final String PATRIOT_LAUNCHER = "patriot_launcher";
-    public static final String PATRIOT_RADAR = "patriot_radar";
+    public static final String PATRIOT_LAUNCHER_TRAILER = "patriot_launcher_trailer";
+    public static final String PATRIOT_RADAR_TRAILER = "patriot_radar_trailer";
+    public static final String M983_TRACTOR = "m983_tractor";
+
+    private static final List<String> STAGE_SEVEN_FILES = List.of("patriot_launcher", "patriot_radar");
 
     public static final String FILE_NAME = TEL + ".json";
 
@@ -63,8 +66,10 @@ public final class VehicleSpecs {
     static {
         ENTRIES.put(TEL, new Entry<>(TEL, VehicleSpec::defaults, VehicleSpec::parse, VehicleSpec::toJson,
                 s -> s.defaultsVersion, VehicleSpec.DEFAULTS_VERSION));
-        ENTRIES.put(PATRIOT_LAUNCHER, trainEntry(PATRIOT_LAUNCHER));
-        ENTRIES.put(PATRIOT_RADAR, trainEntry(PATRIOT_RADAR));
+        ENTRIES.put(PATRIOT_LAUNCHER_TRAILER, trainEntry(PATRIOT_LAUNCHER_TRAILER));
+        ENTRIES.put(PATRIOT_RADAR_TRAILER, trainEntry(PATRIOT_RADAR_TRAILER));
+        ENTRIES.put(M983_TRACTOR, new Entry<>(M983_TRACTOR, TrainSpec::m983TractorDefaults,
+                VehicleSpec::parse, VehicleSpec::toJson, s -> s.defaultsVersion, TrainSpec.M983_DEFAULTS_VERSION));
     }
 
     private static Entry<TrainSpec> trainEntry(String name) {
@@ -95,6 +100,11 @@ public final class VehicleSpecs {
 
     public static synchronized int revision() {
         return entry(TEL).revision;
+    }
+
+    public static synchronized VehicleSpec m983Tractor() {
+        Entry<VehicleSpec> e = entry(M983_TRACTOR);
+        return e.current;
     }
 
     public static synchronized String currentJson() {
@@ -130,6 +140,7 @@ public final class VehicleSpecs {
 
     public static synchronized String loadFromDisk(Path configDir) {
         List<String> problems = new ArrayList<>();
+        retireStageSevenFiles(configDir);
         for (String name : names()) {
             String problem = loadOne(configDir, name);
             if (problem != null) {
@@ -137,6 +148,21 @@ public final class VehicleSpecs {
             }
         }
         return problems.isEmpty() ? null : String.join("; ", problems);
+    }
+
+    private static void retireStageSevenFiles(Path configDir) {
+        for (String name : STAGE_SEVEN_FILES) {
+            Path file = file(configDir, name);
+            try {
+                if (Files.isRegularFile(file)) {
+                    Files.move(file, file.resolveSibling(name + ".json.old"), StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.info("Vehicle settings {} belong to the tractor-and-trailer vehicle of stage 7: kept as {}, "
+                            + "the trailers now have their own files", file, name + ".json.old");
+                }
+            } catch (IOException error) {
+                LOGGER.warn("Vehicle settings {} could not be set aside: {}", file, error.getMessage());
+            }
+        }
     }
 
     private static <T> String loadOne(Path configDir, String name) {

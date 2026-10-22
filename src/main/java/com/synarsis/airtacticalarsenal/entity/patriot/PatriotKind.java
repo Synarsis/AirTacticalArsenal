@@ -1,24 +1,26 @@
 package com.synarsis.airtacticalarsenal.entity.patriot;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
 import net.minecraft.resources.ResourceLocation;
 
 public enum PatriotKind {
 
-    LAUNCHER("patriot_launcher", "patriot_pac2_transport", "patriot_transport", "patriot_launcher.json", 500.0f),
-    RADAR("patriot_radar", "patriot_anmpq65_transport", "patriot_anmpq65_transport", "patriot_radar.json", 450.0f);
+    LAUNCHER("patriot_launcher", "patriot_pac2_launcher", "patriot_pac2", VehicleSpecs.PATRIOT_LAUNCHER_TRAILER,
+            400.0f),
+    RADAR("patriot_radar", "patriot_anmpq65_radar", "patriot_anmpq65", VehicleSpecs.PATRIOT_RADAR_TRAILER, 350.0f);
 
     private final String id;
     private final String model;
     private final String texture;
-    private final String specFile;
+    private final String specName;
     private final float defaultHealth;
 
-    PatriotKind(String id, String model, String texture, String specFile, float defaultHealth) {
+    PatriotKind(String id, String model, String texture, String specName, float defaultHealth) {
         this.id = id;
         this.model = model;
         this.texture = texture;
-        this.specFile = specFile;
+        this.specName = specName;
         this.defaultHealth = defaultHealth;
     }
 
@@ -31,11 +33,7 @@ public enum PatriotKind {
     }
 
     public String specName() {
-        return this.id;
-    }
-
-    public String specFile() {
-        return this.specFile;
+        return this.specName;
     }
 
     public float defaultHealth() {

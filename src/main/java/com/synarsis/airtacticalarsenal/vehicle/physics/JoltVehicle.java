@@ -80,6 +80,7 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     private final boolean wheeled;
     private final boolean ownsSlot;
     private JoltVehicle brakeSource;
+    private double forwardCapMs = Double.MAX_VALUE;
     private double appliedBrake;
     private double appliedHandbrake;
     private double impactSpeed;
@@ -420,6 +421,14 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         this.brakeSource = source;
     }
 
+    public void setForwardCapMs(double metresPerSecond) {
+        this.forwardCapMs = metresPerSecond > 0.0 ? metresPerSecond : Double.MAX_VALUE;
+    }
+
+    public double forwardCapMs() {
+        return this.forwardCapMs;
+    }
+
     public double appliedBrake() {
         return this.appliedBrake;
     }
@@ -651,7 +660,8 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
             throttleTarget = 0.0;
         }
         this.limiterCut = false;
-        double forwardLimit = this.spec.forwardLimitMs() * (this.inputBoost && this.driven ? this.spec.limits.boostFactor : 1.0);
+        double forwardLimit = Math.min(this.forwardCapMs,
+                this.spec.forwardLimitMs() * (this.inputBoost && this.driven ? this.spec.limits.boostFactor : 1.0));
         if (throttleTarget > 0.0 && forward > forwardLimit - 1.0) {
             throttleTarget *= clamp((forwardLimit - forward) / 1.0, 0.0, 1.0);
             this.limiterCut = true;

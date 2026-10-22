@@ -3,8 +3,8 @@ package com.synarsis.airtacticalarsenal.config;
 public enum FxLighting {
     OFF(0, false, false, false, false, 0, 0),
     LOW(8, true, false, false, false, 2, 1),
-    MEDIUM(16, true, true, false, false, 4, 1),
-    HIGH(32, false, true, true, true, 8, 2);
+    MEDIUM(16, true, true, false, false, 4, 2),
+    HIGH(32, false, true, true, true, 8, 4);
 
     private final int maxLights;
     private final boolean halfResolution;

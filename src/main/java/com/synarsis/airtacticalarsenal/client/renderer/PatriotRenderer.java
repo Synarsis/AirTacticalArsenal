@@ -2,8 +2,10 @@ package com.synarsis.airtacticalarsenal.client.renderer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import com.synarsis.airtacticalarsenal.client.model.PatriotTransportModel;
+import com.synarsis.airtacticalarsenal.client.model.PatriotTrailerModel;
+import com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotGeometry;
+import com.synarsis.airtacticalarsenal.entity.patriot.PatriotKind;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -18,8 +20,18 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
 public class PatriotRenderer extends GeoEntityRenderer<PatriotVehicleEntity> {
 
     public PatriotRenderer(EntityRendererProvider.Context context) {
-        super(context, new PatriotTransportModel());
+        super(context, new PatriotTrailerModel());
         this.shadowRadius = 3.0f;
+        this.addRenderLayer(new LampGlowLayer<>(this, "patriot_pac2", false, e -> e.kind() == PatriotKind.LAUNCHER,
+                PatriotRenderer::tractorOf, e -> ((M983TractorEntity) e).areHeadlightsOn(),
+                e -> e.getControllingPassenger() != null));
+        this.addRenderLayer(new LampGlowLayer<>(this, "patriot_anmpq65", false, e -> e.kind() == PatriotKind.RADAR,
+                PatriotRenderer::tractorOf, e -> ((M983TractorEntity) e).areHeadlightsOn(),
+                e -> e.getControllingPassenger() != null));
+    }
+
+    private static net.minecraft.world.entity.Entity tractorOf(PatriotVehicleEntity trailer) {
+        return trailer.isHitched() ? trailer.coupledTractor() : null;
     }
 
     @Override

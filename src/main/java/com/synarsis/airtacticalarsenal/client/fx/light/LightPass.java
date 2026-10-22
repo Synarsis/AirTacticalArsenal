@@ -72,12 +72,17 @@ public final class LightPass {
     private static volatile boolean lastGpuTimed;
     private static int timerQuery;
     private static boolean timerPending;
+    private static int boxCount;
 
     private LightPass() {
     }
 
     public static int lastLights() {
         return lastLights;
+    }
+
+    public static int lastBoxes() {
+        return boxCount;
     }
 
     public static int lastShadowLights() {
@@ -128,6 +133,8 @@ public final class LightPass {
         releaseLightBuffers();
         releaseHazeBuffer();
         OccupancyVolume.release();
+        EntityBoxTexture.release();
+        boxCount = 0;
         copyWidth = 0;
         copyHeight = 0;
         if (timerQuery != 0) {
@@ -219,6 +226,20 @@ public final class LightPass {
                 OccupancyVolume.release();
             }
             boolean volumeReady = volumeWanted && OccupancyVolume.active();
+            boxCount = 0;
+            if (volumeReady) {
+                OccupancyGrid grid = OccupancyVolume.grid();
+                List<EntityShadowBoxes.Source> sources = new ArrayList<>();
+                for (LightSelect.Candidate c : picked) {
+                    AtaLights.Light light = blockShadowed.contains(c.id()) ? AtaLights.byId(c.id()) : null;
+                    if (light != null) {
+                        sources.add(new EntityShadowBoxes.Source(light.position(partial), c.radius()));
+                    }
+                }
+                List<EntityShadowMath.Box> boxes = EntityShadowBoxes.collect(level, mc, cam, partial, sources,
+                        grid.originX(), grid.originY(), grid.originZ());
+                boxCount = boxes.isEmpty() ? 0 : EntityBoxTexture.upload(boxes);
+            }
 
             Matrix4f view = new Matrix4f(event.getModelViewMatrix());
             Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
@@ -413,6 +434,10 @@ public final class LightPass {
         shader.setSampler("DepthSampler", depthCopy.getDepthTextureId());
         boolean volume = !blockShadowed.isEmpty() && OccupancyVolume.active();
         shader.setSampler("OccupancySampler", volume ? OccupancyVolume.texture() : depthCopy.getDepthTextureId());
+        boolean boxes = volume && boxCount > 0 && EntityBoxTexture.texture() != 0;
+        shader.setSampler("BoxSampler", boxes ? EntityBoxTexture.texture() : depthCopy.getDepthTextureId());
+        shader.safeGetUniform("Scatter").set((float) LightMath.FILL, (float) LightMath.SPILL,
+                (float) Math.cos(Math.toRadians(LightMath.SPILL_DEGREES)), (float) LightMath.FILL_REACH);
         if (volume) {
             OccupancyGrid grid = OccupancyVolume.grid();
             shader.safeGetUniform("InvView").set(new Matrix4f(view).invert());
@@ -460,8 +485,10 @@ public final class LightPass {
                     mode.normals() ? 1.0f : 0.0f);
             boolean blocks = volume && blockShadowed.contains(c.id());
             shader.safeGetUniform("LightWorld").set(world.x, world.y, world.z, radius);
-            shader.safeGetUniform("Shadow").set(blocks ? 1.0f : 0.0f, (float) mode.shadowRays(), spot ? 0.12f : 0.25f,
-                    (float) VoxelShadowMath.freeNearLight(spot, radius));
+            shader.safeGetUniform("Shadow").set(blocks ? 1.0f : 0.0f, (float) mode.shadowRays(),
+                    (float) light.sourceRadius(), (float) VoxelShadowMath.freeNearLight(spot, radius));
+            shader.safeGetUniform("Boxes").set(blocks && boxes ? (float) boxCount : 0.0f, (float) light.entityOwner(),
+                    (float) EntityShadowMath.FREE_NEAR_OWN_LIGHT, (float) EntityShadowMath.MARGIN);
             quad(rect[0], rect[1], rect[2], rect[3]);
         }
         shader.clear();

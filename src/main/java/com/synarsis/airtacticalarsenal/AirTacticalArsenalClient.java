@@ -2,6 +2,7 @@ package com.synarsis.airtacticalarsenal;
 
 import com.synarsis.airtacticalarsenal.client.renderer.IskanderRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.IskanderTelRenderer;
+import com.synarsis.airtacticalarsenal.client.renderer.M983TractorRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.PatriotRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.OrlanLauncherRenderer;
 import com.synarsis.airtacticalarsenal.client.renderer.OrlanRenderer;
@@ -44,8 +45,16 @@ public class AirTacticalArsenalClient {
                 com.synarsis.airtacticalarsenal.client.TelClientEffects::trace;
         com.synarsis.airtacticalarsenal.entity.tel.TelInput.destroyedFx =
                 com.synarsis.airtacticalarsenal.client.fx.ImpactFx::telDestroyed;
-        com.synarsis.airtacticalarsenal.entity.patriot.PatriotInput.clientTick =
-                com.synarsis.airtacticalarsenal.client.PatriotClientEffects::tick;
+        com.synarsis.airtacticalarsenal.entity.patriot.PatriotInput.openPanel = vehicle ->
+                net.minecraft.client.Minecraft.getInstance().setScreen(
+                        new com.synarsis.airtacticalarsenal.client.gui.PatriotControlScreen(vehicle));
+        com.synarsis.airtacticalarsenal.entity.patriot.TractorInput.provider =
+                com.synarsis.airtacticalarsenal.client.ClientTelInput::poll;
+        com.synarsis.airtacticalarsenal.entity.patriot.TractorInput.clientTick =
+                com.synarsis.airtacticalarsenal.client.M983TractorEffects::tick;
+        com.synarsis.airtacticalarsenal.entity.patriot.TractorInput.openPanel = tractor ->
+                net.minecraft.client.Minecraft.getInstance().setScreen(
+                        new com.synarsis.airtacticalarsenal.client.gui.M983ControlScreen(tractor));
         com.synarsis.airtacticalarsenal.entity.patriot.PatriotInput.destroyedFx =
                 com.synarsis.airtacticalarsenal.client.fx.ImpactFx::patriotDestroyed;
         com.synarsis.airtacticalarsenal.entity.IskanderEntity.clientFx =
@@ -65,6 +74,7 @@ public class AirTacticalArsenalClient {
             event.registerEntityRenderer(ModEntities.SHAHED.get(),          ShahedRenderer::new);
             event.registerEntityRenderer(ModEntities.ISKANDER.get(),        IskanderRenderer::new);
             event.registerEntityRenderer(ModEntities.ISKANDER_TEL.get(),    IskanderTelRenderer::new);
+            event.registerEntityRenderer(ModEntities.M983_TRACTOR.get(),     M983TractorRenderer::new);
             event.registerEntityRenderer(ModEntities.PATRIOT_LAUNCHER.get(), PatriotRenderer::new);
             event.registerEntityRenderer(ModEntities.PATRIOT_RADAR.get(),    PatriotRenderer::new);
             event.registerEntityRenderer(ModEntities.ORLAN.get(),           OrlanRenderer::new);
@@ -112,8 +122,8 @@ public class AirTacticalArsenalClient {
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "tel_hud"),
                     new com.synarsis.airtacticalarsenal.client.hud.TelHud());
             event.registerAboveAll(
-                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "patriot_hud"),
-                    new com.synarsis.airtacticalarsenal.client.hud.PatriotHud());
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "m983_hud"),
+                    (net.minecraft.client.gui.LayeredDraw.Layer) com.synarsis.airtacticalarsenal.client.gui.M983Hud::render);
             event.registerAboveAll(
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID, "fx_flash"),
                     new com.synarsis.airtacticalarsenal.client.fx.FxScreenFlash());

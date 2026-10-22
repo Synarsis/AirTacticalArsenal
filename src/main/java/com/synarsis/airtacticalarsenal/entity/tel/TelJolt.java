@@ -1,5 +1,6 @@
 package com.synarsis.airtacticalarsenal.entity.tel;
 
+import com.github.stephengold.joltjni.Jolt;
 import com.mojang.logging.LogUtils;
 import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatch;
 import com.synarsis.airtacticalarsenal.vehicle.physics.GroundPatchBuilder;
@@ -127,6 +128,14 @@ public final class TelJolt implements PhysicsWorlds.Participant {
 
     public VehicleGround ground() {
         return this.ground;
+    }
+
+    public int[] bodyIds() {
+        if (this.vehicle == null) {
+            return new int[0];
+        }
+        int groundId = this.ground == null ? Jolt.cInvalidBodyId : this.ground.bodyId();
+        return new int[] {this.vehicle.bodyId(), groundId};
     }
 
     public double speedMs() {

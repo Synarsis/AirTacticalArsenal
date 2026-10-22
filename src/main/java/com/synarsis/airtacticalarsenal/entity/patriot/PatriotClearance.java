@@ -25,12 +25,9 @@ public final class PatriotClearance {
 
     public static final double TILT_LIMIT_DEGREES = 6.0;
     public static final double FOOT_REACH = 1.0;
-    public static final double WHEEL_REACH = 0.6;
-    public static final double TRACTOR_STEP_PX = 12.0;
     public static final double CELL_SHRINK = 0.03;
     public static final double FOOT_SHRINK = 0.12;
     public static final double FOOT_LIFT = 0.12;
-    public static final double TRACTOR_LIFT = 0.15;
     public static final double[] LIFT_FRACTIONS = {0.0, 0.25, 0.5, 0.75, 1.0};
 
     public record Blocker(PatriotRefusal reason, BlockPos at, String detail) {
@@ -54,7 +51,7 @@ public final class PatriotClearance {
 
     public static PatriotPose withSupportsOut(PatriotKind kind, PatriotPose pose) {
         return pose.withParts(new TelHitboxPose.Part(kind.clipPrefix() + "supports_out", TelPose.HELD_SECONDS),
-                pose.lift(), pose.service(), pose.doors());
+                pose.lift(), pose.service());
     }
 
     public static Set<BlockPos> cellsOf(List<WorldBox> boxes, double shrink) {
@@ -192,7 +189,7 @@ public final class PatriotClearance {
         List<PatriotPose> poses = new ArrayList<>();
         for (double fraction : LIFT_FRACTIONS) {
             poses.add(supported.withParts(supported.supports(), new TelHitboxPose.Part(clip, length * fraction),
-                    supported.service(), supported.doors()));
+                    supported.service()));
         }
         return poses;
     }
@@ -211,67 +208,4 @@ public final class PatriotClearance {
         return null;
     }
 
-    private static boolean tractorBone(String bone) {
-        return bone.startsWith("truck_") || bone.equals("tractor_carrier");
-    }
-
-    private static List<Double> tractorSteps() {
-        List<Double> out = new ArrayList<>();
-        for (double px = 0.0; px < PatriotGeometry.TRACTOR_OFFSET_PX; px += TRACTOR_STEP_PX) {
-            out.add(px);
-        }
-        out.add(PatriotGeometry.TRACTOR_OFFSET_PX);
-        return out;
-    }
-
-    public static Set<BlockPos> tractorCells(PatriotHitbox model, PatriotPose pose, TelClearance.Pose at) {
-        Set<BlockPos> out = new HashSet<>();
-        for (double px : tractorSteps()) {
-            PatriotPose step = pose.withTractor(px, pose.latchDegrees());
-            out.addAll(cellsOf(lifted(worldBoxes(model, step, at, PatriotClearance::tractorBone, true), TRACTOR_LIFT),
-                    CELL_SHRINK));
-        }
-        return out;
-    }
-
-    @Nullable
-    public static Blocker tractorBlocker(PatriotHitbox model, PatriotPose pose, TelClearance.Pose at,
-            TelClearance.Solid solid) {
-        for (double px : tractorSteps()) {
-            PatriotPose step = pose.withTractor(px, pose.latchDegrees());
-            BlockPos blocked = TelClearance.firstBlocked(
-                    cellsOf(lifted(worldBoxes(model, step, at, PatriotClearance::tractorBone, true), TRACTOR_LIFT),
-                            CELL_SHRINK), at, solid);
-            if (blocked != null) {
-                return new Blocker(PatriotRefusal.TRACTOR_NO_ROOM, blocked, "path at " + px + " px");
-            }
-        }
-        PatriotPose end = pose.withTractor(PatriotGeometry.TRACTOR_OFFSET_PX, pose.latchDegrees());
-        Map<String, List<WorldBox>> wheels = new LinkedHashMap<>();
-        for (ModelHitbox.LocalBox box : model.localBoxes(end)) {
-            String name = model.boneName(box.bone());
-            if (name.startsWith("truck_wheel_")) {
-                wheels.computeIfAbsent(name, k -> new ArrayList<>())
-                        .add(ModelHitbox.toWorld(box, at.x(), at.y(), at.z(), at.yaw(), at.pitch(), at.roll()));
-            }
-        }
-        for (List<WorldBox> wheel : wheels.values()) {
-            double bottom = Double.MAX_VALUE;
-            double cx = 0.0;
-            double cz = 0.0;
-            for (WorldBox box : wheel) {
-                bottom = Math.min(bottom, box.minY());
-                cx += box.centre().x;
-                cz += box.centre().z;
-            }
-            cx /= wheel.size();
-            cz /= wheel.size();
-            if (!hasGroundBelow(solid, cx, bottom, cz, WHEEL_REACH)) {
-                return new Blocker(PatriotRefusal.TRACTOR_NO_ROOM,
-                        new BlockPos(Mth.floor(cx), Mth.floor(bottom - 0.05), Mth.floor(cz)),
-                        "no ground under a wheel at " + cx + " " + bottom + " " + cz);
-            }
-        }
-        return null;
-    }
 }

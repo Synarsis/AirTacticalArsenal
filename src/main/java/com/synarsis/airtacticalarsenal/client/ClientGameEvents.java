@@ -31,6 +31,7 @@ public class ClientGameEvents {
     public static void onClientDisconnect(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientPacketHandler.clearAll();
         TelClientEffects.clear();
+        M983TractorEffects.clear();
         OrlanCameraHandler.stopCameraView();
         RouteTerrainRenderer.clearCache();
         SurfaceHeightCache.clear();
@@ -125,6 +126,11 @@ public class ClientGameEvents {
             com.synarsis.airtacticalarsenal.network.NetworkHandler.sendToServer(
                     new com.synarsis.airtacticalarsenal.network.TelCommandPacket(tel.getId(),
                             com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity.CMD_HEADLIGHTS, (byte) 0, 0));
+        } else if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor
+                && tractor.isCrewSeat(mc.player)) {
+            com.synarsis.airtacticalarsenal.network.NetworkHandler.sendToServer(
+                    new com.synarsis.airtacticalarsenal.network.M983CommandPacket(tractor.getId(),
+                            com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity.CMD_HEADLIGHTS));
         }
     }
 
@@ -136,9 +142,9 @@ public class ClientGameEvents {
         if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity tel
                 && tel.isCrewSeat(mc.player)) {
             mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.TelFireControlScreen(tel));
-        } else if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.PatriotVehicleEntity patriot
-                && patriot.isCrewSeat(mc.player)) {
-            mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.PatriotControlScreen(patriot));
+        } else if (mc.player.getVehicle() instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor
+                && tractor.isCrewSeat(mc.player)) {
+            mc.setScreen(new com.synarsis.airtacticalarsenal.client.gui.M983ControlScreen(tractor));
         }
     }
 

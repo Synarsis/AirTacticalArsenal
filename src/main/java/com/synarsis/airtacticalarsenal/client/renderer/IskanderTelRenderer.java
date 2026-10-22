@@ -20,6 +20,8 @@ public class IskanderTelRenderer extends GeoEntityRenderer<IskanderTelEntity> {
     public IskanderTelRenderer(EntityRendererProvider.Context context) {
         super(context, new IskanderTelModel());
         this.shadowRadius = 2.5f;
+        this.addRenderLayer(new LampGlowLayer<>(this, "iskander_tel", true, e -> true, e -> e,
+                e -> ((IskanderTelEntity) e).areHeadlightsOn(), e -> e.getControllingPassenger() != null));
     }
 
     @Override

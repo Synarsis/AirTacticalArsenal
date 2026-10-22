@@ -19,7 +19,7 @@ import software.bernie.geckolib.cache.object.GeoBone;
 import software.bernie.geckolib.model.GeoModel;
 
 @OnlyIn(Dist.CLIENT)
-public class PatriotTransportModel extends GeoModel<PatriotVehicleEntity> {
+public class PatriotTrailerModel extends GeoModel<PatriotVehicleEntity> {
 
     private static final Map<PatriotKind, List<String>> CONTROLLED = new EnumMap<>(PatriotKind.class);
 

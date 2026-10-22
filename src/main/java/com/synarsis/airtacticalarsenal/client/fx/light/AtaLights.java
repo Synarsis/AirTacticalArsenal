@@ -15,6 +15,10 @@ public final class AtaLights {
         SPOT
     }
 
+    public static final double SPOT_SOURCE = 0.15;
+    public static final double POINT_SOURCE = 1.0;
+    public static final double BLAST_SOURCE = 1.5;
+
     @FunctionalInterface
     public interface Position {
         Vec3 at(float partialTick);
@@ -46,6 +50,8 @@ public final class AtaLights {
         private int seed;
         private double wrap;
         private boolean shadows;
+        private double sourceRadius = -1.0;
+        private int entityOwner = EntityShadowMath.NO_OWNER;
         private boolean tint = true;
         private Vec3 drift = Vec3.ZERO;
         private int age;
@@ -104,6 +110,24 @@ public final class AtaLights {
         public Light shadows(boolean on) {
             this.shadows = on;
             return this;
+        }
+
+        public Light sourceRadius(double radius) {
+            this.sourceRadius = Math.max(0.0, radius);
+            return this;
+        }
+
+        public Light entityOwner(int entityId) {
+            this.entityOwner = entityId;
+            return this;
+        }
+
+        public double sourceRadius() {
+            return this.sourceRadius >= 0.0 ? this.sourceRadius : this.kind == Kind.SPOT ? SPOT_SOURCE : POINT_SOURCE;
+        }
+
+        public int entityOwner() {
+            return this.entityOwner;
         }
 
         public Light tintsParticles(boolean on) {

@@ -114,6 +114,7 @@ public class PatriotItem extends Item {
         vehicle.setOwnerUuid(player.getUUID());
         vehicle.setHealth(readHealth(stack, vehicle.getMaxHealth()));
         vehicle.isLegitSpawn = true;
+        vehicle.placeOnSupports();
         vehicle.updateParts();
         serverLevel.addFreshEntity(vehicle);
 

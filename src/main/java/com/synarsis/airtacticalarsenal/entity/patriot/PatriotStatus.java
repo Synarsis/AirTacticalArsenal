@@ -15,9 +15,9 @@ public final class PatriotStatus {
     public record Line(String key, Object[] args, Tone tone) {
     }
 
-    public static final List<String> KEYS = List.of("stowed", "supports", "raised", "antenna", "service", "detached",
+    public static final List<String> KEYS = List.of("stowed", "supports", "raised", "antenna", "service",
             "supports_out", "supports_in", "raising", "lowering", "antenna_up", "antenna_down", "service_opening",
-            "service_closing", "unlatching", "tractor_out", "tractor_in", "latching", "centering");
+            "service_closing", "centering");
 
     private PatriotStatus() {
     }
@@ -43,10 +43,6 @@ public final class PatriotStatus {
                 case ANTENNA_DOWN -> "antenna_down";
                 case SERVICE_OPEN -> "service_opening";
                 case SERVICE_CLOSE -> "service_closing";
-                case UNLATCH -> "unlatching";
-                case TRACTOR_OUT -> "tractor_out";
-                case TRACTOR_IN -> "tractor_in";
-                case LATCH -> "latching";
                 case CENTER -> "centering";
             };
             return line(name, Tone.WORKING, percent);
@@ -56,9 +52,6 @@ public final class PatriotStatus {
                 return line("raised", Tone.INFO, String.format(Locale.ROOT, "%+.0f", traverseDegrees));
             }
             return line("antenna", Tone.INFO);
-        }
-        if (view.detached()) {
-            return line("detached", Tone.WARN);
         }
         if (view.service()) {
             return line("service", Tone.INFO);

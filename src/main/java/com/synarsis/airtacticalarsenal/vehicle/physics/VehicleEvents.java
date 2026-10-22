@@ -49,8 +49,5 @@ public final class VehicleEvents {
         for (Entity entity : level.getEntitiesOfClass(IskanderTelEntity.class, area)) {
             ((IskanderTelEntity) entity).pushByExplosion(centre, power);
         }
-        for (PatriotVehicleEntity entity : level.getEntitiesOfClass(PatriotVehicleEntity.class, area)) {
-            entity.pushByExplosion(centre, power);
-        }
     }
 }

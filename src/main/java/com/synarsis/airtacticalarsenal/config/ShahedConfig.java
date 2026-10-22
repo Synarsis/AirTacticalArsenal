@@ -66,6 +66,7 @@ public class ShahedConfig {
     public static final ModConfigSpec.DoubleValue TEL_MAX_HEALTH;
     public static final ModConfigSpec.DoubleValue PATRIOT_LAUNCHER_MAX_HEALTH;
     public static final ModConfigSpec.DoubleValue PATRIOT_RADAR_MAX_HEALTH;
+    public static final ModConfigSpec.DoubleValue M983_MAX_HEALTH;
     public static final ModConfigSpec.DoubleValue TEL_MAX_FORWARD_SPEED;
     public static final ModConfigSpec.DoubleValue TEL_MAX_BACKWARD_SPEED;
     public static final ModConfigSpec.DoubleValue TEL_ACCELERATION;
@@ -180,6 +181,7 @@ public class ShahedConfig {
     public static double getTelMaxHealth() { return TEL_MAX_HEALTH.get(); }
     public static double getPatriotLauncherMaxHealth() { return PATRIOT_LAUNCHER_MAX_HEALTH.get(); }
     public static double getPatriotRadarMaxHealth() { return PATRIOT_RADAR_MAX_HEALTH.get(); }
+    public static double getM983MaxHealth() { return M983_MAX_HEALTH.get(); }
     public static double getTelMaxForwardSpeed() { return TEL_MAX_FORWARD_SPEED.get(); }
     public static double getTelMaxBackwardSpeed() { return TEL_MAX_BACKWARD_SPEED.get(); }
     public static double getTelAcceleration() { return TEL_ACCELERATION.get(); }
@@ -349,8 +351,9 @@ public class ShahedConfig {
 
         BUILDER.push("Patriot");
         BUILDER.comment("The M901 launcher and the AN/MPQ-65 radar, each on a trailer behind an M983 tractor.");
-        PATRIOT_LAUNCHER_MAX_HEALTH = BUILDER.comment("Launcher strength").defineInRange("patriotLauncherMaxHealth", 500.0, 50.0, 5000.0);
-        PATRIOT_RADAR_MAX_HEALTH = BUILDER.comment("Radar strength").defineInRange("patriotRadarMaxHealth", 450.0, 50.0, 5000.0);
+        PATRIOT_LAUNCHER_MAX_HEALTH = BUILDER.comment("Launcher strength").defineInRange("patriotLauncherMaxHealth", 400.0, 50.0, 5000.0);
+        PATRIOT_RADAR_MAX_HEALTH = BUILDER.comment("Radar strength").defineInRange("patriotRadarMaxHealth", 350.0, 50.0, 5000.0);
+        M983_MAX_HEALTH = BUILDER.comment("Tractor strength").defineInRange("m983MaxHealth", 300.0, 50.0, 5000.0);
         BUILDER.pop();
 
         SPEC = BUILDER.build();

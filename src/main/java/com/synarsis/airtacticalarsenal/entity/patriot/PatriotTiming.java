@@ -6,13 +6,9 @@ public final class PatriotTiming {
     public static final int ERECTOR_TICKS = 62;
     public static final int ANTENNA_TICKS = 80;
     public static final int SERVICE_TICKS = 40;
-    public static final int DOORS_TICKS = 36;
-    public static final int LATCH_TICKS = 24;
-    public static final int TRACTOR_TICKS = 80;
 
     public static final double TRAVERSE_DEGREES_PER_SECOND = 10.0;
     public static final double TRAVERSE_LIMIT_DEGREES = 24.0;
-    public static final double LATCH_OPEN_DEGREES = -60.0;
 
     private PatriotTiming() {
     }

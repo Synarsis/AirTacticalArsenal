@@ -1,5 +1,7 @@
 package com.synarsis.airtacticalarsenal.vehicle.physics;
 
+import com.github.stephengold.joltjni.Jolt;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +28,10 @@ public final class VehicleGround implements AutoCloseable {
 
     public GroundPatch patch() {
         return this.body == null ? null : this.body.patch();
+    }
+
+    public int bodyId() {
+        return this.body == null ? Jolt.cInvalidBodyId : this.body.bodyId();
     }
 
     public int rebuilds() {

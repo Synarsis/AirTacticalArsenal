@@ -1,9 +1,11 @@
 package com.synarsis.airtacticalarsenal.entity;
 
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
+import com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotGeometry;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotLauncherEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotRadarEntity;
+import com.synarsis.airtacticalarsenal.entity.patriot.TractorGeometry;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
 import net.minecraft.core.registries.Registries;
@@ -47,6 +49,14 @@ public class ModEntities {
                     .updateInterval(1)
                     .setShouldReceiveVelocityUpdates(false)
                     .build("iskander_tel"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<M983TractorEntity>> M983_TRACTOR = ENTITY_TYPES.register("m983_tractor",
+            () -> EntityType.Builder.<M983TractorEntity>of(M983TractorEntity::new, MobCategory.MISC)
+                    .sized(TractorGeometry.TYPE_WIDTH, TractorGeometry.TYPE_HEIGHT)
+                    .clientTrackingRange(12)
+                    .updateInterval(1)
+                    .setShouldReceiveVelocityUpdates(false)
+                    .build("m983_tractor"));
 
     public static final DeferredHolder<EntityType<?>, EntityType<PatriotLauncherEntity>> PATRIOT_LAUNCHER = ENTITY_TYPES.register("patriot_launcher",
             () -> EntityType.Builder.<PatriotLauncherEntity>of(PatriotLauncherEntity::new, MobCategory.MISC)

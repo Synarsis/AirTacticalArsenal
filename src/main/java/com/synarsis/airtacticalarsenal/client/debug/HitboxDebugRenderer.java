@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
+import com.synarsis.airtacticalarsenal.entity.patriot.M983Coupling;
+import com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotClearance;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotHitbox;
 import com.synarsis.airtacticalarsenal.entity.patriot.PatriotPose;
@@ -80,6 +82,13 @@ public final class HitboxDebugRenderer {
                     && mc.player.getVehicle() == patriot && patriot.distanceToSqr(cam) < 96.0 * 96.0) {
                 drawPatriotCells(pose, lines, patriot);
             }
+            if (entity instanceof M983TractorEntity tractor && tractor.distanceToSqr(cam) < 96.0 * 96.0) {
+                drawSaddle(pose, lines, tractor, partialTick);
+            }
+            if (entity instanceof PatriotVehicleEntity trailer && !trailer.isHitched()
+                    && trailer.distanceToSqr(cam) < 96.0 * 96.0) {
+                drawKingpin(pose, lines, trailer, partialTick);
+            }
             if (!(entity instanceof ObbProvider provider) || provider.useAabb()) {
                 continue;
             }
@@ -138,6 +147,63 @@ public final class HitboxDebugRenderer {
         }
     }
 
+    private static void drawSaddle(PoseStack pose, VertexConsumer lines, M983TractorEntity tractor, float pt) {
+        Vec3 saddle = M983Coupling.worldOf(Mth.lerp(pt, tractor.xo, tractor.getX()),
+                Mth.lerp(pt, tractor.yo, tractor.getY()), Mth.lerp(pt, tractor.zo, tractor.getZ()),
+                Mth.rotLerp(pt, tractor.yRotO, tractor.getYRot()), Mth.lerp(pt, tractor.xRotO, tractor.getXRot()),
+                tractor.getRollLerp(pt), M983Coupling.saddleAnchor());
+        M983Coupling.Hint hint = tractor.couplingHint();
+        boolean ready = hint != null && hint.ready();
+        float r = 0.2f;
+        float g = ready ? 1.0f : 0.8f;
+        float b = ready ? 0.2f : 1.0f;
+        cross(pose, lines, saddle, 0.35, r, g, b);
+        circle(pose, lines, saddle, M983Coupling.CAPTURE_DISTANCE, r, g, b);
+        if (hint != null) {
+            PatriotVehicleEntity trailer = tractor.level().getEntity(hint.trailerId()) instanceof PatriotVehicleEntity t
+                    ? t : null;
+            if (trailer != null) {
+                line(pose, lines, saddle, M983Coupling.kingpinWorld(trailer), ready ? 0.2f : 1.0f, ready ? 1.0f : 0.5f,
+                        0.1f);
+            }
+        }
+    }
+
+    private static void drawKingpin(PoseStack pose, VertexConsumer lines, PatriotVehicleEntity trailer, float pt) {
+        Vec3 pin = M983Coupling.worldOf(Mth.lerp(pt, trailer.xo, trailer.getX()),
+                Mth.lerp(pt, trailer.yo, trailer.getY()), Mth.lerp(pt, trailer.zo, trailer.getZ()),
+                Mth.rotLerp(pt, trailer.yRotO, trailer.getYRot()), Mth.lerp(pt, trailer.xRotO, trailer.getXRot()),
+                trailer.getRollLerp(pt), M983Coupling.kingpinAnchor());
+        boolean free = trailer.canBeCoupledNow();
+        float r = 1.0f;
+        float g = free ? 0.6f : 0.2f;
+        float b = 0.1f;
+        cross(pose, lines, pin, 0.35, r, g, b);
+        circle(pose, lines, pin, M983Coupling.CAPTURE_DISTANCE, r, g, b);
+        line(pose, lines, new Vec3(pin.x + M983Coupling.CAPTURE_DISTANCE, pin.y - M983Coupling.CAPTURE_HEIGHT, pin.z),
+                new Vec3(pin.x + M983Coupling.CAPTURE_DISTANCE, pin.y + M983Coupling.CAPTURE_HEIGHT, pin.z), r, g, b);
+        line(pose, lines, new Vec3(pin.x - M983Coupling.CAPTURE_DISTANCE, pin.y - M983Coupling.CAPTURE_HEIGHT, pin.z),
+                new Vec3(pin.x - M983Coupling.CAPTURE_DISTANCE, pin.y + M983Coupling.CAPTURE_HEIGHT, pin.z), r, g, b);
+    }
+
+    private static void cross(PoseStack pose, VertexConsumer lines, Vec3 at, double arm, float r, float g, float b) {
+        line(pose, lines, new Vec3(at.x - arm, at.y, at.z), new Vec3(at.x + arm, at.y, at.z), r, g, b);
+        line(pose, lines, new Vec3(at.x, at.y - arm, at.z), new Vec3(at.x, at.y + arm, at.z), r, g, b);
+        line(pose, lines, new Vec3(at.x, at.y, at.z - arm), new Vec3(at.x, at.y, at.z + arm), r, g, b);
+    }
+
+    private static void circle(PoseStack pose, VertexConsumer lines, Vec3 centre, double radius, float r, float g,
+            float b) {
+        int segments = 32;
+        Vec3 previous = new Vec3(centre.x + radius, centre.y, centre.z);
+        for (int i = 1; i <= segments; i++) {
+            double angle = 2.0 * Math.PI * i / segments;
+            Vec3 next = new Vec3(centre.x + radius * Math.cos(angle), centre.y, centre.z + radius * Math.sin(angle));
+            line(pose, lines, previous, next, r, g, b);
+            previous = next;
+        }
+    }
+
     private static void drawPatriotCells(PoseStack pose, VertexConsumer lines, PatriotVehicleEntity patriot) {
         PatriotHitbox model = PatriotHitbox.of(patriot.kind());
         PatriotPose posed = patriot.hitboxPose();
@@ -146,7 +212,6 @@ public final class HitboxDebugRenderer {
         java.util.Set<net.minecraft.core.BlockPos> cells = new java.util.HashSet<>();
         cells.addAll(PatriotClearance.supportCells(model, posed, at));
         cells.addAll(PatriotClearance.liftCells(model, posed, at));
-        cells.addAll(PatriotClearance.tractorCells(model, posed, at));
         for (net.minecraft.core.BlockPos p : cells) {
             if (solid.at(p.getX(), p.getY(), p.getZ())) {
                 LevelRenderer.renderLineBox(pose, lines, p.getX(), p.getY(), p.getZ(), p.getX() + 1.0, p.getY() + 1.0,

@@ -24,7 +24,7 @@ public final class PatriotPanelLayout {
 
     public static Layout compute(int screenW, int screenH, boolean launcher) {
         int pw = Math.min(MAX_WIDTH, screenW - 16);
-        int rows = 4;
+        int rows = 3;
         int ph = PAD + 16 + 3 + GAP + LINE_H + LINE_H + GAP + rows * (BUTTON_H + GAP) + BIG_BUTTON_H + PAD;
         int px = (screenW - pw) / 2;
         int py = (screenH - ph) / 2;
@@ -67,10 +67,6 @@ public final class PatriotPanelLayout {
             buttons.put(Command.SERVICE_OPEN, new Rect(x0, y, half, BUTTON_H));
             buttons.put(Command.SERVICE_CLOSE, new Rect(x0 + iw - half, y, half, BUTTON_H));
         }
-        y += BUTTON_H + GAP;
-
-        buttons.put(Command.DETACH, new Rect(x0, y, half, BUTTON_H));
-        buttons.put(Command.ATTACH, new Rect(x0 + iw - half, y, half, BUTTON_H));
         y += BUTTON_H + GAP;
 
         buttons.put(Command.DEPLOY, new Rect(x0, y, half, BIG_BUTTON_H));

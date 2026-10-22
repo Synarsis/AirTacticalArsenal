@@ -207,7 +207,7 @@ public final class LightDebug implements LayeredDraw.Layer {
                         LightPass.gpuTimed() ? "gpu" : "cpu", LightPass.floatBuffers() ? "16-bit" : "8-bit fallback"),
                 ShaderPackGuard.shaderPackInUse() ? "a shader pack is in use: the pass is off" : "no shader pack",
                 (bufferView ? "showing the light buffer; " : "") + (voxels ? "outlining the solidity volume; " : "")
-                        + (OccupancyVolume.active() ? "volume on" : "volume off")};
+                        + (OccupancyVolume.active() ? "volume on" : "volume off") + ", " + LightPass.lastBoxes() + " entity boxes"};
         int y = 4;
         for (String row : rows) {
             g.drawString(mc.font, row, 4, y, 0xFFFFD34D, true);

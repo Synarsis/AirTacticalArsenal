@@ -38,6 +38,9 @@ public record PatriotPosePacket(int vehicleId, float tractorRoll, float yaw, flo
             Entity entity = player.level().getEntity(payload.vehicleId());
             if (entity instanceof PatriotVehicleEntity vehicle && vehicle.getControllingPassenger() == player) {
                 vehicle.acceptPose(payload.tractorRoll(), payload.yaw(), payload.pitch(), payload.roll());
+            } else if (entity instanceof com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity tractor
+                    && tractor.getControllingPassenger() == player) {
+                tractor.acceptPose(payload.tractorRoll(), payload.yaw(), payload.pitch(), payload.roll());
             }
         });
     }

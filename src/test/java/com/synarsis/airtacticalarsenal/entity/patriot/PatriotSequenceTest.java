@@ -77,7 +77,7 @@ class PatriotSequenceTest {
     }
 
     @Test
-    @DisplayName("STOW lowers, closes the hatches, brings the tractor back and retracts the supports, in that order")
+    @DisplayName("STOW lowers, closes the hatches and retracts the supports, in that order")
     void stow() {
         PatriotSequence s = deployed(PatriotKind.LAUNCHER);
         ok(s, Command.STOW);
@@ -95,7 +95,7 @@ class PatriotSequenceTest {
     }
 
     @Test
-    @DisplayName("STOW of a detached, raised launcher with the turret turned centres, lowers, attaches and retracts")
+    @DisplayName("STOW of a raised launcher with the turret turned centres, lowers and retracts")
     void stowFromEverything() {
         PatriotSequence s = deployed(PatriotKind.LAUNCHER);
         ok(s, Command.TRAVERSE_RIGHT);
@@ -104,17 +104,13 @@ class PatriotSequenceTest {
             s.tick(Gate.OPEN);
         }
         assertEquals(PatriotSequence.TRAVERSE_STEP, s.traverse(), 1.0E-9);
-        ok(s, Command.DETACH);
-        run(s);
-        assertTrue(s.tractorOut() && s.latchOpen());
         ok(s, Command.STOW);
         int ticks = run(s);
         int expected = (int) Math.ceil(PatriotSequence.TRAVERSE_STEP * 2.0) + PatriotTiming.ERECTOR_TICKS
-                + PatriotTiming.TRACTOR_TICKS + PatriotTiming.LATCH_TICKS + PatriotTiming.SUPPORTS_TICKS;
+                + PatriotTiming.SUPPORTS_TICKS;
         assertEquals(expected, ticks, 2);
         assertEquals(0.0, s.traverse(), 1.0E-9);
         assertTrue(s.canDrive());
-        assertTrue(s.attached());
     }
 
     @Test
@@ -124,10 +120,8 @@ class PatriotSequenceTest {
         assertEquals(PatriotRefusal.NEED_SUPPORTS, s.can(Command.LIFT_UP, true));
         assertEquals(PatriotRefusal.ALREADY, s.can(Command.SUPPORTS_IN, true));
         assertEquals(PatriotRefusal.ALREADY, s.can(Command.LIFT_DOWN, true));
-        assertEquals(PatriotRefusal.ALREADY, s.can(Command.ATTACH, true));
         assertEquals(PatriotRefusal.ALREADY, s.can(Command.STOW, true));
         assertEquals(PatriotRefusal.MOVING, s.can(Command.DEPLOY, false));
-        assertEquals(PatriotRefusal.MOVING, s.can(Command.DETACH, false));
         assertEquals(PatriotRefusal.MOVING, s.can(Command.SUPPORTS_OUT, false));
         assertEquals(PatriotRefusal.NEED_LIFT_UP, s.can(Command.TRAVERSE_LEFT, true));
         assertEquals(PatriotRefusal.WRONG_VEHICLE, s.can(Command.SERVICE_OPEN, true));
@@ -182,58 +176,22 @@ class PatriotSequenceTest {
     }
 
     @Test
-    @DisplayName("DETACH goes supports, latch, tractor; ATTACH goes tractor, latch and leaves the supports out")
-    void detachAndAttach() {
-        PatriotSequence s = launcher();
-        ok(s, Command.DETACH);
-        int unlatched = 0;
-        int ticks = 0;
-        while (s.busy()) {
-            s.tick(Gate.OPEN);
-            ticks++;
-            if (s.finished() == Op.UNLATCH) {
-                unlatched = ticks;
-                assertFalse(s.linked(), "the link goes when the latch opens");
-            }
-        }
-        assertEquals(PatriotTiming.SUPPORTS_TICKS + PatriotTiming.LATCH_TICKS, unlatched);
-        assertEquals(PatriotTiming.SUPPORTS_TICKS + PatriotTiming.LATCH_TICKS + PatriotTiming.TRACTOR_TICKS, ticks);
-        assertTrue(s.supports() && s.tractorOut() && s.latchOpen() && s.detached());
-        assertFalse(s.canDrive());
-        assertEquals(PatriotRefusal.ALREADY, s.can(Command.DETACH, true));
-        assertEquals(PatriotRefusal.NEED_COUPLED, s.can(Command.SUPPORTS_IN, true));
-
-        ok(s, Command.ATTACH);
-        int back = run(s);
-        assertEquals(PatriotTiming.TRACTOR_TICKS + PatriotTiming.LATCH_TICKS, back);
-        assertTrue(s.attached() && s.linked() && s.supports());
-        assertFalse(s.canDrive());
-        ok(s, Command.SUPPORTS_IN);
-        run(s);
-        assertTrue(s.canDrive());
-    }
-
-    @Test
     @DisplayName("when the place check refuses an operation the queue is dropped and the reason is kept")
     void gateDropsTheQueue() {
         PatriotSequence s = launcher();
-        ok(s, Command.DETACH);
-        Gate noRoom = op -> op == Op.TRACTOR_OUT
-                ? new PatriotRefusal.Denial(PatriotRefusal.TRACTOR_NO_ROOM, "1 2 3") : PatriotRefusal.Denial.NONE;
+        ok(s, Command.DEPLOY);
+        Gate noRoom = op -> op == Op.RAISE
+                ? new PatriotRefusal.Denial(PatriotRefusal.LIFT_BLOCKED, "1 2 3") : PatriotRefusal.Denial.NONE;
         run(s, noRoom);
         PatriotRefusal.Denial denial = s.takeDropped();
-        assertEquals(PatriotRefusal.TRACTOR_NO_ROOM, denial.reason());
+        assertEquals(PatriotRefusal.LIFT_BLOCKED, denial.reason());
         assertEquals("1 2 3", denial.args()[0]);
         assertTrue(s.takeDropped().ok());
-        assertTrue(s.supports() && s.latchOpen() && !s.tractorOut());
-        assertFalse(s.linked());
-        assertEquals(PatriotRefusal.NONE, s.can(Command.ATTACH, true));
-        ok(s, Command.ATTACH);
-        assertEquals(PatriotTiming.LATCH_TICKS, run(s));
-        assertTrue(s.attached());
-
-        ok(s, Command.DETACH);
-        assertEquals(PatriotTiming.LATCH_TICKS + PatriotTiming.TRACTOR_TICKS, run(s));
+        assertTrue(s.supports() && !s.lift());
+        assertEquals(PatriotRefusal.NONE, s.can(Command.LIFT_UP, true));
+        ok(s, Command.LIFT_UP);
+        assertEquals(PatriotTiming.ERECTOR_TICKS, run(s));
+        assertTrue(s.lift());
     }
 
     @Test
@@ -302,84 +260,33 @@ class PatriotSequenceTest {
     }
 
     @Test
-    @DisplayName("the doors open for 36 ticks, hold, and close for 36; a new pulse while they are open holds them longer")
-    void doors() {
-        PatriotSequence s = launcher();
-        s.pulseDoors();
-        assertEquals(TelPose.Clip.OPENING, s.groupClip(PatriotBones.DOORS));
-        for (int i = 0; i < PatriotTiming.DOORS_TICKS; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(TelPose.Clip.HELD, s.groupClip(PatriotBones.DOORS));
-        for (int i = 0; i < 20; i++) {
-            s.tick(Gate.OPEN);
-        }
-        s.pulseDoors();
-        for (int i = 0; i < PatriotSequence.DOOR_HOLD_TICKS - 1; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(TelPose.Clip.HELD, s.groupClip(PatriotBones.DOORS));
-        s.tick(Gate.OPEN);
-        assertEquals(TelPose.Clip.CLOSING, s.groupClip(PatriotBones.DOORS));
-        for (int i = 0; i < PatriotTiming.DOORS_TICKS; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(TelPose.Clip.REST, s.groupClip(PatriotBones.DOORS));
-        assertFalse(s.busy(), "the doors are only a pose");
-    }
-
-    @Test
-    @DisplayName("a pulse while the doors are closing reopens them once they are shut, never mid-swing")
-    void doorsReopen() {
-        PatriotSequence s = launcher();
-        s.pulseDoors();
-        for (int i = 0; i < PatriotTiming.DOORS_TICKS + PatriotSequence.DOOR_HOLD_TICKS + 5; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(TelPose.Clip.CLOSING, s.groupClip(PatriotBones.DOORS));
-        s.pulseDoors();
-        assertEquals(TelPose.Clip.CLOSING, s.groupClip(PatriotBones.DOORS));
-        for (int i = 0; i < PatriotTiming.DOORS_TICKS - 5; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(TelPose.Clip.OPENING, s.groupClip(PatriotBones.DOORS));
-        assertEquals(0, s.groupAge(PatriotBones.DOORS));
-    }
-
-    @Test
-    @DisplayName("the tractor and latch progress follow the operation, smoothly and in the right direction")
+    @DisplayName("the supports progress follows the operation smoothly and in the right direction")
     void progress() {
         PatriotSequence s = launcher();
-        ok(s, Command.DETACH);
-        while (s.current() != Op.TRACTOR_OUT) {
+        assertEquals(0.0, s.supportsProgress(0.0f), 1.0E-9);
+        ok(s, Command.SUPPORTS_OUT);
+        for (int i = 0; i < PatriotTiming.SUPPORTS_TICKS / 2; i++) {
             s.tick(Gate.OPEN);
         }
-        assertEquals(0.0, s.tractorProgress(0.0f), 1.0E-9);
-        assertEquals(1.0, s.latchProgress(0.0f), 1.0E-9);
-        for (int i = 0; i < PatriotTiming.TRACTOR_TICKS / 2; i++) {
-            s.tick(Gate.OPEN);
-        }
-        assertEquals(0.5, s.tractorProgress(0.0f), 1.0E-9);
+        assertEquals(0.5, s.supportsProgress(0.0f), 1.0E-9);
         run(s);
-        assertEquals(1.0, s.tractorProgress(0.0f), 1.0E-9);
-        ok(s, Command.ATTACH);
+        assertEquals(1.0, s.supportsProgress(0.0f), 1.0E-9);
+        ok(s, Command.SUPPORTS_IN);
         s.tick(Gate.OPEN);
-        assertEquals(Op.TRACTOR_IN, s.current());
-        assertTrue(s.tractorProgress(0.0f) > 0.99);
+        assertTrue(s.supportsProgress(0.0f) > 0.99);
         run(s);
-        assertEquals(0.0, s.tractorProgress(0.0f), 1.0E-9);
-        assertEquals(0.0, s.latchProgress(0.0f), 1.0E-9);
+        assertEquals(0.0, s.supportsProgress(0.0f), 1.0E-9);
     }
 
     @Test
     @DisplayName("loading from a save in the middle of an operation finishes it at once, queue included")
     void restoreFinishesInstantly() {
         PatriotSequence s = launcher();
-        ok(s, Command.DETACH);
-        for (int i = 0; i < PatriotTiming.SUPPORTS_TICKS + 5; i++) {
+        ok(s, Command.DEPLOY);
+        for (int i = 0; i < PatriotTiming.SUPPORTS_TICKS - 5; i++) {
             s.tick(Gate.OPEN);
         }
-        assertEquals(Op.UNLATCH, s.current());
+        assertEquals(Op.SUPPORTS_OUT, s.current());
         PatriotSequence.Snapshot saved = s.snapshot();
         assertEquals(1, saved.queue().length);
 
@@ -387,8 +294,8 @@ class PatriotSequenceTest {
         loaded.restore(saved);
         assertFalse(loaded.busy());
         assertNull(loaded.current());
-        assertTrue(loaded.supports() && loaded.latchOpen() && loaded.tractorOut());
-        assertEquals(1.0, loaded.tractorProgress(0.0f), 1.0E-9);
+        assertTrue(loaded.supports() && loaded.lift());
+        assertEquals(1.0, loaded.supportsProgress(0.0f), 1.0E-9);
 
         PatriotSequence mid = launcher();
         ok(mid, Command.DEPLOY);
@@ -398,6 +305,34 @@ class PatriotSequenceTest {
         PatriotSequence copy = launcher();
         copy.restore(mid.snapshot());
         assertTrue(copy.supports() && copy.lift() && !copy.busy());
+    }
+
+    @Test
+    @DisplayName("a save of the stage seven numbering is read by the old operation table")
+    void stageSevenNumbers() {
+        assertEquals(Op.SUPPORTS_OUT, Op.byStageSevenOrdinal(0));
+        assertEquals(Op.SERVICE_CLOSE, Op.byStageSevenOrdinal(7));
+        assertNull(Op.byStageSevenOrdinal(8));
+        assertNull(Op.byStageSevenOrdinal(9));
+        assertNull(Op.byStageSevenOrdinal(10));
+        assertNull(Op.byStageSevenOrdinal(11));
+        assertEquals(Op.CENTER, Op.byStageSevenOrdinal(12));
+        assertNull(Op.byStageSevenOrdinal(13));
+        assertNull(Op.byStageSevenOrdinal(-1));
+
+        PatriotSequence.Snapshot running = new PatriotSequence.Snapshot(false, false, false, 0.0, 0.0, 3, 5,
+                new int[] {8, 9, 0});
+        PatriotSequence loaded = launcher();
+        loaded.restore(running, true);
+        assertTrue(loaded.supports(), "the queued SUPPORTS_OUT is kept, the removed operations are dropped");
+        assertFalse(loaded.lift(), "the running operation was LOWER");
+
+        PatriotSequence.Snapshot centring = new PatriotSequence.Snapshot(false, true, false, 12.0, 0.0, 12, 5,
+                new int[0]);
+        PatriotSequence centred = launcher();
+        centred.restore(centring, true);
+        assertEquals(0.0, centred.traverse(), 1.0E-9);
+        assertEquals(0.0, centred.traverseTarget(), 1.0E-9);
     }
 
     @Test
@@ -444,7 +379,7 @@ class PatriotSequenceTest {
     }
 
     @Test
-    @DisplayName("driving is allowed only when coupled, supports in, nothing raised, hatches shut and no operation")
+    @DisplayName("towing is allowed only with the supports in, nothing raised, hatches shut and no operation")
     void driveConditions() {
         PatriotSequence s = launcher();
         assertTrue(s.canDrive());
@@ -459,7 +394,5 @@ class PatriotSequenceTest {
         assertEquals(PatriotRefusal.SERVICE_OPEN, snapshot.whyNotDrive());
         PatriotSequence lifted = PatriotSequence.view(PatriotKind.RADAR, PatriotSequence.LIFT_BIT, -1, 0, 0);
         assertEquals(PatriotRefusal.LIFT_NOT_DOWN, lifted.whyNotDrive());
-        PatriotSequence detached = PatriotSequence.view(PatriotKind.RADAR, PatriotSequence.TRACTOR_OUT_BIT, -1, 0, 0);
-        assertEquals(PatriotRefusal.NEED_COUPLED, detached.whyNotDrive());
     }
 }

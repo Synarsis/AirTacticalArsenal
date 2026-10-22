@@ -1,7 +1,7 @@
 package com.synarsis.airtacticalarsenal.vehicle.physics;
 
 import com.synarsis.airtacticalarsenal.client.model.IskanderTelModel;
-import com.synarsis.airtacticalarsenal.entity.patriot.PatriotJolt;
+import com.synarsis.airtacticalarsenal.entity.patriot.TractorDrive;
 import com.synarsis.airtacticalarsenal.entity.tel.TelDriving;
 import com.synarsis.airtacticalarsenal.entity.tel.TelInput;
 import com.synarsis.airtacticalarsenal.entity.tel.physics.TelEngine;
@@ -54,21 +54,22 @@ class JoltSteeringTest {
     }
 
     @Test
-    @DisplayName("the Patriot train: the same keys turn it the same way")
-    void trainKeys() {
+    @DisplayName("the M983 tractor: the same keys turn it the same way")
+    void tractorKeys() {
         for (boolean right : new boolean[] {true, false}) {
-            try (TrainRig rig = new TrainRig(TrainRig.FLAT, TrainSpec.launcherDefaults(), START_X, START_Z, 0.0)) {
+            try (VehicleRig rig = new VehicleRig(VehicleRig.FLAT, TrainSpec.m983TractorDefaults(), START_X, START_Z,
+                    0.0)) {
                 rig.run(60);
-                JoltVehicle.Snapshot start = rig.train.tractor().snapshot();
+                JoltVehicle.Snapshot start = rig.vehicle.snapshot();
                 int keys = TelInput.FWD | (right ? TelInput.RIGHT : TelInput.LEFT);
                 for (int i = 0; i < 60; i++) {
-                    rig.train.tractor().setControls(PatriotJolt.controlsFor(keys));
+                    rig.vehicle.setControls(TractorDrive.controlsFor(keys));
                     rig.run(1);
                 }
-                JoltVehicle.Snapshot end = rig.train.tractor().snapshot();
+                JoltVehicle.Snapshot end = rig.vehicle.snapshot();
                 double turned = PoseMath.wrapDegrees(end.yawDeg() - start.yawDeg());
-                say(String.format(Locale.ROOT, "RESULT train %s key 3 s: yaw %.1f, x %.2f", right ? "right" : "left", turned,
-                        end.x() - start.x()));
+                say(String.format(Locale.ROOT, "RESULT tractor %s key 3 s: yaw %.1f, x %.2f", right ? "right" : "left",
+                        turned, end.x() - start.x()));
                 if (right) {
                     assertTrue(turned > 10.0 && end.x() < start.x() - 0.5, "right: yaw " + turned + " x " + end.x());
                 } else {
@@ -123,7 +124,7 @@ class JoltSteeringTest {
     @Test
     @DisplayName("the yaw assist helps a turn: at 40 km/h on full lock the yaw rate is no lower with it than without")
     void assistHelps() {
-        for (VehicleSpec base : new VehicleSpec[] {VehicleSpec.defaults(), TrainSpec.tractorDefaults()}) {
+        for (VehicleSpec base : new VehicleSpec[] {VehicleSpec.defaults(), TrainSpec.m983TractorDefaults()}) {
             for (double steer : new double[] {1.0, -1.0}) {
                 VehicleSpec with = VehicleSpec.parse(base.toJson());
                 VehicleSpec without = VehicleSpec.parse(base.toJson());
