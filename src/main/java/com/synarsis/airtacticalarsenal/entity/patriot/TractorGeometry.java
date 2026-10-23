@@ -1,6 +1,7 @@
 package com.synarsis.airtacticalarsenal.entity.patriot;
 
 import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class TractorGeometry {
@@ -32,12 +33,26 @@ public final class TractorGeometry {
 
     public static final int SEAT_COUNT = 2;
     public static final int PART_COUNT = 4;
-    public static final double[] PART_Z = {-0.875, 2.125, 5.125, 8.125};
+    public static final double[] PART_Z = {-0.6, 2.125, 5.125, 8.5};
+    public static final double[] PART_WIDTH = {2.3, 3.0, 3.0, 3.2};
+    public static final double[] PART_HEIGHT = {1.2, 1.3, 1.3, HEIGHT};
 
     public static final double CULL_HALF_XZ = 12.0;
     public static final double CULL_HEIGHT = 8.0;
 
     private TractorGeometry() {
+    }
+
+    public static double partWidth(int index) {
+        return PART_WIDTH[index];
+    }
+
+    public static double partHeight(int index) {
+        return PART_HEIGHT[index];
+    }
+
+    public static AABB rootBox(double x, double y, double z) {
+        return new AABB(x - 0.6, y + 1.4, z - 0.6, x + 0.6, y + 2.6, z + 0.6);
     }
 
     public static Vec3 partPosition(int index, double x, double y, double z, float yawDeg, float pitchDeg,

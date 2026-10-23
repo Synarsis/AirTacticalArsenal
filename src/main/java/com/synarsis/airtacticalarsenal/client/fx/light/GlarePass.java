@@ -10,13 +10,16 @@ import org.joml.Vector3f;
 import org.lwjgl.opengl.GL30;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 final class GlarePass {
     private record Eye(AtaLights.Light light, Vec3 position, double strength) {
     }
     private static final int[][] TARGETS = new int[2][];
     private static final List<Eye> EYES = new ArrayList<>();
+    private static final Map<Integer, Integer> SLOTS = new HashMap<>();
     private static int current;
     private static long lastFrame;
     private static boolean valid;
@@ -48,6 +51,7 @@ final class GlarePass {
         if (EYES.isEmpty()) {
             lastFrame = 0;
             valid = false;
+            SLOTS.clear();
             return;
         }
         for (int index = 0; index < 2; index++) {
@@ -70,7 +74,17 @@ final class GlarePass {
         shader.setSampler("PreviousSampler", TARGETS[current][1]);
         shader.safeGetUniform("Proj").set(projection);
         shader.safeGetUniform("DepthSize").set((float) width, (float) height);
-        shader.safeGetUniform("Timing").set(elapsed, valid ? 1.0f : 0.0f);
+        shader.safeGetUniform("InvProj").set(new Matrix4f(projection).invert());
+        shader.safeGetUniform("Timing").set(elapsed, valid ? 1.0f : 0.0f, (float) GlareMath.LAMP_RADIUS, 0.0f);
+        float[] before = new float[4];
+        for (int index = 0; index < 4; index++) {
+            before[index] = index < EYES.size() ? GlareMath.previousSlot(SLOTS, EYES.get(index).light.id) : -1.0f;
+        }
+        shader.safeGetUniform("Slots").set(before[0], before[1], before[2], before[3]);
+        SLOTS.clear();
+        for (int index = 0; index < EYES.size(); index++) {
+            SLOTS.put(EYES.get(index).light.id, index);
+        }
         for (int index = 0; index < 4; index++) {
             Eye eye = index < EYES.size() ? EYES.get(index) : null;
             shader.safeGetUniform("Eye" + index).set(eye == null ? 0.0f : (float) eye.position.x,
@@ -97,6 +111,7 @@ final class GlarePass {
         valid = false;
         lastFrame = 0;
         EYES.clear();
+        SLOTS.clear();
     }
 
     static void release() {

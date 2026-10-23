@@ -52,8 +52,11 @@ public final class HeadlightFx {
 
     private static final double HALO_RANGE = 96.0;
     private static final double HIDDEN_SLACK = 0.6;
+    private static final float FADE_FLOOR = 0.01f;
 
     static final int LEASE_TICKS = 2;
+
+    private static long lastRender;
 
     interface Mount {
         Vec3 world(double[] local, float partialTick);
@@ -75,6 +78,7 @@ public final class HeadlightFx {
         final List<AtaLights.Light> tails = new ArrayList<>();
         final VehicleLamps lamps;
         final boolean[] visible;
+        final float[] fade;
         Mount mount;
         long lastTick;
         int mode = 1;
@@ -83,6 +87,7 @@ public final class HeadlightFx {
         Set(VehicleLamps lamps) {
             this.lamps = lamps;
             this.visible = new boolean[lamps.lamps().size()];
+            this.fade = new float[lamps.lamps().size()];
         }
     }
 
@@ -306,10 +311,17 @@ public final class HeadlightFx {
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(true);
         Camera camera = event.getCamera();
         Vec3 eye = camera.getPosition();
+        long now = System.nanoTime();
+        double frameSeconds = lastRender == 0 ? 0.0 : Math.min((now - lastRender) / 1.0e9, 0.25);
+        lastRender = now;
         List<Draw> draws = new ArrayList<>();
         for (Set set : LIT.values()) {
             if (set.mount == null) {
                 continue;
+            }
+            for (int lamp = 0; lamp < set.fade.length; lamp++) {
+                set.fade[lamp] = (float) GlareMath.smoothSeen(set.fade[lamp], set.visible[lamp] ? 1.0 : 0.0,
+                        frameSeconds);
             }
             Vec3 axis = set.mount.beam(partial);
             for (AtaLights.Light head : set.heads) {
@@ -322,14 +334,15 @@ public final class HeadlightFx {
             for (VehicleLamps.Lamp lamp : set.lamps.lamps()) {
                 AtaLights.Light head = lamp.kind() == VehicleLamps.Kind.HEAD || lamp.kind() == VehicleLamps.Kind.BEAM
                         ? set.heads.get(headIndex++) : null;
-                if (set.visible[index++] && lamp.kind() != VehicleLamps.Kind.BEAM) {
+                float fade = set.fade[index++];
+                if (fade > FADE_FLOOR && lamp.kind() != VehicleLamps.Kind.BEAM) {
                     Vec3 location = set.mount.world(array(lamp.local()), partial);
                     double eyeLight = 0.0;
                     if (lamp.kind() == VehicleLamps.Kind.HEAD && head != null
                             && AtaClientConfig.getFxLighting().glare(AtaClientConfig.isFxGlareEnabled())) {
                         eyeLight = GlarePass.eye(head, eye, partial);
                     }
-                    draws.add(new Draw(location, lamp, (float) GlareMath.halo(eyeLight)));
+                    draws.add(new Draw(location, lamp, (float) GlareMath.halo(eyeLight), fade));
                 }
             }
         }
@@ -340,7 +353,7 @@ public final class HeadlightFx {
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder buffer = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.PARTICLE);
         for (Draw draw : draws) {
-            quad(buffer, rotation, eye, draw.at(), draw.lamp(), sprite, draw.scale());
+            quad(buffer, rotation, eye, draw.at(), draw.lamp(), sprite, draw.scale(), draw.alpha());
         }
         MeshData mesh = buffer.build();
         if (mesh == null) {
@@ -359,26 +372,26 @@ public final class HeadlightFx {
         RenderSystem.enableCull();
     }
 
-    private record Draw(Vec3 at, VehicleLamps.Lamp lamp, float scale) {
+    private record Draw(Vec3 at, VehicleLamps.Lamp lamp, float scale, float alpha) {
     }
 
     private static void quad(BufferBuilder buffer, Quaternionf rotation, Vec3 eye, Vec3 at, VehicleLamps.Lamp lamp,
-            TextureAtlasSprite sprite, float scale) {
+            TextureAtlasSprite sprite, float scale, float alpha) {
         float size = lamp.size() * 0.5f * scale;
         float x = (float) (at.x - eye.x);
         float y = (float) (at.y - eye.y);
         float z = (float) (at.z - eye.z);
-        vertex(buffer, rotation, x, y, z, 1.0f, -1.0f, size, sprite.getU1(), sprite.getV1(), lamp);
-        vertex(buffer, rotation, x, y, z, 1.0f, 1.0f, size, sprite.getU1(), sprite.getV0(), lamp);
-        vertex(buffer, rotation, x, y, z, -1.0f, 1.0f, size, sprite.getU0(), sprite.getV0(), lamp);
-        vertex(buffer, rotation, x, y, z, -1.0f, -1.0f, size, sprite.getU0(), sprite.getV1(), lamp);
+        vertex(buffer, rotation, x, y, z, 1.0f, -1.0f, size, sprite.getU1(), sprite.getV1(), lamp, alpha);
+        vertex(buffer, rotation, x, y, z, 1.0f, 1.0f, size, sprite.getU1(), sprite.getV0(), lamp, alpha);
+        vertex(buffer, rotation, x, y, z, -1.0f, 1.0f, size, sprite.getU0(), sprite.getV0(), lamp, alpha);
+        vertex(buffer, rotation, x, y, z, -1.0f, -1.0f, size, sprite.getU0(), sprite.getV1(), lamp, alpha);
     }
 
     private static void vertex(BufferBuilder buffer, Quaternionf rotation, float x, float y, float z, float ox,
-            float oy, float size, float u, float v, VehicleLamps.Lamp lamp) {
+            float oy, float size, float u, float v, VehicleLamps.Lamp lamp, float alpha) {
         Vector3f offset = new Vector3f(ox, oy, 0.0f).rotate(rotation).mul(size).add(x, y, z);
         buffer.addVertex(offset.x(), offset.y(), offset.z()).setUv(u, v)
-                .setColor(lamp.red(), lamp.green(), lamp.blue(), 1.0f).setLight(LightTexture.FULL_BRIGHT);
+                .setColor(lamp.red(), lamp.green(), lamp.blue(), alpha).setLight(LightTexture.FULL_BRIGHT);
     }
 
     private static Vec3 world(IskanderTelEntity tel, double[] local, float partialTick) {

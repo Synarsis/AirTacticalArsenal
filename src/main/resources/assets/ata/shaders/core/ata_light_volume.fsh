@@ -24,6 +24,7 @@ uniform vec4 OccMod;
 uniform vec4 Boxes;
 uniform vec4 Scatter;
 uniform vec2 WetRoad;
+uniform float DebugView;
 
 in vec2 texCoord;
 
@@ -37,6 +38,20 @@ vec3 viewPosition(vec2 uv, float depth) {
     vec4 clip = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     vec4 v = InvProj * clip;
     return v.xyz / v.w;
+}
+
+const float SNAP_COSINE = 0.9659258;
+
+vec3 snapNormal(vec3 n) {
+    vec3 w = mat3(InvView) * n;
+    vec3 a = abs(w);
+    float m = max(a.x, max(a.y, a.z));
+    if (m < SNAP_COSINE) {
+        return n;
+    }
+    vec3 axis = a.x >= a.y && a.x >= a.z ? vec3(w.x < 0.0 ? -1.0 : 1.0, 0.0, 0.0)
+        : a.y >= a.z ? vec3(0.0, w.y < 0.0 ? -1.0 : 1.0, 0.0) : vec3(0.0, 0.0, w.z < 0.0 ? -1.0 : 1.0);
+    return transpose(mat3(InvView)) * axis;
 }
 
 vec3 surfaceNormal(vec2 uv, vec3 c) {
@@ -56,7 +71,7 @@ vec3 surfaceNormal(vec2 uv, vec3 c) {
     if (dot(n, -c) < 0.0) {
         n = -n;
     }
-    return n;
+    return snapNormal(n);
 }
 
 float contactShadow(vec3 p, vec3 toLight, float d) {
@@ -248,8 +263,9 @@ float rayShadow(vec3 from, vec3 to) {
     return s;
 }
 
-float noiseAt(vec2 frag) {
-    return fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
+float shadowNoise(vec3 stable) {
+    vec3 cell = mod(floor(stable * 16.0), vec3(2048.0, 1024.0, 2048.0));
+    return fract(52.9829189 * fract(dot(cell, vec3(0.06711056, 0.00583715, 0.0123456))));
 }
 
 float blockShadow(vec3 p, vec3 n) {
@@ -265,7 +281,7 @@ float blockShadow(vec3 p, vec3 n) {
     vec3 up = abs(way.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
     vec3 across = normalize(cross(way, up));
     vec3 lift = cross(way, across);
-    float turn = noiseAt(gl_FragCoord.xy);
+    float turn = shadowNoise(world - OccOrigin.xyz + OccMod.xyz);
     float sum = 0.0;
     for (int i = 0; i < 4; i++) {
         if (i >= count) {
@@ -333,11 +349,11 @@ void main() {
     if (LightRight.w > 0.5) {
         spot = beamPattern(LightRight.w, -toL, LightDir.xyz, LightRight.xyz);
         attenuation = beamIrradiance(1.0, 1.0, d, radius);
-        fill = 0.07 * attenuation * spot;
+        fill = min(0.02 * attenuation * spot, 0.05);
     }
 
     vec3 n = vec3(0.0, 0.0, 1.0);
-    if (LightCone.w > 0.5 || Shadow.x > 0.5) {
+    if (LightCone.w > 0.5 || Shadow.x > 0.5 || LightRight.w > 0.5) {
         n = surfaceNormal(texCoord, p);
     }
     float shade = 0.6;
@@ -356,8 +372,17 @@ void main() {
     if (Shadow.x > 0.5 || Boxes.x > 0.5) {
         shadow = blockShadow(p, n);
     }
-    if (LightCone.z > 0.5) {
+    if (LightCone.z > 0.5 && LightRight.w < 0.5) {
         shadow *= contactShadow(p, l, d);
+    }
+
+    if (DebugView > 0.5) {
+        vec3 shown = DebugView < 3.5 ? mat3(InvView) * n * 0.5 + 0.5 : vec3(shadow);
+        fragColor = vec4(shown * AccScale, 0.0);
+        return;
+    }
+    if (LightRight.w > 0.5) {
+        fill *= clamp((dot(n, l) + 0.3) / 1.3, 0.0, 1.0) * mix(0.3, 1.0, shadow);
     }
 
     float fog = clamp((length(p) - FogRange.x) / max(FogRange.y - FogRange.x, 1.0e-3), 0.0, 1.0);

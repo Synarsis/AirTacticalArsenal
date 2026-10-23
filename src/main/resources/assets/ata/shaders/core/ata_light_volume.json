@@ -32,6 +32,7 @@
     { "name": "OccMod", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
     { "name": "Boxes", "type": "float", "count": 4, "values": [ 0.0, -1.0, 1.5, 0.15 ] },
     { "name": "Scatter", "type": "float", "count": 4, "values": [ 0.07, 0.04, 0.34, 0.5 ] },
-    { "name": "WetRoad", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] }
+    { "name": "WetRoad", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+    { "name": "DebugView", "type": "float", "count": 1, "values": [ 0.0 ] }
   ]
 }

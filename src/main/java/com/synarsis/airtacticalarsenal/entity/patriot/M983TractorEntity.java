@@ -1,5 +1,6 @@
 package com.synarsis.airtacticalarsenal.entity.patriot;
 
+import com.synarsis.airtacticalarsenal.entity.CrewAccess;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
 import com.synarsis.airtacticalarsenal.entity.tel.TelGeometry;
 import com.synarsis.airtacticalarsenal.entity.tel.TelHeadlights;
@@ -14,6 +15,7 @@ import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
 import com.synarsis.airtacticalarsenal.vehicle.physics.PoseMath;
 import com.synarsis.airtacticalarsenal.vehicle.physics.Units;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
+import com.synarsis.airtacticalarsenal.vehicle.physics.WheelSpin;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -734,14 +736,16 @@ public class M983TractorEntity extends Entity implements GeoEntity {
             this.engineLoad = this.jolt.load();
             this.steerNow = (float) this.jolt.steerDegrees();
             for (int i = 0; i < this.spinNow.length; i++) {
-                this.spinNow[i] = -(float) this.jolt.wheelRot(i % 2 == 0);
+                this.spinNow[i] = (float) WheelSpin.boneRotation(this.jolt.wheelRot(i % 2 == 0));
                 this.wheelLift[i] += (float) ((this.jolt.wheelOffset(i) - this.wheelLift[i]) * 0.6);
             }
         } else {
             double speed = Math.hypot(this.observedVelocity.x, this.observedVelocity.z) * Units.TICKS_PER_SECOND;
             this.speedKmh += ((float) Units.msToKmh(speed) - this.speedKmh) * 0.3f;
+            double yawRad = Math.toRadians(this.getYRot());
+            double forward = this.observedVelocity.z * Math.cos(yawRad) - this.observedVelocity.x * Math.sin(yawRad);
             for (int i = 0; i < this.spinNow.length; i++) {
-                this.spinNow[i] -= (float) (speed / 0.5875 * 0.05);
+                this.spinNow[i] += (float) WheelSpin.travelRotation(forward, TractorGeometry.WHEEL_RADIUS);
             }
         }
     }
@@ -850,9 +854,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     @Override
     protected AABB makeBoundingBox() {
         Vec3 p = this.position();
-        return new AABB(p.x - TractorGeometry.HALF_WIDTH, p.y, p.z - TractorGeometry.CULL_HALF_XZ,
-                p.x + TractorGeometry.HALF_WIDTH, p.y + TractorGeometry.HEIGHT,
-                p.z + TractorGeometry.CULL_HALF_XZ);
+        return TractorGeometry.rootBox(p.x, p.y, p.z);
     }
 
     @Override
@@ -1024,7 +1026,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     public boolean isCrewSeat(Entity player) {
-        return this.hasPassenger(player);
+        return CrewAccess.mayOperate(this.hasPassenger(player), this.seatOf(player), TractorGeometry.SEAT_COUNT);
     }
 
     @Nullable
@@ -1244,8 +1246,7 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     public void handleCommand(ServerPlayer player, byte command) {
-        if (this.level().isClientSide || this.destroyed || !this.isCrewSeat(player)
-                || player.distanceToSqr(this) > PANEL_RANGE * PANEL_RANGE) {
+        if (this.level().isClientSide || this.destroyed || !this.isCrewSeat(player)) {
             return;
         }
         if (command == CMD_HEADLIGHTS) {
@@ -1493,9 +1494,13 @@ public class M983TractorEntity extends Entity implements GeoEntity {
     }
 
     public static final class TractorPart extends PartEntity<M983TractorEntity> {
+        private final int index;
+
         public TractorPart(M983TractorEntity parent, int index) {
             super(parent);
+            this.index = index;
             this.setId(parent.getId() + index + 1);
+            this.refreshDimensions();
         }
 
         @Override
@@ -1516,13 +1521,29 @@ public class M983TractorEntity extends Entity implements GeoEntity {
         }
 
         @Override
+        public boolean shouldBeSaved() {
+            return false;
+        }
+
+        @Override
+        public boolean is(Entity entity) {
+            return this == entity || this.getParent() == entity;
+        }
+
+        @Override
+        public InteractionResult interact(Player player, InteractionHand hand) {
+            return this.getParent().interact(player, hand);
+        }
+
+        @Override
         public boolean hurt(DamageSource source, float amount) {
             return !this.isRemoved() && this.getParent().hurt(source, amount);
         }
 
         @Override
         public EntityDimensions getDimensions(Pose pose) {
-            return EntityDimensions.scalable(4.26f, 2.6f);
+            return EntityDimensions.scalable((float) TractorGeometry.partWidth(this.index),
+                    (float) TractorGeometry.partHeight(this.index));
         }
 
         @Override

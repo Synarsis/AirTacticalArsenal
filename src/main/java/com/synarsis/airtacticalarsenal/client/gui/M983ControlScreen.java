@@ -76,8 +76,7 @@ public class M983ControlScreen extends Screen {
     public void tick() {
         super.tick();
         if (this.minecraft == null || this.minecraft.player == null || this.tractor.isRemoved()
-                || this.minecraft.player.distanceToSqr(this.tractor) > M983TractorEntity.PANEL_RANGE
-                        * M983TractorEntity.PANEL_RANGE) {
+                || !this.tractor.isCrewSeat(this.minecraft.player)) {
             this.onClose();
             return;
         }

@@ -21,11 +21,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public class TelHud implements LayeredDraw.Layer {
 
-    private static final int MARGIN = 6;
-    private static final int PAD = 5;
-    private static final int WIDTH = 132;
-    private static final int HOTBAR_HALF = 91;
-    private static final int HOTBAR_HEIGHT = 24;
+    private static final int PAD = TelHudLayout.PAD;
 
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
@@ -39,11 +35,11 @@ public class TelHud implements LayeredDraw.Layer {
         Font font = mc.font;
         boolean crew = tel.isCrewSeat(mc.player);
 
-        int width = Math.min(WIDTH, Math.max(100, g.guiWidth() / 3));
         int height = PAD + 18 + 2 + 3 + 4 + 5 + 4 + 12 + 4 + 2 * 11 + (crew ? 12 + 11 : 0) + PAD - 2;
-        int x = MARGIN;
-        boolean clear = x + width + MARGIN <= g.guiWidth() / 2 - HOTBAR_HALF;
-        int y = g.guiHeight() - height - MARGIN - (clear ? 0 : HOTBAR_HEIGHT);
+        Rect place = TelHudLayout.panel(g.guiWidth(), g.guiHeight(), height);
+        int width = place.w();
+        int x = place.x();
+        int y = place.y();
 
         int stacked = 0;
         if (TelInput.traceEnabled) {

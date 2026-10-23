@@ -5,6 +5,7 @@ import com.synarsis.airtacticalarsenal.combat.hitbox.ObbProvider;
 import com.synarsis.airtacticalarsenal.combat.sweep.BulletSweep;
 import com.synarsis.airtacticalarsenal.compat.CreateCompat;
 import com.synarsis.airtacticalarsenal.config.ShahedConfig;
+import com.synarsis.airtacticalarsenal.entity.CrewAccess;
 import com.synarsis.airtacticalarsenal.entity.IskanderEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelBoneGroups;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelHitboxPose;
@@ -2087,11 +2088,7 @@ public class IskanderTelEntity extends Entity implements GeoEntity, ObbProvider,
     }
 
     private boolean isCrew(Entity player) {
-        if (!this.hasPassenger(player)) {
-            return false;
-        }
-        int seat = this.seatOf(player);
-        return seat == 0 || seat == 1;
+        return this.hasPassenger(player) && CrewAccess.mayOperate(true, this.seatOf(player), 2);
     }
 
     private double maxLaunchTilt() {

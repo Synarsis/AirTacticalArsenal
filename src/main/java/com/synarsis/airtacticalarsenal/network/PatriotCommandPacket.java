@@ -32,8 +32,7 @@ public record PatriotCommandPacket(int vehicleId, byte command) implements Custo
                 return;
             }
             Entity entity = player.level().getEntity(payload.vehicleId());
-            if (entity instanceof PatriotVehicleEntity vehicle
-                    && vehicle.distanceToSqr(player) <= PatriotVehicleEntity.PANEL_RANGE * PatriotVehicleEntity.PANEL_RANGE) {
+            if (entity instanceof PatriotVehicleEntity vehicle) {
                 vehicle.handleCommand(player, payload.command());
             }
         });

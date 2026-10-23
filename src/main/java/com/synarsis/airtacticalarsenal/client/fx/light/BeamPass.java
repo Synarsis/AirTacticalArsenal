@@ -98,8 +98,7 @@ final class BeamPass {
             shader.safeGetUniform("LightDir").set(direction.x, direction.y, direction.z, 0.0f);
             shader.safeGetUniform("LightRight").set(right.x, right.y, right.z, (float) light.headlightMode());
             shader.safeGetUniform("LightColor").set(light.red(), light.green(), light.blue(), (float) light.strength(partial));
-            shader.safeGetUniform("BeamParams").set(AtaClientConfig.getFxLightIntensity(), (float) index,
-                    (float) (level.getGameTime() & 1023), 0.0f);
+            shader.safeGetUniform("BeamParams").set(AtaClientConfig.getFxLightIntensity(), (float) index, 0.0f, 0.0f);
             LightPass.quad(rect[0], rect[1], rect[2], rect[3]);
         }
         shader.clear();

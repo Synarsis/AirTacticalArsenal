@@ -1,5 +1,6 @@
 package com.synarsis.airtacticalarsenal.client.model;
 
+import com.synarsis.airtacticalarsenal.vehicle.physics.WheelSpin;
 import com.synarsis.airtacticalarsenal.AirTacticalArsenal;
 import com.synarsis.airtacticalarsenal.entity.tel.IskanderTelEntity;
 import com.synarsis.airtacticalarsenal.entity.tel.hitbox.TelAnimSampler;
@@ -23,7 +24,6 @@ public class IskanderTelModel extends GeoModel<IskanderTelEntity> {
     private static final ResourceLocation ANIMATION = ResourceLocation.fromNamespaceAndPath(AirTacticalArsenal.MODID,
             "animations/iskander_tel_loaded.animation.json");
 
-    private static final double WHEEL_SPIN_SIGN = -1.0;
     private static final double STEER_SIGN = -1.0;
 
     public static double steerRotationY(double steerDegrees) {
@@ -94,8 +94,8 @@ public class IskanderTelModel extends GeoModel<IskanderTelEntity> {
 
     private void applyProceduralBones(IskanderTelEntity entity, float partialTick) {
         double steer = steerRotationY(entity.getSteerDegrees(partialTick));
-        double spinLeft = entity.getWheelRot(true, partialTick) * WHEEL_SPIN_SIGN;
-        double spinRight = entity.getWheelRot(false, partialTick) * WHEEL_SPIN_SIGN;
+        double spinLeft = WheelSpin.boneRotation(entity.getWheelRot(true, partialTick));
+        double spinRight = WheelSpin.boneRotation(entity.getWheelRot(false, partialTick));
         for (int axle = 0; axle < 4; axle++) {
             double turn = axle == 3 ? steer : (axle == 2 ? steer * 0.6 : 0.0);
             setWheel("wheel_right_" + axle, spinLeft, turn, entity.getWheelOffset(axle * 2, partialTick));

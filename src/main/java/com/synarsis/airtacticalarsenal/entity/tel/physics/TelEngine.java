@@ -153,8 +153,8 @@ public final class TelEngine {
 
     public static void advanceWheels(TelEngineState s, double rolled, double speed, double wheelRadius) {
         double diff = clamp(0.5 * s.deltaRot, -5.0, 5.0) * speed;
-        s.wheelRotL -= (rolled + diff) / wheelRadius;
-        s.wheelRotR -= (rolled - diff) / wheelRadius;
+        s.wheelRotL += (rolled + diff) / wheelRadius;
+        s.wheelRotR += (rolled - diff) / wheelRadius;
     }
 
     public static void observe(TelEngineState s, double vx, double vy, double vz,

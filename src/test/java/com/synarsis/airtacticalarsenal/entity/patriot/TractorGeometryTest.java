@@ -146,4 +146,36 @@ class TractorGeometryTest {
         assertEquals(TractorGeometry.REAR_Z, raw[2] / 16.0, 1.0E-4);
         assertEquals(TractorGeometry.FRONT_Z, raw[5] / 16.0, 1.0E-4);
     }
+
+    @Test
+    @DisplayName("the root hit box is a small box, not the length of the vehicle")
+    void rootBox() {
+        net.minecraft.world.phys.AABB box = TractorGeometry.rootBox(10.0, 64.0, 20.0);
+        assertTrue(box.getXsize() <= 2.0 && box.getZsize() <= 2.0, box.toString());
+        assertTrue(box.minY >= 64.0 && box.maxY <= 64.0 + TractorGeometry.HEIGHT);
+    }
+
+    @Test
+    @DisplayName("part boxes stay inside the model and cover it end to end")
+    void parts() {
+        double from = Double.MAX_VALUE;
+        double to = -Double.MAX_VALUE;
+        for (int i = 0; i < TractorGeometry.PART_COUNT; i++) {
+            double half = TractorGeometry.partWidth(i) * 0.5;
+            assertTrue(half <= TractorGeometry.HALF_WIDTH, "part " + i + " is wider than the model");
+            assertTrue(TractorGeometry.partHeight(i) <= TractorGeometry.HEIGHT + 1.0E-6);
+            from = Math.min(from, TractorGeometry.PART_Z[i] - half);
+            to = Math.max(to, TractorGeometry.PART_Z[i] + half);
+        }
+        assertTrue(from >= TractorGeometry.REAR_Z - 0.3, "parts start at " + from);
+        assertTrue(to <= TractorGeometry.FRONT_Z + 0.3, "parts end at " + to);
+        assertTrue(from <= TractorGeometry.REAR_Z + 0.3 && to >= TractorGeometry.FRONT_Z - 0.3);
+    }
+
+    @Test
+    @DisplayName("the cab part is as tall as the model, the frame parts are low")
+    void partHeights() {
+        assertEquals(TractorGeometry.HEIGHT, TractorGeometry.partHeight(TractorGeometry.PART_COUNT - 1), 1.0E-6);
+        assertTrue(TractorGeometry.partHeight(1) < 2.0);
+    }
 }

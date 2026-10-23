@@ -64,6 +64,46 @@ public final class LightMath {
         return FILL * attenuation(d, FILL_REACH * radius) * front;
     }
 
+    public static final double HEADLIGHT_FILL_GAIN = 0.02;
+    public static final double HEADLIGHT_FILL_CAP = 0.05;
+    public static final double HEADLIGHT_FILL_WRAP = 0.3;
+    public static final double HEADLIGHT_FILL_SHADOWED = 0.3;
+
+    public static double headlightFill(double irradiance, double normalDotLight, double shadow) {
+        double lit = saturate((normalDotLight + HEADLIGHT_FILL_WRAP) / (1.0 + HEADLIGHT_FILL_WRAP));
+        double kept = HEADLIGHT_FILL_SHADOWED + (1.0 - HEADLIGHT_FILL_SHADOWED) * saturate(shadow);
+        return Math.min(HEADLIGHT_FILL_GAIN * irradiance, HEADLIGHT_FILL_CAP) * lit * kept;
+    }
+
+    public static final double SHADOW_TEXEL = 1.0 / 16.0;
+    public static final double SNAP_DEGREES = 15.0;
+
+    public static double shadowNoise(double x, double y, double z) {
+        double cx = Math.floorMod((long) Math.floor(x / SHADOW_TEXEL), 2048L);
+        double cy = Math.floorMod((long) Math.floor(y / SHADOW_TEXEL), 1024L);
+        double cz = Math.floorMod((long) Math.floor(z / SHADOW_TEXEL), 2048L);
+        double inner = cx * 0.06711056 + cy * 0.00583715 + cz * 0.0123456;
+        double a = 52.9829189 * (inner - Math.floor(inner));
+        return a - Math.floor(a);
+    }
+
+    public static double[] snapNormal(double[] n) {
+        double ax = Math.abs(n[0]);
+        double ay = Math.abs(n[1]);
+        double az = Math.abs(n[2]);
+        double m = Math.max(ax, Math.max(ay, az));
+        if (m < Math.cos(Math.toRadians(SNAP_DEGREES))) {
+            return n.clone();
+        }
+        if (ax >= ay && ax >= az) {
+            return new double[] {n[0] < 0.0 ? -1.0 : 1.0, 0.0, 0.0};
+        }
+        if (ay >= az) {
+            return new double[] {0.0, n[1] < 0.0 ? -1.0 : 1.0, 0.0};
+        }
+        return new double[] {0.0, 0.0, n[2] < 0.0 ? -1.0 : 1.0};
+    }
+
     public static double interleavedGradientNoise(double x, double y) {
         double inner = x * 0.06711056 + y * 0.00583715;
         double a = 52.9829189 * (inner - Math.floor(inner));

@@ -33,6 +33,9 @@ public final class FxDebugScenes {
             case LIGHTS_OFF -> LightDebug.setEnabled(false);
             case LIGHTS_BUFFER -> LightDebug.toggleBufferView();
             case LIGHTS_VOXELS -> LightDebug.toggleVoxels();
+            case LIGHTS_ALBEDO -> LightDebug.toggleMode(LightDebug.VIEW_ALBEDO);
+            case LIGHTS_NORMAL -> LightDebug.toggleMode(LightDebug.VIEW_NORMAL);
+            case LIGHTS_SHADOW -> LightDebug.toggleMode(LightDebug.VIEW_SHADOW);
             case PHYSICS_ON -> com.synarsis.airtacticalarsenal.client.debug.PhysicsDebugRenderer.setEnabled(true);
             case PHYSICS_OFF -> com.synarsis.airtacticalarsenal.client.debug.PhysicsDebugRenderer.setEnabled(false);
         }

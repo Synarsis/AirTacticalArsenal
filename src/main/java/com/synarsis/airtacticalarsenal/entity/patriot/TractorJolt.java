@@ -812,8 +812,8 @@ public final class TractorJolt implements PhysicsWorlds.Participant {
                 double left = 0.0;
                 double right = 0.0;
                 for (int axle = 0; axle < axles; axle++) {
-                    left += this.vehicle.wheelAngle(axle * 2);
-                    right += this.vehicle.wheelAngle(axle * 2 + 1);
+                    left += this.vehicle.wheelTurn(axle * 2);
+                    right += this.vehicle.wheelTurn(axle * 2 + 1);
                 }
                 this.wheelRotLeft = left / axles;
                 this.wheelRotRight = right / axles;
@@ -835,8 +835,8 @@ public final class TractorJolt implements PhysicsWorlds.Participant {
         double left = 0.0;
         double right = 0.0;
         for (int axle = 0; axle < axles; axle++) {
-            left += trailer.wheelAngle(axle * 2);
-            right += trailer.wheelAngle(axle * 2 + 1);
+            left += trailer.wheelTurn(axle * 2);
+            right += trailer.wheelTurn(axle * 2 + 1);
         }
         this.trailerWheelRotLeft = left / axles;
         this.trailerWheelRotRight = right / axles;

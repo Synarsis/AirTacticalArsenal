@@ -132,12 +132,12 @@ class TelEngineTest {
     void wheelsTurnWithTravel() {
         TelEngineState s = new TelEngineState();
         drive(s, TelInput.FWD, 0.0, 100);
-        assertTrue(s.wheelRotL < 0.0 && s.wheelRotR < 0.0);
+        assertTrue(s.wheelRotL > 0.0 && s.wheelRotR > 0.0);
 
         TelEngineState t = new TelEngineState();
         t.deltaRot = 2.0;
         TelEngine.advanceWheels(t, 0.5, 0.5, P.wheelRadius());
-        assertTrue(t.wheelRotL < t.wheelRotR, "right turn: the driver's left wheels cover more ground");
+        assertTrue(t.wheelRotL > t.wheelRotR, "right turn: the driver's left wheels cover more ground");
     }
 
     @Test
@@ -148,7 +148,7 @@ class TelEngineTest {
             TelEngine.observe(s, 0, 0, CRUISE, 0, 0, 1, 0.0, P);
         }
         assertEquals(1.0, s.power, 0.02);
-        assertTrue(s.wheelRotL < -50.0);
+        assertTrue(s.wheelRotL > 50.0);
     }
 
     private static int ticksToStop(double[] speeds) {

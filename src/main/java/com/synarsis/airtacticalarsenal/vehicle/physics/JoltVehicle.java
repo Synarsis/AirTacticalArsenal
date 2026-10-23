@@ -97,6 +97,8 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
     private boolean limiterCut;
     private final double[] wheelSuspension;
     private final double[] wheelAngle;
+    private final double[] wheelRaw;
+    private final double[] wheelTurn;
     private final double[] wheelSteer;
     private final boolean[] wheelContact;
     private final double[] wheelLoad;
@@ -128,6 +130,8 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         int wheels = spec.wheelCount();
         this.wheelSuspension = new double[wheels];
         this.wheelAngle = new double[wheels];
+        this.wheelRaw = new double[wheels];
+        this.wheelTurn = new double[wheels];
         this.wheelSteer = new double[wheels];
         this.wheelContact = new boolean[wheels];
         this.wheelLoad = new double[wheels];
@@ -593,6 +597,10 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
         return this.wheelAngle[i];
     }
 
+    public double wheelTurn(int i) {
+        return this.wheelTurn[i];
+    }
+
     public double wheelOffset(int i) {
         double rest = Math.max(0.0, this.spec.suspension.travel - this.spec.suspension.restCompression);
         return rest - this.wheelSuspension[i];
@@ -783,7 +791,10 @@ public final class JoltVehicle implements PhysicsWorld.Stepper, AutoCloseable {
             com.github.stephengold.joltjni.Wheel wheel = this.constraint.getWheel(i);
             this.wheelContact[i] = wheel.hasContact();
             this.wheelSuspension[i] = wheel.getSuspensionLength();
-            this.wheelAngle[i] = wheel.getRotationAngle();
+            double raw = wheel.getRotationAngle();
+            this.wheelTurn[i] += WheelSpin.delta(this.wheelRaw[i], raw);
+            this.wheelRaw[i] = raw;
+            this.wheelAngle[i] = raw;
             this.wheelSteer[i] = wheel.getSteerAngle();
             this.wheelLoad[i] = wheel.getSuspensionLambda() / dt;
             this.wheelSlip[i] = Math.abs(wheel.getLateralLambda()) / Math.max(wheel.getSuspensionLambda(), 1.0e-3);

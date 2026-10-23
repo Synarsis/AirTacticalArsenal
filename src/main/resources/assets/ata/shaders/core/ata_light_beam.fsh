@@ -61,7 +61,7 @@ void main() {
     if (end <= start) {fragColor = vec4(0.0); return;}
     float sigma = beamDensity(Weather.x, Weather.y, Weather.z, Weather.w);
     float stepLength = (end - start) / 16.0;
-    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy + BeamParams.z, vec2(0.06711056, 0.00583715))));
+    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
     vec3 sum = vec3(0.0);
     for (int index = 0; index < 16; index++) {
         float distance = start + (float(index) + jitter) * stepLength;

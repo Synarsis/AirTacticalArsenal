@@ -479,6 +479,8 @@ public final class LightPass {
         shader.safeGetUniform("DepthSize").set((float) main.width, (float) main.height);
         shader.safeGetUniform("FogRange").set(RenderSystem.getShaderFogStart(), RenderSystem.getShaderFogEnd());
         shader.safeGetUniform("AccScale").set(floatBuffers ? 1.0f : BYTE_RANGE);
+        shader.safeGetUniform("DebugView").set(LightDebug.bufferMode() >= LightDebug.VIEW_NORMAL
+                ? (float) LightDebug.bufferMode() : 0.0f);
         shader.safeGetUniform("WetRoad").set((float) CameraPrecipitation.at(Minecraft.getInstance().level, cam, partial).roadRain(),
                 mode == FxLighting.HIGH && volume ? 1.0f : 0.0f);
 
@@ -612,7 +614,7 @@ public final class LightPass {
         shader.setSampler("BloomSampler", BloomPass.texture() != 0 ? BloomPass.texture() : lightTex);
         shader.safeGetUniform("BloomStrength").set(BloomPass.texture() != 0 ? 0.25f : 0.0f);
         shader.setSampler("HazeSampler", haze ? hazeTex : lightTex);
-        shader.safeGetUniform("Params").set(scale, haze ? 1.0f : 0.0f, LightDebug.bufferView() ? 1.0f : 0.0f,
+        shader.safeGetUniform("Params").set(scale, haze ? 1.0f : 0.0f, (float) LightDebug.bufferMode(),
                 floatBuffers ? 1.0f : 1.0f / BYTE_RANGE);
         quad(-1.0f, -1.0f, 1.0f, 1.0f);
         shader.clear();

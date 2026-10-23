@@ -14,6 +14,9 @@ public enum FxDebugKind {
     LIGHTS_OFF,
     LIGHTS_BUFFER,
     LIGHTS_VOXELS,
+    LIGHTS_ALBEDO,
+    LIGHTS_NORMAL,
+    LIGHTS_SHADOW,
     PHYSICS_ON,
     PHYSICS_OFF;
 
@@ -25,7 +28,7 @@ public enum FxDebugKind {
 
     public boolean isScene() {
         return this != LIGHTS_ON && this != LIGHTS_OFF && this != LIGHTS_BUFFER && this != LIGHTS_VOXELS
-                && this != PHYSICS_ON && this != PHYSICS_OFF;
+                && this != LIGHTS_ALBEDO && this != LIGHTS_NORMAL && this != LIGHTS_SHADOW && this != PHYSICS_ON && this != PHYSICS_OFF;
     }
 
     public String commandName() {

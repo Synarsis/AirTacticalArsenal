@@ -16,7 +16,7 @@ public final class TrainSpec {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static final int DEFAULTS_VERSION = 2;
-    public static final int M983_DEFAULTS_VERSION = 2;
+    public static final int M983_DEFAULTS_VERSION = 3;
 
     public static final String SIX_DOF = "sixdof";
     public static final String SWING_TWIST = "swingtwist";
@@ -60,8 +60,8 @@ public final class TrainSpec {
         spec.body.massKg = 15000.0;
         spec.body.centreOfMass = new double[] {0.0, 1.3, 4.325};
         spec.body.boxes = new ArrayList<>(List.of(
-                new VehicleSpec.Box("frame", 0.0, 0.5 * (0.4 + SADDLE_TOP_Y), 5.2, 1.2, 0.5 * (SADDLE_TOP_Y - 0.4),
-                        4.55),
+                new VehicleSpec.Box("frame", 0.0, 0.5 * (0.4 + SADDLE_TOP_Y), 5.0, 1.2, 0.5 * (SADDLE_TOP_Y - 0.4),
+                        4.35),
                 new VehicleSpec.Box("saddle", 0.0, 0.5 * (0.4 + SADDLE_TOP_Y), -0.6, 1.0, 0.5 * (SADDLE_TOP_Y - 0.4),
                         1.15),
                 new VehicleSpec.Box("cab", 0.0, 2.8, 8.5, 1.35, 1.2, 1.6)));

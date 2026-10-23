@@ -25,6 +25,7 @@ import com.synarsis.airtacticalarsenal.vehicle.hitbox.VehicleRegistry;
 import com.synarsis.airtacticalarsenal.vehicle.physics.PhysicsWorlds;
 import com.synarsis.airtacticalarsenal.vehicle.physics.Units;
 import com.synarsis.airtacticalarsenal.vehicle.physics.VehicleSpecs;
+import com.synarsis.airtacticalarsenal.vehicle.physics.WheelSpin;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -655,7 +656,7 @@ public abstract class PatriotVehicleEntity extends Entity implements GeoEntity, 
         this.traverseNow = Mth.lerp(0.5f, this.traverseNow, this.entityData.get(DATA_TRAVERSE));
         double yawRad = Math.toRadians(this.getYRot());
         double forward = this.observedVelocity.z * Math.cos(yawRad) - this.observedVelocity.x * Math.sin(yawRad);
-        this.wheelSpin -= Math.toDegrees(forward / PatriotGeometry.TRAILER_WHEEL_RADIUS);
+        this.wheelSpin += Math.toDegrees(WheelSpin.travelRotation(forward, PatriotGeometry.TRAILER_WHEEL_RADIUS));
         this.spawnDamageParticles();
     }
 

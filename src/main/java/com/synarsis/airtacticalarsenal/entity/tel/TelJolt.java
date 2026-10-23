@@ -531,8 +531,8 @@ public final class TelJolt implements PhysicsWorlds.Participant {
                 double left = 0.0;
                 double right = 0.0;
                 for (int axle = 0; axle < axles; axle++) {
-                    left += this.vehicle.wheelAngle(axle * 2);
-                    right += this.vehicle.wheelAngle(axle * 2 + 1);
+                    left += this.vehicle.wheelTurn(axle * 2);
+                    right += this.vehicle.wheelTurn(axle * 2 + 1);
                 }
                 this.wheelRotLeft = left / axles;
                 this.wheelRotRight = right / axles;

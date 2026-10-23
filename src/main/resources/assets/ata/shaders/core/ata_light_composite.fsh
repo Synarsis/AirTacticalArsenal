@@ -75,9 +75,14 @@ vec3 glareAt(vec3 ray) {
 }
 
 void main() {
-    if (Params.z > 0.5) {
+    if (Params.z > 0.5 && Params.z < 1.5) {
         vec3 acc = max(texture(LightSampler, texCoord).rgb * Params.w, vec3(0.0));
         fragColor = vec4(1.0 - exp(-acc * 1.5), 1.0);
+        return;
+    }
+    if (Params.z > 2.5) {
+        vec3 acc = max(texture(LightSampler, texCoord).rgb * Params.w, vec3(0.0));
+        fragColor = vec4(clamp(acc, vec3(0.0), vec3(1.0)), 1.0);
         return;
     }
     vec2 uv = texCoord;
@@ -95,6 +100,10 @@ void main() {
     vec3 c = pow(max(scene.rgb, vec3(0.0)), vec3(GAMMA));
     float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
     vec3 albedo = c / max(lum, 0.02) * clamp(lum * 8.0, ALBEDO_FLOOR, 1.0) * ALBEDO_GAIN;
+    if (Params.z > 1.5) {
+        fragColor = vec4(pow(albedo, vec3(1.0 / GAMMA)), 1.0);
+        return;
+    }
     vec3 viewPoint = positionAt(texCoord);
     vec3 worldPoint = (InvView * vec4(viewPoint, 1.0)).xyz;
     vec3 worldNormal = mat3(InvView) * normalAt(texCoord, viewPoint);

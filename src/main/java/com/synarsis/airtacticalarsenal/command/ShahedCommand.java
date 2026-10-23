@@ -530,7 +530,23 @@ public class ShahedCommand {
                                 .then(Commands.literal("buffer")
                                         .executes(context -> toggleLightView(context.getSource(),
                                                 com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_BUFFER,
-                                                "Light buffer instead of the picture")))
+                                                "Light buffer instead of the picture"))
+                                        .then(Commands.literal("light")
+                                                .executes(context -> toggleLightView(context.getSource(),
+                                                        com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_BUFFER,
+                                                        "Light buffer instead of the picture")))
+                                        .then(Commands.literal("albedo")
+                                                .executes(context -> toggleLightView(context.getSource(),
+                                                        com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_ALBEDO,
+                                                        "Albedo instead of the picture")))
+                                        .then(Commands.literal("normal")
+                                                .executes(context -> toggleLightView(context.getSource(),
+                                                        com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_NORMAL,
+                                                        "Normals instead of the picture")))
+                                        .then(Commands.literal("shadow")
+                                                .executes(context -> toggleLightView(context.getSource(),
+                                                        com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_SHADOW,
+                                                        "Shadow instead of the picture"))))
                                 .then(Commands.literal("voxels")
                                         .executes(context -> toggleLightView(context.getSource(),
                                                 com.synarsis.airtacticalarsenal.network.FxDebugKind.LIGHTS_VOXELS,

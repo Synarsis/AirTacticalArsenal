@@ -20,7 +20,7 @@ import java.util.Locale;
 public final class LightDebug implements LayeredDraw.Layer {
 
     private static volatile boolean enabled;
-    private static volatile boolean bufferView;
+    private static volatile int bufferMode;
     private static volatile boolean voxels;
 
     private static final int VOXEL_RADIUS = 12;
@@ -33,12 +33,36 @@ public final class LightDebug implements LayeredDraw.Layer {
         enabled = on;
     }
 
+    public static final int VIEW_OFF = 0;
+    public static final int VIEW_LIGHT = 1;
+    public static final int VIEW_ALBEDO = 2;
+    public static final int VIEW_NORMAL = 3;
+    public static final int VIEW_SHADOW = 4;
+
+    public static int bufferMode() {
+        return bufferMode;
+    }
+
     public static boolean bufferView() {
-        return bufferView;
+        return bufferMode != VIEW_OFF;
     }
 
     public static void toggleBufferView() {
-        bufferView = !bufferView;
+        toggleMode(VIEW_LIGHT);
+    }
+
+    public static void toggleMode(int mode) {
+        bufferMode = bufferMode == mode ? VIEW_OFF : mode;
+    }
+
+    private static String modeName() {
+        return switch (bufferMode) {
+            case VIEW_LIGHT -> "the light buffer";
+            case VIEW_ALBEDO -> "the albedo";
+            case VIEW_NORMAL -> "the normals";
+            case VIEW_SHADOW -> "the shadow";
+            default -> "";
+        };
     }
 
     public static boolean voxels() {
@@ -195,7 +219,7 @@ public final class LightDebug implements LayeredDraw.Layer {
 
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
-        if (!enabled && !bufferView && !voxels) {
+        if (!enabled && bufferMode == VIEW_OFF && !voxels) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -207,7 +231,7 @@ public final class LightDebug implements LayeredDraw.Layer {
                         LightPass.gpuTimed() ? "gpu" : "cpu", LightPass.floatBuffers() ? "16-bit" : "8-bit fallback"),
                 LightTimings.shared().line(),
                 ShaderPackGuard.shaderPackInUse() ? "a shader pack is in use: the pass is off" : "no shader pack",
-                (bufferView ? "showing the light buffer; " : "") + (voxels ? "outlining the solidity volume; " : "")
+                (bufferMode != VIEW_OFF ? "showing " + modeName() + "; " : "") + (voxels ? "outlining the solidity volume; " : "")
                         + (OccupancyVolume.active() ? "volume on" : "volume off") + ", " + LightPass.lastBoxes() + " entity boxes"};
         int y = 4;
         for (String row : rows) {

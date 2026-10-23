@@ -1,66 +1,85 @@
 package com.synarsis.airtacticalarsenal.client.gui;
 
 import com.synarsis.airtacticalarsenal.client.gui.TelPanelLayout.Rect;
+import com.synarsis.airtacticalarsenal.client.hud.TelHudLayout;
 import com.synarsis.airtacticalarsenal.config.AtaClientConfig;
 import com.synarsis.airtacticalarsenal.entity.patriot.M983TractorEntity;
+import com.synarsis.airtacticalarsenal.entity.tel.TelHeadlights;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
+
+import java.util.List;
 
 @OnlyIn(Dist.CLIENT)
 public final class M983Hud {
 
-    private static final int MARGIN = 6;
-    private static final int WIDTH = 150;
+    private static final int PAD = TelHudLayout.PAD;
 
     private M983Hud() {
     }
 
     public static void render(GuiGraphics g, DeltaTracker delta) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.screen != null || !AtaClientConfig.isTelHudEnabled()) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.options.hideGui || mc.screen != null || !AtaClientConfig.isTelHudEnabled()) {
             return;
         }
-        if (!(minecraft.player.getVehicle() instanceof M983TractorEntity tractor)
-                || tractor.getControllingPassenger() != minecraft.player) {
+        if (!(mc.player.getVehicle() instanceof M983TractorEntity tractor)
+                || tractor.getControllingPassenger() != mc.player) {
             return;
         }
-        int x = (g.guiWidth() - WIDTH) / 2;
-        int bottom = g.guiHeight() - 22 - MARGIN;
-        int top = bottom - 68;
-        Rect panel = new Rect(x, top, WIDTH, bottom - top);
-        g.fill(panel.x(), panel.y(), panel.right(), panel.bottom(), TelUi.PANEL);
-        TelUi.frame(g, panel, TelUi.BORDER);
+        Font font = mc.font;
+        List<M983HudLines.Line> lines = M983HudLines.lines(tractor.couplingState(), tractor.couplingHint(),
+                tractor.slowForCoupling(), tractor.trailerLoaded());
+        int height = PAD + TelHudLayout.SPEED_HEIGHT + TelHudLayout.BAR_GAP + TelHudLayout.HULL_GAP
+                + TelHudLayout.ROW + 10 * lines.size() + PAD - 2;
+        Rect place = TelHudLayout.panel(g.guiWidth(), g.guiHeight(), height);
+        int x = place.x();
+        int y = place.y();
+        g.fill(x, y, place.right(), place.bottom(), TelUi.PANEL);
+        TelUi.frame(g, place, TelUi.BORDER);
 
-        int speed = Math.round(Math.abs(tractor.getSpeedKmh()));
+        int tx = x + PAD;
+        int inner = TelHudLayout.inner(place.w());
+        int ty = y + PAD;
+
+        String speed = Integer.toString(Math.round(tractor.getSpeedKmh()));
+        g.pose().pushPose();
+        g.pose().translate(tx, ty, 0);
+        g.pose().scale(2.0f, 2.0f, 1.0f);
+        g.drawString(font, speed, 0, 0, TelUi.TEXT, false);
+        g.pose().popPose();
+        g.drawString(font, Component.translatable("hud.ata.m983.kmh"), tx + font.width(speed) * 2 + 4, ty + 9,
+                TelUi.DIM, false);
+        ty += TelHudLayout.SPEED_HEIGHT;
         String gear = tractor.getSpeedKmh() < -0.5f ? "R" : tractor.getGear() == 0 ? "N" : Integer.toString(tractor.getGear());
-        Rect title = new Rect(x + MARGIN, panel.y() + 5, WIDTH - 2 * MARGIN, 10);
-        TelUi.text(g, minecraft.font, Component.translatable("hud.ata.m983.title"), title, TelUi.SECTION);
+        String drive = gear + "  " + Math.round(tractor.getEngineRpm() / 10.0) * 10 + " rpm";
+        g.drawString(font, drive, tx + inner - font.width(drive), ty + 9, TelUi.DIM, false);
 
-        Rect speedBox = new Rect(x + MARGIN, panel.y() + 18, 54, 19);
-        TelUi.text(g, minecraft.font, Component.literal(speed + " ").append(Component.translatable("hud.ata.m983.kmh")),
-                speedBox, TelUi.TEXT);
+        float load = Mth.clamp(Math.abs((float) tractor.getEngineLoad()), 0.0f, 1.0f);
+        g.fill(tx, ty, tx + inner, ty + 3, 0xFF26282B);
+        g.fill(tx, ty, tx + Math.round(inner * load), ty + 3, load > 0.85f ? TelUi.YELLOW : TelUi.GREEN);
+        ty += TelHudLayout.BAR_GAP;
 
-        Rect gearBox = new Rect(x + 66, panel.y() + 18, 24, 19);
-        TelUi.text(g, minecraft.font, Component.literal(gear), gearBox,
-                "R".equals(gear) ? TelUi.YELLOW : TelUi.GREEN);
+        float fraction = Mth.clamp(tractor.getHealth() / tractor.getMaxHealth(), 0.0f, 1.0f);
+        int hull = fraction > 0.5f ? TelUi.GREEN : (fraction > 0.2f ? TelUi.YELLOW : TelUi.RED);
+        g.fill(tx, ty, tx + inner, ty + 5, 0xFF26282B);
+        g.fill(tx, ty, tx + Math.round(inner * fraction), ty + 5, hull);
+        ty += TelHudLayout.HULL_GAP;
 
-        Rect rpmBox = new Rect(x + 96, panel.y() + 18, WIDTH - MARGIN - 96, 19);
-        TelUi.textRight(g, minecraft.font,
-                Component.literal(String.valueOf(Math.round(tractor.getEngineRpm()))), rpmBox, TelUi.DIM);
-
-        TelUi.text(g, minecraft.font, Component.translatable("gui.ata.tel.hud.lights",
-                Component.translatable(com.synarsis.airtacticalarsenal.entity.tel.TelHeadlights.modeKey(tractor.headlightMode()))),
-                new Rect(x + MARGIN, panel.y() + 37, WIDTH - 2 * MARGIN, 10), TelUi.DIM);
-        int rowY = panel.y() + 47;
-        for (M983HudLines.Line line : M983HudLines.lines(tractor.couplingState(), tractor.couplingHint(),
-                tractor.slowForCoupling(), tractor.trailerLoaded())) {
-            Rect row = new Rect(x + MARGIN, rowY, WIDTH - 2 * MARGIN, 10);
-            TelUi.text(g, minecraft.font, Component.translatable(line.key(), line.args()), row, colour(line.tone()));
-            rowY += 10;
+        TelUi.text(g, font, Component.translatable("gui.ata.tel.hud.lights",
+                Component.translatable(TelHeadlights.modeKey(tractor.headlightMode()))),
+                new Rect(tx, ty, inner, 10), tractor.areHeadlightsOn() ? TelUi.YELLOW : TelUi.DIM);
+        ty += TelHudLayout.ROW;
+        for (M983HudLines.Line line : lines) {
+            TelUi.text(g, font, Component.translatable(line.key(), line.args()), new Rect(tx, ty, inner, 10),
+                    colour(line.tone()));
+            ty += 10;
         }
     }
 
